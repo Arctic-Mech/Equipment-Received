@@ -279,6 +279,30 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
   @media (max-width:560px){ .admin-actions,.admin-actions.two{grid-template-columns:1fr} }
+
+  /* notif badge on tab */
+  .tab .notif{background:var(--hivis);color:#fff;font-family:'JetBrains Mono';font-weight:700;font-size:9.5px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;display:none;align-items:center;justify-content:center;line-height:1}
+  .tab .notif.show{display:inline-flex}
+  .m.loc{background:var(--teal-soft);color:var(--teal)}
+  .m.none{background:var(--line-soft);color:var(--steel-light)}
+  .mini-btn.deliv-btn{color:var(--amber)}
+  .mini-btn.deliv-btn.set{color:var(--teal)}
+  /* identity + notif banner */
+  .identity{display:flex;align-items:center;gap:11px;margin:0 14px 4px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow)}
+  .identity .iav{width:38px;height:38px;border-radius:50%;background:var(--hivis);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed';font-weight:700;font-size:16px;flex:none}
+  .identity .iname{flex:1;min-width:0}
+  .identity .iname b{font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);display:block;line-height:1.1}
+  .identity .iname span{font-size:11.5px;color:var(--steel)}
+  .identity .iedit{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:12px;color:var(--steel);padding:7px 12px;border:1px solid var(--line);border-radius:9px}
+  .identity .iedit:active{background:var(--line-soft)}
+  .notif-banner{display:none;align-items:center;gap:11px;margin:0 14px 8px;padding:12px 14px;background:linear-gradient(135deg,#fff3eb,#ffe9dc);border:1px solid #ffd2b3;border-radius:11px}
+  .notif-banner.show{display:flex}
+  .notif-banner .nb-ico{font-size:20px;flex:none}
+  .notif-banner .nb-txt{flex:1;min-width:0;font-size:13px;color:var(--hivis-dark);font-weight:600;line-height:1.35}
+  .notif-banner .nb-clear{background:var(--hivis);color:#fff;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:13px;padding:9px 15px;border-radius:9px;flex:none}
+  .notif-banner .nb-clear:active{background:var(--hivis-dark)}
+  .new-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--hivis);margin-left:6px;vertical-align:middle}
+  .folder.has-new .folder-tag{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--hivis)}
 </style>
 </head>
 <body>
@@ -296,7 +320,7 @@
     <button class="tab active" data-view="feed">Arrivals <span class="pill" id="pillFeed">0</span></button>
     <button class="tab" data-view="rentals">Rentals <span class="pill" id="pillRent">0</span></button>
     <button class="tab" data-view="tools">Tool Rentals <span class="pill" id="pillTool">0</span></button>
-    <button class="tab" data-view="jobs">My Jobs <span class="pill" id="pillJobs">0</span></button>
+    <button class="tab" data-view="jobs">My Jobs <span class="pill" id="pillJobs">0</span><span class="notif" id="jobsNotif">0</span></button>
     <button class="tab" data-view="admin">Admin</button>
   </nav>
 </header>
@@ -335,6 +359,8 @@
   <!-- MY JOBS -->
   <section class="view" id="view-jobs">
     <div class="mj-head"><h2>My Jobs</h2><p>Save a job number to your phone. Arrivals, rentals, and tool rentals on those jobs collect here automatically. Saved jobs stay on this device only.</p></div>
+    <div class="identity" id="identityCard" style="display:none"><div class="iav" id="idAv">?</div><div class="iname"><b id="idName">—</b><span id="idSub">Jobs you request are linked automatically</span></div><button class="iedit" id="idEdit">Edit name</button></div>
+    <div class="notif-banner" id="notifBanner"><span class="nb-ico">🔔</span><span class="nb-txt" id="notifTxt"></span><button class="nb-clear" id="notifClear">Clear</button></div>
     <div class="addjob"><input id="jobSearch" type="search" placeholder="Search or type a job # (e.g. 25-0205)" autocomplete="off"><button class="btn-add" id="jobAddBtn">Save</button></div>
     <div class="suggest" id="jobSuggest"></div>
     <div class="controls" style="position:static">
@@ -419,7 +445,8 @@
     <div class="field-2"><div class="field"><label>Job # <span class="req">*</span></label><input id="f_job" type="text" placeholder="e.g. 25-0205" autocomplete="off"></div><div class="field"><label>Requested by</label><input id="f_req" type="text" placeholder="e.g. Pete M" autocomplete="off"></div></div>
     <div class="field"><label>Job name</label><input id="f_jobname" type="text" placeholder="e.g. OHSU Peds Emergency" autocomplete="off"><div class="hint" id="jobnameHint"></div></div>
     <div class="field"><label>Description <span class="req">*</span></label><textarea id="f_desc" placeholder="What arrived — qty, item, size…"></textarea></div>
-    <div class="field-2"><div class="field"><label>Supplier</label><input id="f_supplier" type="text" placeholder="e.g. ACI" autocomplete="off"></div><div class="field"><label>Delivery date</label><input id="f_deliv" type="date"></div></div>
+    <div class="field-2"><div class="field"><label>Supplier</label><input id="f_supplier" type="text" placeholder="e.g. ACI" autocomplete="off"></div><div class="field"><label>Stored at</label><input id="f_location" type="text" placeholder="e.g. Building 3" autocomplete="off"></div></div>
+    <div class="field"><label>Delivery date</label><input id="f_deliv" type="date"><div class="hint">If set, the delivery date shows in place of the storage location.</div></div>
     <div class="field"><label>Photos — saved on this device only</label><div class="photo-slots" id="photoSlots"></div><input id="photoInput" type="file" accept="image/*" capture="environment" hidden><div class="hint">Up to 2 photos. They stay on this phone and are not synced to anyone else.</div></div>
     <button class="submit" id="logSubmit">Save arrival</button>
     <button class="del-link" id="logDelete" style="display:none">Delete this arrival</button>
@@ -471,6 +498,28 @@
   <div class="modal-body"><div class="photo-view" id="photoView"></div></div>
 </div></div>
 
+<!-- NAME MODAL -->
+<div class="modal-back" id="nameModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3>Who are you?</h3><button class="x" id="nameSkip" title="Skip">✕</button></div>
+  <div class="modal-body">
+    <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 16px">Enter your name so jobs you're listed on as <b>Requested by</b> link to My Jobs automatically — even brand-new jobs. Stored on this device only.</p>
+    <div class="field-2"><div class="field"><label>First name <span class="req">*</span></label><input id="n_first" type="text" placeholder="e.g. Pete" autocomplete="given-name"></div><div class="field"><label>Last name <span class="req">*</span></label><input id="n_last" type="text" placeholder="e.g. Martin" autocomplete="family-name"></div></div>
+    <button class="submit" id="nameSubmit">Save name</button>
+    <button class="del-link" id="nameSkip2" style="color:var(--steel)">Skip for now</button>
+  </div>
+</div></div>
+
+<!-- DELIVERY QUICK MODAL -->
+<div class="modal-back" id="delivModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3>Delivery date</h3><button class="x" data-close="delivModal">✕</button></div>
+  <div class="modal-body">
+    <p id="delivItem" style="color:var(--steel);font-size:13px;line-height:1.45;margin:0 0 14px"></p>
+    <div class="field"><label>Delivery date</label><input id="d_date" type="date"></div>
+    <button class="submit" id="delivSubmit">Save delivery date</button>
+    <button class="del-link" id="delivClear">Clear delivery date</button>
+  </div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -496,6 +545,10 @@ let editing=null;
 let pendingPhotos=[];      // dataURLs while arrival modal open
 let PHOTO_IDS=new Set();   // arrival ids that have local photos
 let mjSeg="arrivals";
+let USER_NAME=loadName();           // {first,last} or null
+let REMOVED_JOBS=loadRemoved();     // jobs the user manually removed (auto-link won't re-add)
+let SEEN=loadSeen();                // {init:bool, ids:[...]} acknowledged my-jobs item ids
+let delivTarget=null;               // arrival id for quick delivery modal
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -503,6 +556,44 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 /* ---------- Local storage ---------- */
 function loadMyJobs(){ try{return JSON.parse(localStorage.getItem("er_myjobs")||"[]");}catch(e){return[];} }
 function saveMyJobs(){ try{localStorage.setItem("er_myjobs",JSON.stringify(MY_JOBS));}catch(e){} }
+function loadName(){ try{const n=JSON.parse(localStorage.getItem("er_name")||"null"); return (n&&n.first)?n:null;}catch(e){return null;} }
+function saveName(){ try{localStorage.setItem("er_name",JSON.stringify(USER_NAME));}catch(e){} }
+function loadRemoved(){ try{return new Set(JSON.parse(localStorage.getItem("er_removed")||"[]"));}catch(e){return new Set();} }
+function saveRemoved(){ try{localStorage.setItem("er_removed",JSON.stringify([...REMOVED_JOBS]));}catch(e){} }
+function loadSeen(){ try{const s=JSON.parse(localStorage.getItem("er_seen")||"null"); return (s&&Array.isArray(s.ids))?{init:!!s.init,ids:new Set(s.ids)}:{init:false,ids:new Set()};}catch(e){return{init:false,ids:new Set()};} }
+function saveSeen(){ try{localStorage.setItem("er_seen",JSON.stringify({init:SEEN.init,ids:[...SEEN.ids]}));}catch(e){} }
+
+/* ---------- Name matching + auto-link ---------- */
+function nameMatches(rb,first,last){
+  if(!rb||!first||!last)return false;
+  const norm=s=>String(s).toLowerCase().replace(/[^a-z\s.]/g," ").replace(/\s+/g," ").trim();
+  const r=norm(rb),f=norm(first),l=norm(last); if(!f||!l)return false;
+  const li=l[0]; const toks=r.split(" ").filter(Boolean);
+  const fi=toks.indexOf(f); if(fi<0)return false;                 // full first name present
+  const hasLast=toks.some((t,i)=>{ if(i===fi)return false; const tt=t.replace(/\./g,""); return tt===l||tt===li; });
+  return hasLast;                                                 // last name OR last initial present
+}
+function autoLinkJobs(){
+  if(!USER_NAME)return false;
+  const{first,last}=USER_NAME; let added=false;
+  for(const r of ARRIVALS){ const job=normJob(r.jobNumber); if(!isRealJob(job))continue; if(MY_JOBS.includes(job)||REMOVED_JOBS.has(job))continue; if(nameMatches(r.requestedBy,first,last)){ MY_JOBS.push(job); added=true; } }
+  if(added)saveMyJobs();
+  return added;
+}
+
+/* ---------- Notifications (new items on my jobs) ---------- */
+function myJobItemIds(){ const ids=[]; const set=new Set(MY_JOBS); ARRIVALS.forEach(r=>{if(set.has(normJob(r.jobNumber)))ids.push("a:"+r.id);}); RENTALS.forEach(r=>{if(set.has(normJob(r.jobNumber)))ids.push("r:"+r.id);}); return ids; }
+function newItemIds(){ if(!SEEN.init)return []; return myJobItemIds().filter(id=>!SEEN.ids.has(id)); }
+function markSeenForJob(job){ const set=new Set([job]); ARRIVALS.forEach(r=>{if(set.has(normJob(r.jobNumber)))SEEN.ids.add("a:"+r.id);}); RENTALS.forEach(r=>{if(set.has(normJob(r.jobNumber)))SEEN.ids.add("r:"+r.id);}); saveSeen(); }
+function updateNotif(){
+  if(!SEEN.init && (ARRIVALS.length||RENTALS.length)){ SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); }
+  const news=new Set(newItemIds());
+  const badge=$("jobsNotif"); if(badge){ badge.textContent=news.size>99?"99+":news.size; badge.classList.toggle("show",news.size>0); }
+  const banner=$("notifBanner");
+  if(banner){ if(news.size>0){ banner.classList.add("show"); $("notifTxt").textContent=`${news.size} new ${news.size===1?"item":"items"} on your jobs since you last looked.`; } else banner.classList.remove("show"); }
+  return news;
+}
+function clearNotif(){ SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); updateNotif(); renderJobs(); toast("Notifications cleared"); }
 
 /* ---------- IndexedDB (photos, device-only) ---------- */
 function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open("erPhotos",1); r.onupgradeneeded=()=>r.result.createObjectStore("photos"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
@@ -532,7 +623,7 @@ let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offse
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?"Live":s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
-  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",deliveryDate:v.deliveryDate||"",requestedBy:v.requestedBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; setSync("live"); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
+  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",deliveryDate:v.deliveryDate||"",storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; setSync("live"); autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
   onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("rentList",e.code);});
   onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("toolList",e.code);});
 }
@@ -546,12 +637,16 @@ function arrivalRow(r,opts={}){
   const job=normJob(r.jobNumber),d=rowDate(r.dateReceived);
   const hasPhoto=PHOTO_IDS.has(r.id);
   const cam=hasPhoto?`<button class="mini-btn cam" data-photos="${esc(r.id)}" title="Photos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></button>`:"";
+  const place = r.deliveryDate ? `<span class="m deliv">Deliv ${esc(longDate(r.deliveryDate).split(",")[0])}</span>`
+    : r.storageLocation ? `<span class="m loc">📍 ${esc(r.storageLocation)}</span>`
+    : `<span class="m none">—</span>`;
+  const deliv=`<button class="mini-btn deliv-btn ${r.deliveryDate?'set':''}" data-deliv="${esc(r.id)}" title="${r.deliveryDate?'Delivered '+esc(longDate(r.deliveryDate)):'Set delivery date'}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></button>`;
   return `<div class="row" data-type="arrival" data-id="${esc(r.id)}">
     <div class="r-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></div>
     <div class="r-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
     <div class="r-main">${r.jobName?`<div class="r-name">${esc(r.jobName)}</div>`:""}<div class="r-desc">${esc(r.description)||"<span style='color:var(--steel-light)'>No description</span>"}</div></div>
-    <div class="r-meta">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">${esc(r.requestedBy)}</span>`:""}${r.deliveryDate?`<span class="m deliv">Deliv ${esc(longDate(r.deliveryDate).split(",")[0])}</span>`:""}</div>
-    <div class="r-act">${cam}${adminActs("arrival",r.id)}${opts.star!==false?starBtn(job):""}</div>
+    <div class="r-meta">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">${esc(r.requestedBy)}</span>`:""}${place}</div>
+    <div class="r-act">${deliv}${cam}${adminActs("arrival",r.id)}${opts.star!==false?starBtn(job):""}</div>
   </div>`;
 }
 function rentalRow(r,opts={}){
@@ -653,7 +748,13 @@ function distinctJobs(){
   TOOLS.forEach(r=>add(normJob(r.jobNumber),r.jobName,r.rentalStarted));
   return map;
 }
+function renderIdentity(){
+  const card=$("identityCard"); if(!card)return;
+  if(USER_NAME){ card.style.display="flex"; $("idAv").textContent=((USER_NAME.first[0]||"")+(USER_NAME.last[0]||"")).toUpperCase(); $("idName").textContent=USER_NAME.first+" "+USER_NAME.last; const linked=ARRIVALS.filter(r=>nameMatches(r.requestedBy,USER_NAME.first,USER_NAME.last)&&isRealJob(r.jobNumber)).length; $("idSub").textContent=linked?`${new Set(ARRIVALS.filter(r=>nameMatches(r.requestedBy,USER_NAME.first,USER_NAME.last)).map(r=>normJob(r.jobNumber))).size} job(s) auto-linked from "Requested by"`:`Jobs you request are linked automatically`; }
+  else { card.style.display="flex"; $("idAv").textContent="?"; $("idName").textContent="Add your name"; $("idSub").textContent="Tap to auto-link jobs you request"; }
+}
 function renderJobs(){
+  const news=updateNotif(); renderIdentity();
   const jobsMap=distinctJobs(); $("pillJobs").textContent=MY_JOBS.length;
   const sq=$("jobSearch").value.trim().toLowerCase(),sugWrap=$("jobSuggest");
   if(sq){ const matches=[...jobsMap.values()].filter(o=>o.jobNumber.toLowerCase().includes(sq)||(o.jobName||"").toLowerCase().includes(sq)).filter(o=>!MY_JOBS.includes(o.jobNumber)).sort((a,b)=>b.last<a.last?-1:1).slice(0,8); sugWrap.innerHTML=matches.length?matches.map(o=>`<div class="s-item"><span class="sj">${esc(o.jobNumber)}</span><span class="sn">${esc(o.jobName||"—")}</span><button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join(""):`<div class="s-item" style="justify-content:center;color:var(--steel)">No match — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`; } else sugWrap.innerHTML="";
@@ -661,25 +762,27 @@ function renderJobs(){
   const kw=$("mjSearch").value.trim().toLowerCase(); $("mjClr").style.display=kw?"block":"none";
   const month=$("mjMonth").value;
   const wrap=$("foldersList");
-  if(!MY_JOBS.length){ wrap.innerHTML=`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save. Arrivals, rentals, and tool rentals on it collect here.</p></div>`; return; }
-  const sorted=[...MY_JOBS].sort((a,b)=>{ const la=jobsMap.get(a)?.last||"",lb=jobsMap.get(b)?.last||""; return lb<la?-1:1; });
+  if(!MY_JOBS.length){ wrap.innerHTML=`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save${USER_NAME?", or add your name so jobs you request link automatically":""}. Arrivals, rentals, and tool rentals on it collect here.</p></div>`; return; }
+  const newCountFor=job=>{ let n=0; ARRIVALS.forEach(r=>{if(normJob(r.jobNumber)===job&&news.has("a:"+r.id))n++;}); RENTALS.forEach(r=>{if(normJob(r.jobNumber)===job&&news.has("r:"+r.id))n++;}); return n; };
+  const sorted=[...MY_JOBS].sort((a,b)=>{ const na=newCountFor(a),nb=newCountFor(b); if((nb>0)!==(na>0))return nb>0?1:-1; const la=jobsMap.get(a)?.last||"",lb=jobsMap.get(b)?.last||""; return lb<la?-1:1; });
   wrap.innerHTML=sorted.map(job=>{
     const info=jobsMap.get(job);
     let arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
     let rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
     let tls=TOOLS.filter(r=>normJob(r.jobNumber)===job);
     const totalArr=arr.length,totalRnt=rnt.length,totalTls=tls.length;
+    const nNew=newCountFor(job);
     if(month){ arr=arr.filter(r=>monthKey(r.dateReceived)===month); rnt=rnt.filter(r=>monthKey(r.dateRented)===month); tls=tls.filter(r=>monthKey(r.rentalStarted)===month); }
-    if(kw){ arr=arr.filter(r=>[r.description,r.supplier,r.po,r.requestedBy,r.jobName].some(v=>(v||"").toLowerCase().includes(kw))); rnt=rnt.filter(r=>[r.equipment,r.vendor,r.rentalId,r.po,r.orderedBy].some(v=>(v||"").toLowerCase().includes(kw))); tls=tls.filter(r=>[r.toolType,r.toolId].some(v=>(v||"").toLowerCase().includes(kw))); }
+    if(kw){ arr=arr.filter(r=>[r.description,r.supplier,r.po,r.requestedBy,r.jobName,r.storageLocation].some(v=>(v||"").toLowerCase().includes(kw))); rnt=rnt.filter(r=>[r.equipment,r.vendor,r.rentalId,r.po,r.orderedBy].some(v=>(v||"").toLowerCase().includes(kw))); tls=tls.filter(r=>[r.toolType,r.toolId].some(v=>(v||"").toLowerCase().includes(kw))); }
     const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||tls[0]?.jobName||"Unknown job name";
     let body="";
     if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No arrivals${(kw||month)?" match the filter":" yet"}.</div>`;
     else if(mjSeg==="rentals") body = rnt.length?`<div class="drows">${rnt.map(r=>rentalRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
     else body = tls.length?`<div class="drows">${tls.map(r=>toolRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No tool rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
-    return `<div class="folder" data-folder="${esc(job)}">
+    return `<div class="folder ${nNew?'has-new':''}" data-folder="${esc(job)}">
       <div class="folder-head" data-toggle="${esc(job)}">
         <span class="folder-tag">${esc(job)}</span>
-        <div class="folder-info"><div class="fn">${esc(name)}</div><div class="fc"><b>${totalArr}</b> arrivals · <b>${totalRnt}</b> rentals · <b>${totalTls}</b> tools${info?.last?` · last ${esc(longDate(info.last).split(",")[0])}`:""}</div></div>
+        <div class="folder-info"><div class="fn">${esc(name)}${nNew?'<span class="new-dot"></span>':""}</div><div class="fc"><b>${totalArr}</b> arrivals · <b>${totalRnt}</b> rentals · <b>${totalTls}</b> tools${nNew?` · <b style="color:var(--hivis-dark)">${nNew} new</b>`:""}</div></div>
         <div class="folder-actions"><button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button><span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
       </div>
       <div class="folder-body">${body}</div>
@@ -695,8 +798,8 @@ function renderEricStats(){ if($("statTool")){ $("statTool").textContent=TOOLS.l
 function renderAll(){ $("pillFeed").textContent=ARRIVALS.length>999?(Math.floor(ARRIVALS.length/100)/10)+"k":ARRIVALS.length; refreshMonths(); renderFeed(); renderRentals(); renderTools(); renderJobs(); renderAdminStats(); renderEricStats(); }
 
 /* ---------- Save/remove job ---------- */
-function addJob(job){ const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); saveMyJobs(); $("jobSearch").value=""; renderAll(); toast("Saved "+j+" to My Jobs"); }
-function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); saveMyJobs(); renderAll(); toast("Removed "+job); }
+function addJob(job){ const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); REMOVED_JOBS.delete(j); saveMyJobs(); saveRemoved(); markSeenForJob(j); $("jobSearch").value=""; renderAll(); toast("Saved "+j+" to My Jobs"); }
+function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); REMOVED_JOBS.add(job); saveMyJobs(); saveRemoved(); renderAll(); toast("Removed "+job); }
 
 /* ---------- Tabs ---------- */
 document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); document.querySelectorAll(".view").forEach(x=>x.classList.remove("active")); t.classList.add("active"); $("view-"+t.dataset.view).classList.add("active"); window.scrollTo(0,0); if(t.dataset.view==="admin")syncAdminView(); }));
@@ -717,12 +820,42 @@ document.addEventListener("click",e=>{
   const ed=e.target.closest("[data-edit]"); if(ed){ const i=ed.dataset.edit.indexOf(":"); openEdit(ed.dataset.edit.slice(0,i),ed.dataset.edit.slice(i+1)); return; }
   const dl=e.target.closest("[data-del]"); if(dl){ const i=dl.dataset.del.indexOf(":"); doDelete(dl.dataset.del.slice(0,i),dl.dataset.del.slice(i+1)); return; }
   const ph=e.target.closest("[data-photos]"); if(ph){ openPhotos(ph.dataset.photos); return; }
+  const dv=e.target.closest("[data-deliv]"); if(dv){ openDeliv(dv.dataset.deliv); return; }
 });
 
 /* ---------- My Jobs add ---------- */
 $("jobSearch").addEventListener("input",renderJobs);
 $("jobAddBtn").addEventListener("click",()=>{ const v=$("jobSearch").value.trim(); v?addJob(v):toast("Type a job number first"); });
 $("jobSearch").addEventListener("keydown",e=>{ if(e.key==="Enter"){const v=$("jobSearch").value.trim(); if(v)addJob(v);} });
+$("notifClear").addEventListener("click",clearNotif);
+
+/* ---------- Name prompt ---------- */
+function openName(){ $("n_first").value=USER_NAME?.first||""; $("n_last").value=USER_NAME?.last||""; openModal("nameModal"); setTimeout(()=>$("n_first").focus(),300); }
+function closeName(){ closeModal("nameModal"); }
+$("idEdit").addEventListener("click",openName);
+$("nameSkip").addEventListener("click",closeName);
+$("nameSkip2").addEventListener("click",closeName);
+$("nameSubmit").addEventListener("click",()=>{
+  const f=$("n_first").value.trim(),l=$("n_last").value.trim();
+  if(!f||!l){toast("Enter first and last name");return;}
+  USER_NAME={first:f,last:l}; saveName();
+  const added=autoLinkJobs();
+  closeName(); renderAll();
+  toast(added?"Name saved — matching jobs linked":"Name saved");
+});
+
+/* ---------- Delivery quick-add ---------- */
+function openDeliv(id){ const r=ARRIVALS.find(x=>x.id===id); if(!r)return; delivTarget=id; $("delivItem").textContent=(r.description||"This arrival")+(isRealJob(r.jobNumber)?"  ·  "+normJob(r.jobNumber):""); $("d_date").value=r.deliveryDate||todayIso(); $("delivClear").style.display=r.deliveryDate?"block":"none"; openModal("delivModal"); }
+async function saveDeliv(clear){
+  if(!delivTarget)return; if(!fbReady){toast("No Firebase connection");return;}
+  const val=clear?"":($("d_date").value||todayIso());
+  const btn=$("delivSubmit"); btn.disabled=true; btn.textContent="Saving…";
+  try{ await setDoc(doc(db,"arrivals",delivTarget),{deliveryDate:val,updatedAt:serverTimestamp()},{merge:true}); closeModal("delivModal"); toast(clear?"Delivery date cleared":"Delivery date set"); }
+  catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  finally{ btn.disabled=false; btn.textContent="Save delivery date"; delivTarget=clear?null:delivTarget; }
+}
+$("delivSubmit").addEventListener("click",()=>saveDeliv(false));
+$("delivClear").addEventListener("click",()=>saveDeliv(true));
 
 /* ---------- Admin PIN + roles ---------- */
 const pin=$("pinInput");
@@ -761,12 +894,12 @@ function fileToDataURL(file,max=1200,q=0.7){ return new Promise((res,rej)=>{ con
 async function openPhotos(id){ const data=await idbGet(id); const view=$("photoView"); view.innerHTML=(data&&data.length)?data.map(p=>`<img src="${p}">`).join(""):`<div class="sub-empty">No photos on this device.</div>`; openModal("photoModal"); }
 
 /* ---------- Arrival new/edit ---------- */
-$("btnLog").addEventListener("click",()=>{ editing=null; pendingPhotos=[]; $("logTitle").textContent="Log Arrival"; $("logSubmit").textContent="Save arrival"; $("logDelete").style.display="none"; $("f_date").value=todayIso(); ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_deliv"].forEach(i=>$(i).value=""); $("jobnameHint").textContent=""; renderPhotoSlots(); openModal("logModal"); setTimeout(()=>$("f_job").focus(),300); });
+$("btnLog").addEventListener("click",()=>{ editing=null; pendingPhotos=[]; $("logTitle").textContent="Log Arrival"; $("logSubmit").textContent="Save arrival"; $("logDelete").style.display="none"; $("f_date").value=todayIso(); ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_location","f_deliv"].forEach(i=>$(i).value=""); $("jobnameHint").textContent=""; renderPhotoSlots(); openModal("logModal"); setTimeout(()=>$("f_job").focus(),300); });
 $("f_job").addEventListener("input",()=>{ const j=normJob($("f_job").value),h=$("jobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){h.textContent="Known job: "+f.jobName; if(!$("f_jobname").value)$("f_jobname").value=f.jobName;} else h.textContent=""; });
 $("logSubmit").addEventListener("click",saveArrival);
 $("logDelete").addEventListener("click",()=>{ if(editing&&editing.type==="arrival")doDelete("arrival",editing.id,true); });
 async function saveArrival(){
-  const rec={dateReceived:$("f_date").value||todayIso(),po:$("f_po").value.trim(),jobNumber:$("f_job").value.trim(),jobName:$("f_jobname").value.trim(),description:$("f_desc").value.trim(),supplier:$("f_supplier").value.trim(),deliveryDate:$("f_deliv").value||"",requestedBy:$("f_req").value.trim()};
+  const rec={dateReceived:$("f_date").value||todayIso(),po:$("f_po").value.trim(),jobNumber:$("f_job").value.trim(),jobName:$("f_jobname").value.trim(),description:$("f_desc").value.trim(),supplier:$("f_supplier").value.trim(),storageLocation:$("f_location").value.trim(),deliveryDate:$("f_deliv").value||"",requestedBy:$("f_req").value.trim()};
   if(!rec.jobNumber){toast("Job # is required");$("f_job").focus();return;}
   if(!rec.description){toast("Description is required");$("f_desc").focus();return;}
   if(!fbReady){toast("No Firebase connection");return;}
@@ -818,7 +951,7 @@ async function saveTool(){
 
 /* ---------- Edit / delete ---------- */
 async function openEdit(type,id){
-  if(type==="arrival"){ const r=ARRIVALS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; pendingPhotos=(await idbGet(id))||[]; $("logTitle").textContent="Edit Arrival"; $("logSubmit").textContent="Save changes"; $("logDelete").style.display="block"; $("f_date").value=r.dateReceived||todayIso(); $("f_po").value=r.po; $("f_job").value=r.jobNumber; $("f_req").value=r.requestedBy; $("f_jobname").value=r.jobName; $("f_desc").value=r.description; $("f_supplier").value=r.supplier; $("f_deliv").value=r.deliveryDate||""; $("jobnameHint").textContent=""; renderPhotoSlots(); openModal("logModal"); }
+  if(type==="arrival"){ const r=ARRIVALS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; pendingPhotos=(await idbGet(id))||[]; $("logTitle").textContent="Edit Arrival"; $("logSubmit").textContent="Save changes"; $("logDelete").style.display="block"; $("f_date").value=r.dateReceived||todayIso(); $("f_po").value=r.po; $("f_job").value=r.jobNumber; $("f_req").value=r.requestedBy; $("f_jobname").value=r.jobName; $("f_desc").value=r.description; $("f_supplier").value=r.supplier; $("f_location").value=r.storageLocation||""; $("f_deliv").value=r.deliveryDate||""; $("jobnameHint").textContent=""; renderPhotoSlots(); openModal("logModal"); }
   else if(type==="rental"){ const r=RENTALS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; $("rentTitle").textContent="Edit Rental"; $("rentSubmit").textContent="Save changes"; $("rentDelete").style.display="block"; $("r_date").value=r.dateRented||todayIso(); $("r_id").value=r.rentalId; $("r_job").value=r.jobNumber; $("r_by").value=r.orderedBy; $("r_jobname").value=r.jobName; $("r_equip").value=r.equipment; $("r_rate").value=r.rate; $("r_vendor").value=r.vendor; $("r_status").value=/return/i.test(r.status)?"Returned":"Renting"; $("r_returned").value=r.dateReturned||""; $("r_po").value=r.po; $("rJobnameHint").textContent=""; openModal("rentalModal"); }
   else { const r=TOOLS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; $("toolTitle").textContent="Edit Tool Rental"; $("toolSubmit").textContent="Save changes"; $("toolDelete").style.display="block"; $("t_job").value=r.jobNumber; $("t_jobname").value=r.jobName; $("t_type").value=r.toolType; $("t_id").value=r.toolId; $("t_start").value=r.rentalStarted||todayIso(); $("t_end").value=r.rentalEnded||""; $("t_days").value=r.billingDays||""; $("t_daily").value=r.dailyRate||""; $("t_total").value=r.billingTotal||""; $("t_disc").value=r.discountedRate||""; $("t_closed").checked=!!r.jobClosed; $("tJobnameHint").textContent=""; openModal("toolModal"); }
 }
@@ -908,8 +1041,9 @@ function stageErr(msg){ return `<div class="imp-stage"><div style="font-size:42p
 document.addEventListener("click",e=>{ if(e.target&&e.target.id==="impErrClose")closeModal("importModal"); });
 
 /* ---------- Init ---------- */
-(async()=>{ try{ PHOTO_IDS=new Set(await idbKeys()); }catch(e){} renderFeed(); })();
+(async()=>{ try{ PHOTO_IDS=new Set(await idbKeys()); }catch(e){} renderFeed(); renderJobs(); })();
 syncAdminView(); startSync();
+if(!USER_NAME){ setTimeout(()=>{ if(!USER_NAME) openName(); },700); }
 window.addEventListener("pageshow",()=>{ if($("view-admin").classList.contains("active"))syncAdminView(); });
 </script>
 </body>
