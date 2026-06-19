@@ -4,180 +4,139 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Equipment Received</title>
+<title>Equipment Received &amp; Rentals</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#14181f;
-    --ink-soft:#2a313c;
-    --steel:#5b6573;
-    --steel-light:#8a93a1;
-    --line:#e3e7ed;
-    --line-soft:#eef1f5;
-    --surface:#eef1f5;
-    --card:#ffffff;
-    --hivis:#ff6a1a;
-    --hivis-dark:#e2540a;
-    --green:#1f9d57;
-    --green-soft:#e7f6ee;
-    --amber:#b9770a;
-    --amber-soft:#fdf3e0;
-    --radius:14px;
-    --shadow:0 1px 2px rgba(20,24,31,.06), 0 4px 16px rgba(20,24,31,.05);
-    --safe-top:env(safe-area-inset-top,0px);
-    --safe-bottom:env(safe-area-inset-bottom,0px);
+    --ink:#14181f; --ink-soft:#2a313c; --steel:#5b6573; --steel-light:#8a93a1;
+    --line:#e3e7ed; --line-soft:#eef1f5; --surface:#eef1f5; --card:#ffffff;
+    --hivis:#ff6a1a; --hivis-dark:#e2540a;
+    --blue:#1f1f9e; --blue-soft:#ececff;
+    --green:#1f9d57; --green-soft:#e7f6ee; --amber:#b9770a; --amber-soft:#fdf3e0;
+    --radius:12px; --shadow:0 1px 2px rgba(20,24,31,.06), 0 4px 16px rgba(20,24,31,.05);
+    --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
-  body{
-    font-family:'Inter',-apple-system,system-ui,sans-serif;
-    background:var(--surface);
-    color:var(--ink);
-    -webkit-font-smoothing:antialiased;
-    overscroll-behavior-y:none;
-  }
+  body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:var(--surface);color:var(--ink);-webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
   button{font-family:inherit;cursor:pointer;border:none;background:none}
   input,textarea,select{font-family:inherit;font-size:16px}
 
-  /* ---------- Top bar ---------- */
-  .appbar{
-    position:sticky;top:0;z-index:40;
-    background:var(--ink);
-    color:#fff;
-    padding:calc(var(--safe-top) + 14px) 18px 0;
-  }
+  /* ---------- White header ---------- */
+  .appbar{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);padding:calc(var(--safe-top) + 12px) 18px 0;box-shadow:0 1px 0 rgba(20,24,31,.02)}
   .appbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .brand{display:flex;align-items:center;gap:11px;min-width:0}
-  .brand-mark{
-    width:34px;height:34px;border-radius:8px;flex:none;
-    background:var(--hivis);
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Barlow Condensed';font-weight:700;font-size:20px;color:#14181f;
-    box-shadow:inset 0 0 0 2px rgba(0,0,0,.15);
-  }
-  .brand-text{min-width:0}
-  .brand-text h1{
-    font-family:'Barlow Condensed';font-weight:700;letter-spacing:.06em;
-    font-size:21px;line-height:1;margin:0;text-transform:uppercase;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
-  .brand-text .sub{font-size:10.5px;color:var(--steel-light);letter-spacing:.16em;text-transform:uppercase;margin-top:3px}
-  .sync-dot{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--steel-light);letter-spacing:.06em;white-space:nowrap}
-  .sync-dot i{width:8px;height:8px;border-radius:50%;background:var(--steel);display:block}
-  .sync-dot.live i{background:var(--green);box-shadow:0 0 0 3px rgba(31,157,87,.25)}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .brand img{height:30px;width:auto;display:block}
+  .brand .divider{width:1px;height:24px;background:var(--line);flex:none}
+  .brand .appname{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;font-size:18px;line-height:1.05;text-transform:uppercase;color:var(--ink);min-width:0}
+  .sync-dot{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--steel);letter-spacing:.05em;white-space:nowrap;font-weight:500}
+  .sync-dot i{width:8px;height:8px;border-radius:50%;background:var(--steel-light);display:block}
+  .sync-dot.live i{background:var(--green);box-shadow:0 0 0 3px rgba(31,157,87,.2)}
   .sync-dot.err i{background:var(--hivis)}
 
-  .tabs{display:flex;gap:2px;margin-top:14px}
-  .tab{
-    flex:1;padding:11px 6px 13px;background:none;color:var(--steel-light);
-    font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.07em;text-transform:uppercase;
-    border-bottom:3px solid transparent;transition:color .15s,border-color .15s;
-    display:flex;align-items:center;justify-content:center;gap:6px;
-  }
-  .tab.active{color:#fff;border-color:var(--hivis)}
-  .tab .pill{
-    background:var(--ink-soft);color:var(--steel-light);font-family:'JetBrains Mono';font-weight:700;
-    font-size:10px;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center;
-  }
-  .tab.active .pill{background:var(--hivis);color:#14181f}
+  .tabs{display:flex;gap:0;margin-top:12px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:1;min-width:max-content;padding:10px 14px 12px;color:var(--steel);font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;border-bottom:3px solid transparent;transition:color .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .tab.active{color:var(--ink);border-color:var(--hivis)}
+  .tab .pill{background:var(--line-soft);color:var(--steel);font-family:'JetBrains Mono';font-weight:700;font-size:10px;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center}
+  .tab.active .pill{background:var(--hivis);color:#fff}
 
-  /* ---------- Layout ---------- */
-  main{max-width:760px;margin:0 auto;padding:0 0 120px}
+  main{max-width:1100px;margin:0 auto;padding:0 0 120px}
   .view{display:none}
   .view.active{display:block}
 
-  .searchwrap{
-    position:sticky;top:0;z-index:30;background:var(--surface);
-    padding:14px 14px 10px;
-  }
-  .search{
-    display:flex;align-items:center;gap:9px;background:var(--card);
-    border:1px solid var(--line);border-radius:11px;padding:11px 13px;box-shadow:var(--shadow);
-  }
+  /* ---------- Controls bar ---------- */
+  .controls{position:sticky;top:0;z-index:30;background:var(--surface);padding:13px 14px 9px;display:flex;gap:9px;flex-wrap:wrap}
+  .search{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 13px;box-shadow:var(--shadow);flex:1;min-width:200px}
   .search svg{flex:none;color:var(--steel-light)}
   .search input{border:none;outline:none;background:none;width:100%;font-size:16px;color:var(--ink)}
   .search input::placeholder{color:var(--steel-light)}
   .search .clr{font-family:'JetBrains Mono';color:var(--steel-light);font-size:13px;padding:2px 6px;border-radius:6px}
-  .search .clr:active{background:var(--line-soft)}
+  .selwrap{position:relative;display:flex}
+  select.filter{appearance:none;-webkit-appearance:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 34px 10px 14px;box-shadow:var(--shadow);font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);outline:none;cursor:pointer}
+  select.filter:focus{border-color:var(--hivis)}
+  .selwrap::after{content:"";position:absolute;right:13px;top:50%;width:8px;height:8px;border-right:2px solid var(--steel);border-bottom:2px solid var(--steel);transform:translateY(-65%) rotate(45deg);pointer-events:none}
 
-  .meta-row{display:flex;justify-content:space-between;align-items:baseline;padding:2px 18px 4px;color:var(--steel);font-size:12px}
+  .meta-row{display:flex;justify-content:space-between;align-items:baseline;padding:2px 18px 6px;color:var(--steel);font-size:12px}
   .meta-row b{font-family:'JetBrains Mono';color:var(--ink-soft);font-weight:700}
 
-  /* ---------- Date divider ---------- */
-  .daterow{
-    display:flex;align-items:center;gap:10px;padding:18px 18px 8px;
+  /* ---------- Dense rows ---------- */
+  .rows{margin:0 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .row{
+    display:grid;
+    grid-template-columns:86px 92px minmax(0,1fr) minmax(230px,320px) auto;
+    grid-template-areas:"date job main meta act";
+    align-items:center;gap:6px 14px;
+    padding:11px 15px;border-bottom:1px solid var(--line-soft);
   }
-  .daterow .d-main{font-family:'Barlow Condensed';font-weight:700;font-size:16px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink)}
-  .daterow .d-line{flex:1;height:1px;background:var(--line)}
-  .daterow .d-count{font-family:'JetBrains Mono';font-size:11px;color:var(--steel-light);font-weight:700}
-
-  /* ---------- Manifest card ---------- */
-  .feed{padding:0 14px}
-  .card{
-    position:relative;background:var(--card);border:1px solid var(--line);
-    border-radius:var(--radius);box-shadow:var(--shadow);
-    margin-bottom:11px;overflow:hidden;
-    display:flex;
-  }
-  .card-tab{
-    flex:none;width:60px;background:#fafbfc;border-right:1px dashed var(--line);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:12px 6px;position:relative;
-  }
-  .card-tab::before{content:"";position:absolute;left:-1px;top:0;width:4px;height:100%;background:var(--hivis)}
-  .card-tab .joblabel{font-size:8px;letter-spacing:.14em;color:var(--steel-light);text-transform:uppercase;font-weight:600;margin-bottom:4px}
-  .card-tab .jobnum{font-family:'JetBrains Mono';font-weight:700;font-size:13px;color:var(--ink);text-align:center;line-height:1.15;word-break:break-all}
-  .card-tab.na .card-tab-x{font-family:'JetBrains Mono';color:var(--steel-light);font-size:13px;font-weight:700}
-
-  .card-body{flex:1;min-width:0;padding:12px 14px 12px}
-  .card-desc{font-size:14.5px;font-weight:500;line-height:1.38;color:var(--ink);margin:0 0 9px;word-wrap:break-word}
-  .card-jobname{font-family:'Barlow Condensed';font-weight:600;font-size:14px;letter-spacing:.02em;color:var(--hivis-dark);text-transform:uppercase;margin:-3px 0 8px;line-height:1.2}
-  .card-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px}
-  .card-grid dt{color:var(--steel-light);text-transform:uppercase;letter-spacing:.05em;font-size:10px;font-weight:600;align-self:center}
-  .card-grid dd{margin:0;color:var(--ink-soft);font-weight:500;min-width:0;word-break:break-word}
-  .card-grid dd.mono{font-family:'JetBrains Mono';font-weight:500;font-size:12px}
-  .card-foot{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
-  .chip{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;letter-spacing:.02em;display:inline-flex;gap:5px;align-items:center}
-  .chip.supplier{background:var(--line-soft);color:var(--steel)}
-  .chip.who{background:#eef4ff;color:#3257a8}
-  .chip.deliv{background:var(--amber-soft);color:var(--amber)}
-  .star-btn{margin-left:auto;display:flex;align-items:center;gap:5px;color:var(--steel-light);font-size:11px;font-weight:600;padding:4px 8px;border-radius:8px}
+  .row:last-child{border-bottom:none}
+  .row:nth-child(even){background:#fcfcfd}
+  .r-date{grid-area:date;line-height:1.15}
+  .r-date b{font-family:'Barlow Condensed';font-weight:700;font-size:14px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);display:block}
+  .r-date span{font-family:'JetBrains Mono';font-size:10.5px;color:var(--steel-light);font-weight:500}
+  .r-date span.rel{color:var(--hivis-dark);font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:11px}
+  .r-job{grid-area:job}
+  .jobbadge{font-family:'JetBrains Mono';font-weight:700;font-size:12.5px;color:#fff;background:var(--hivis);padding:4px 8px;border-radius:7px;display:inline-block;white-space:nowrap;letter-spacing:.01em}
+  .jobbadge.na{background:var(--line);color:var(--steel-light)}
+  .r-main{grid-area:main;min-width:0}
+  .r-name{font-family:'Barlow Condensed';font-weight:600;font-size:13px;letter-spacing:.02em;color:var(--hivis-dark);text-transform:uppercase;line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r-desc{font-size:13.5px;font-weight:500;line-height:1.35;color:var(--ink);word-wrap:break-word}
+  .r-meta{grid-area:meta;display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+  .m{font-size:11px;padding:3px 8px;border-radius:18px;font-weight:600;letter-spacing:.01em;white-space:nowrap}
+  .m.sup{background:var(--line-soft);color:var(--steel)}
+  .m.po{background:#f1f3f7;color:var(--ink-soft);font-family:'JetBrains Mono';font-weight:500;font-size:10.5px}
+  .m.req{background:var(--blue-soft);color:#3a3ab0}
+  .m.deliv{background:var(--amber-soft);color:var(--amber)}
+  .m.rate{background:#f1f3f7;color:var(--ink-soft);font-family:'JetBrains Mono';font-weight:500;font-size:10.5px}
+  .m.id{background:var(--line-soft);color:var(--steel-light);font-family:'JetBrains Mono';font-weight:500;font-size:10.5px}
+  .status{font-size:10.5px;padding:3px 9px;border-radius:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+  .status.renting{background:var(--green-soft);color:var(--green)}
+  .status.returned{background:var(--line-soft);color:var(--steel)}
+  .r-act{grid-area:act;display:flex;align-items:center;gap:3px;justify-content:flex-end}
+  .star-btn{display:flex;align-items:center;gap:5px;color:var(--steel-light);font-size:11px;font-weight:600;padding:5px 8px;border-radius:8px;white-space:nowrap}
   .star-btn svg{transition:transform .15s}
   .star-btn.saved{color:var(--hivis-dark)}
   .star-btn:active svg{transform:scale(.8)}
+  .mini-btn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--steel)}
+  .mini-btn:active{background:var(--line-soft)}
+  .mini-btn.del:active{background:#fde8e4;color:var(--hivis-dark)}
+
+  @media (max-width:780px){
+    .row{grid-template-columns:auto 1fr auto;grid-template-areas:"job date act" "main main main" "meta meta meta";row-gap:7px;padding:12px 14px}
+    .r-date{text-align:left}
+    .r-date b,.r-date span{display:inline}
+    .r-date span{margin-left:6px}
+    .r-meta{justify-content:flex-start}
+    .r-name{white-space:normal}
+  }
 
   /* ---------- Empty / loading ---------- */
-  .empty{text-align:center;padding:70px 30px;color:var(--steel)}
-  .empty .ico{font-size:44px;margin-bottom:14px;opacity:.55}
-  .empty h3{font-family:'Barlow Condensed';font-weight:700;font-size:22px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px}
-  .empty p{font-size:14px;margin:0 auto;max-width:300px;line-height:1.5}
-  .skel{height:96px;background:linear-gradient(100deg,#fff 30%,#f3f5f8 50%,#fff 70%);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:var(--radius);margin:0 14px 11px;border:1px solid var(--line)}
+  .empty{text-align:center;padding:64px 30px;color:var(--steel)}
+  .empty .ico{font-size:42px;margin-bottom:12px;opacity:.55}
+  .empty h3{font-family:'Barlow Condensed';font-weight:700;font-size:21px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px}
+  .empty p{font-size:14px;margin:0 auto;max-width:320px;line-height:1.5}
+  .skel{height:54px;background:linear-gradient(100deg,#fff 30%,#f3f5f8 50%,#fff 70%);background-size:200% 100%;animation:sh 1.2s infinite;border-bottom:1px solid var(--line-soft)}
   @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
 
   /* ---------- My Jobs ---------- */
-  .mj-head{padding:16px 18px 6px}
+  .mj-head{padding:16px 18px 4px}
   .mj-head h2{font-family:'Barlow Condensed';font-weight:700;font-size:20px;letter-spacing:.05em;text-transform:uppercase;margin:0}
   .mj-head p{color:var(--steel);font-size:13px;margin:5px 0 0;line-height:1.45}
   .addjob{display:flex;gap:8px;padding:12px 14px 4px}
-  .addjob input{flex:1;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px;box-shadow:var(--shadow);outline:none;color:var(--ink)}
+  .addjob input{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);outline:none;color:var(--ink)}
   .addjob input:focus{border-color:var(--hivis)}
-  .btn-add{background:var(--ink);color:#fff;border-radius:11px;padding:0 18px;font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.05em;text-transform:uppercase;box-shadow:var(--shadow)}
+  .btn-add{background:var(--ink);color:#fff;border-radius:10px;padding:0 18px;font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.05em;text-transform:uppercase;box-shadow:var(--shadow)}
   .btn-add:active{background:var(--ink-soft)}
   .suggest{padding:2px 14px 0}
   .suggest .s-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:7px}
   .suggest .s-item .sj{font-family:'JetBrains Mono';font-weight:700;font-size:13px;color:var(--ink)}
   .suggest .s-item .sn{font-size:12px;color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin:0 8px}
   .suggest .s-item button{color:var(--hivis-dark);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:5px 8px}
-
-  .folder{
-    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-    box-shadow:var(--shadow);margin:0 14px 11px;overflow:hidden;
-  }
+  .folder{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin:0 14px 11px;overflow:hidden}
   .folder-head{display:flex;align-items:center;gap:12px;padding:14px 15px;cursor:pointer}
-  .folder-tag{font-family:'JetBrains Mono';font-weight:700;font-size:14px;color:#14181f;background:var(--hivis);padding:5px 10px;border-radius:8px;flex:none}
+  .folder-tag{font-family:'JetBrains Mono';font-weight:700;font-size:14px;color:#fff;background:var(--hivis);padding:5px 10px;border-radius:8px;flex:none}
   .folder-info{flex:1;min-width:0}
   .folder-info .fn{font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .folder-info .fc{font-size:12px;color:var(--steel);margin-top:2px}
@@ -187,46 +146,38 @@
   .icon-btn:active{background:var(--line-soft)}
   .chev{transition:transform .2s;color:var(--steel-light)}
   .folder.open .chev{transform:rotate(180deg)}
-  .folder-body{display:none;border-top:1px solid var(--line-soft);background:#fafbfc;padding:6px 10px 10px}
+  .folder-body{display:none;border-top:1px solid var(--line-soft);background:#fafbfc;padding:0}
   .folder.open .folder-body{display:block}
-  .folder-body .card{margin:8px 0 0;box-shadow:none}
+  .subhead{font-family:'Barlow Condensed';font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);padding:11px 16px 5px;display:flex;align-items:center;gap:8px}
+  .subhead .cnt{font-family:'JetBrains Mono';font-size:11px;color:var(--steel-light)}
+  .folder-body .rows{margin:4px 10px 12px;box-shadow:none}
 
   /* ---------- Admin ---------- */
   .admin-lock{padding:40px 24px;text-align:center;max-width:380px;margin:0 auto}
   .admin-lock .lockico{width:62px;height:62px;border-radius:16px;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:var(--hivis)}
   .admin-lock h2{font-family:'Barlow Condensed';font-weight:700;font-size:24px;letter-spacing:.04em;text-transform:uppercase;margin:0 0 6px}
   .admin-lock p{color:var(--steel);font-size:13.5px;margin:0 0 22px;line-height:1.5}
-  .pin-input{
-    width:100%;text-align:center;letter-spacing:.7em;font-family:'JetBrains Mono';font-weight:700;font-size:30px;
-    padding:16px 12px 16px 22px;border:2px solid var(--line);border-radius:14px;background:var(--card);outline:none;color:var(--ink);
-    box-shadow:var(--shadow);
-  }
+  .pin-input{width:100%;text-align:center;letter-spacing:.7em;font-family:'JetBrains Mono';font-weight:700;font-size:30px;padding:16px 12px 16px 22px;border:2px solid var(--line);border-radius:14px;background:var(--card);outline:none;color:var(--ink);box-shadow:var(--shadow)}
   .pin-input:focus{border-color:var(--hivis)}
   .pin-input.bad{border-color:var(--hivis);animation:shake .35s}
   @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
   .pin-msg{margin-top:14px;font-size:13px;color:var(--steel);min-height:18px}
   .pin-msg.bad{color:var(--hivis-dark);font-weight:600}
-
   .welcome{padding:18px 16px 4px}
-  .welcome-card{
-    background:linear-gradient(135deg,#14181f,#262d39);color:#fff;border-radius:var(--radius);
-    padding:20px 20px 22px;box-shadow:var(--shadow);position:relative;overflow:hidden;
-  }
+  .welcome-card{background:linear-gradient(135deg,#14181f,#262d39);color:#fff;border-radius:var(--radius);padding:20px 20px 22px;box-shadow:var(--shadow);position:relative;overflow:hidden}
   .welcome-card::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(255,106,26,.22),transparent 70%)}
   .welcome-card .eyebrow{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.18em;text-transform:uppercase;font-size:11px;color:var(--hivis)}
   .welcome-card h2{font-family:'Barlow Condensed';font-weight:700;font-size:28px;letter-spacing:.03em;margin:4px 0 3px;line-height:1}
   .welcome-card .role{font-size:13px;color:var(--steel-light)}
-  .admin-actions{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:14px 16px 4px}
-  .act{
-    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
-    padding:18px 14px;display:flex;flex-direction:column;gap:9px;text-align:left;transition:transform .12s;
-  }
+  .admin-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;padding:14px 16px 4px}
+  .act{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 14px;display:flex;flex-direction:column;gap:8px;text-align:left;transition:transform .12s}
   .act:active{transform:scale(.97)}
-  .act .a-ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center}
-  .act.log .a-ico{background:var(--hivis);color:#14181f}
+  .act .a-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center}
+  .act.log .a-ico{background:var(--hivis);color:#fff}
+  .act.rent .a-ico{background:var(--blue);color:#fff}
   .act.imp .a-ico{background:var(--ink);color:var(--hivis)}
-  .act .a-title{font-family:'Barlow Condensed';font-weight:700;font-size:17px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
-  .act .a-sub{font-size:12px;color:var(--steel);line-height:1.4}
+  .act .a-title{font-family:'Barlow Condensed';font-weight:700;font-size:16px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
+  .act .a-sub{font-size:11.5px;color:var(--steel);line-height:1.4}
   .admin-foot{padding:18px 18px;text-align:center}
   .lock-again{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--steel);padding:9px 18px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
   .lock-again:active{background:var(--line-soft)}
@@ -234,40 +185,33 @@
   .stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px;text-align:center;box-shadow:var(--shadow)}
   .stat .num{font-family:'JetBrains Mono';font-weight:700;font-size:22px;color:var(--ink)}
   .stat .lab{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--steel-light);margin-top:2px}
+  .admin-banner{margin:14px 16px 0;padding:11px 14px;background:var(--blue-soft);border:1px solid #d6d6f5;border-radius:10px;font-size:12.5px;color:#3a3ab0;display:flex;gap:8px;align-items:flex-start;line-height:1.45}
 
   /* ---------- Modal ---------- */
   .modal-back{position:fixed;inset:0;z-index:100;background:rgba(20,24,31,.5);backdrop-filter:blur(2px);display:none;align-items:flex-end;justify-content:center}
   .modal-back.show{display:flex}
-  .modal{
-    background:var(--surface);width:100%;max-width:560px;border-radius:20px 20px 0 0;
-    max-height:92vh;display:flex;flex-direction:column;animation:slideup .28s cubic-bezier(.2,.8,.2,1);
-    padding-bottom:var(--safe-bottom);
-  }
+  .modal{background:var(--surface);width:100%;max-width:560px;border-radius:20px 20px 0 0;max-height:92vh;display:flex;flex-direction:column;animation:slideup .28s cubic-bezier(.2,.8,.2,1);padding-bottom:var(--safe-bottom)}
   @keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
-  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);background:var(--card);border-radius:20px 20px 0 0}
+  .modal-grip{width:38px;height:5px;border-radius:3px;background:var(--line);margin:9px auto 0}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--card)}
   .modal-head h3{font-family:'Barlow Condensed';font-weight:700;font-size:20px;letter-spacing:.04em;text-transform:uppercase;margin:0}
   .modal-head .x{width:34px;height:34px;border-radius:50%;background:var(--line-soft);display:flex;align-items:center;justify-content:center;color:var(--steel);font-size:18px}
-  .modal-grip{width:38px;height:5px;border-radius:3px;background:var(--line);margin:9px auto 0}
   .modal-body{overflow-y:auto;padding:16px 18px 24px;-webkit-overflow-scrolling:touch}
   .field{margin-bottom:14px}
   .field label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--steel);font-weight:600;margin-bottom:6px}
   .field label .req{color:var(--hivis-dark)}
-  .field input,.field textarea{
-    width:100%;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 13px;outline:none;color:var(--ink);
-  }
-  .field input:focus,.field textarea:focus{border-color:var(--hivis)}
-  .field textarea{resize:vertical;min-height:74px;line-height:1.45}
+  .field input,.field textarea,.field select{width:100%;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 13px;outline:none;color:var(--ink)}
+  .field select{appearance:none;-webkit-appearance:none}
+  .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--hivis)}
+  .field textarea{resize:vertical;min-height:70px;line-height:1.45}
   .field .hint{font-size:11px;color:var(--steel-light);margin-top:5px}
   .field-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .submit{
-    width:100%;background:var(--hivis);color:#14181f;border-radius:13px;padding:16px;
-    font-family:'Barlow Condensed';font-weight:700;font-size:18px;letter-spacing:.05em;text-transform:uppercase;
-    box-shadow:0 4px 14px rgba(255,106,26,.3);margin-top:4px;
-  }
+  .submit{width:100%;background:var(--hivis);color:#fff;border-radius:13px;padding:16px;font-family:'Barlow Condensed';font-weight:700;font-size:18px;letter-spacing:.05em;text-transform:uppercase;box-shadow:0 4px 14px rgba(255,106,26,.3);margin-top:4px}
   .submit:active{background:var(--hivis-dark)}
-  .submit:disabled{background:var(--steel-light);box-shadow:none;color:#fff}
+  .submit.blue{background:var(--blue);box-shadow:0 4px 14px rgba(31,31,158,.28)}
+  .submit:disabled{background:var(--steel-light);box-shadow:none}
+  .del-link{display:block;width:100%;text-align:center;margin-top:14px;color:var(--hivis-dark);font-weight:600;font-size:13px;padding:10px;letter-spacing:.03em}
 
-  /* import progress */
   .imp-stage{text-align:center;padding:24px 10px}
   .imp-stage .ring{width:64px;height:64px;border-radius:50%;border:5px solid var(--line);border-top-color:var(--hivis);margin:0 auto 18px;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -275,31 +219,17 @@
   .imp-stage p{color:var(--steel);font-size:13.5px;margin:0;line-height:1.5}
   .imp-bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:18px 0 8px}
   .imp-bar i{display:block;height:100%;background:var(--hivis);width:0;transition:width .25s}
-  .imp-done .ring{display:none}
-  .dropzone{
-    border:2px dashed var(--line);border-radius:14px;padding:30px 18px;text-align:center;background:var(--card);transition:border-color .15s,background .15s;
-  }
+  .dropzone{border:2px dashed var(--line);border-radius:14px;padding:30px 18px;text-align:center;background:var(--card);transition:border-color .15s,background .15s}
   .dropzone.drag{border-color:var(--hivis);background:#fff7f2}
   .dropzone .dz-ico{font-size:40px;margin-bottom:10px}
   .dropzone h4{font-family:'Barlow Condensed';font-weight:700;font-size:18px;letter-spacing:.03em;text-transform:uppercase;margin:0 0 5px}
   .dropzone p{color:var(--steel);font-size:13px;margin:0 0 16px;line-height:1.5}
   .dz-btn{display:inline-block;background:var(--ink);color:#fff;border-radius:11px;padding:12px 22px;font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.05em;text-transform:uppercase}
 
-  /* toast */
-  .toast{
-    position:fixed;left:50%;bottom:calc(28px + var(--safe-bottom));transform:translateX(-50%) translateY(20px);
-    background:var(--ink);color:#fff;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:500;
-    box-shadow:0 8px 28px rgba(0,0,0,.3);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
-    max-width:90vw;text-align:center;display:flex;align-items:center;gap:9px;
-  }
+  .toast{position:fixed;left:50%;bottom:calc(28px + var(--safe-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 8px 28px rgba(0,0,0,.3);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:90vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.ok{border-left:4px solid var(--green)}
-  .toast.err{border-left:4px solid var(--hivis)}
 
-  @media (max-width:380px){
-    .card-tab{width:54px}
-    .admin-actions{grid-template-columns:1fr}
-  }
+  @media (max-width:560px){ .admin-actions{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -307,42 +237,54 @@
 <header class="appbar">
   <div class="appbar-row">
     <div class="brand">
-      <div class="brand-mark">AM</div>
-      <div class="brand-text">
-        <h1>Equipment Received</h1>
-        <div class="sub">Arctic Mechanical · Receiving</div>
-      </div>
+      <img src="data:image/png;base64,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" alt="Arctic">
+      <span class="divider"></span>
+      <span class="appname">Equipment<br>Received &amp; Rentals</span>
     </div>
     <div class="sync-dot" id="syncDot"><i></i><span id="syncTxt">Connecting</span></div>
   </div>
   <nav class="tabs">
-    <button class="tab active" data-view="feed">Feed <span class="pill" id="pillFeed">0</span></button>
+    <button class="tab active" data-view="feed">Arrivals <span class="pill" id="pillFeed">0</span></button>
+    <button class="tab" data-view="rentals">Rentals <span class="pill" id="pillRent">0</span></button>
     <button class="tab" data-view="jobs">My Jobs <span class="pill" id="pillJobs">0</span></button>
     <button class="tab" data-view="admin">Admin</button>
   </nav>
 </header>
 
 <main>
-  <!-- ============ FEED ============ -->
+  <!-- ============ ARRIVALS ============ -->
   <section class="view active" id="view-feed">
-    <div class="searchwrap">
+    <div class="controls">
       <div class="search">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input id="feedSearch" type="search" placeholder="Search job #, description, supplier…" autocomplete="off">
+        <input id="feedSearch" type="search" placeholder="Search job #, item, supplier…" autocomplete="off">
         <button class="clr" id="feedClr" style="display:none">Clear</button>
       </div>
+      <div class="selwrap"><select class="filter" id="monthSel"><option value="">All months</option></select></div>
     </div>
-    <div class="meta-row"><span id="feedMeta">Loading arrivals…</span><span id="feedSort">Newest first</span></div>
-    <div id="feedList" class="feed">
-      <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>
+    <div class="meta-row"><span id="feedMeta">Loading arrivals…</span><span>Newest first</span></div>
+    <div id="feedList" class="rows"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+  </section>
+
+  <!-- ============ RENTALS ============ -->
+  <section class="view" id="view-rentals">
+    <div class="controls">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input id="rentSearch" type="search" placeholder="Search equipment, job #, vendor…" autocomplete="off">
+        <button class="clr" id="rentClr" style="display:none">Clear</button>
+      </div>
+      <div class="selwrap"><select class="filter" id="rentStatus"><option value="">All</option><option value="Renting">Renting</option><option value="Returned">Returned</option></select></div>
     </div>
+    <div class="meta-row"><span id="rentMeta">Loading rentals…</span><span>Newest first</span></div>
+    <div id="rentList" class="rows"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
   </section>
 
   <!-- ============ MY JOBS ============ -->
   <section class="view" id="view-jobs">
     <div class="mj-head">
       <h2>My Jobs</h2>
-      <p>Save a job number to your phone. New arrivals on those jobs land here automatically. Saved jobs stay on this device only.</p>
+      <p>Save a job number to your phone. New arrivals and rentals on those jobs collect here automatically. Saved jobs stay on this device only.</p>
     </div>
     <div class="addjob">
       <input id="jobSearch" type="search" placeholder="Search or type a job # (e.g. 25-0205)" autocomplete="off">
@@ -356,69 +298,97 @@
   <section class="view" id="view-admin">
     <div id="adminLocked">
       <div class="admin-lock">
-        <div class="lockico">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
-        </div>
+        <div class="lockico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></div>
         <h2>Admin Access</h2>
-        <p>Enter your 4-digit PIN to log arrivals and import records.</p>
+        <p>Enter your 4-digit PIN to log, edit, and import records.</p>
         <input id="pinInput" class="pin-input" type="tel" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
         <div class="pin-msg" id="pinMsg"></div>
       </div>
     </div>
-
     <div id="adminUnlocked" style="display:none">
-      <div class="welcome">
-        <div class="welcome-card">
-          <div class="eyebrow">Logged in</div>
-          <h2>Welcome Bobby Dunckel</h2>
-          <div class="role">Receiving Admin · full access</div>
-        </div>
-      </div>
+      <div class="welcome"><div class="welcome-card">
+        <div class="eyebrow">Logged in</div><h2>Welcome Bobby Dunckel</h2><div class="role">Receiving Admin · full access</div>
+      </div></div>
       <div class="admin-stats">
-        <div class="stat"><div class="num" id="statTotal">0</div><div class="lab">Total logged</div></div>
+        <div class="stat"><div class="num" id="statTotal">0</div><div class="lab">Arrivals</div></div>
+        <div class="stat"><div class="num" id="statRent">0</div><div class="lab">Rentals out</div></div>
         <div class="stat"><div class="num" id="statToday">0</div><div class="lab">Today</div></div>
-        <div class="stat"><div class="num" id="statJobs">0</div><div class="lab">Active jobs</div></div>
+      </div>
+      <div class="admin-banner">
+        <span>✎</span><span>You're unlocked — edit and delete buttons now show on every arrival and rental row.</span>
       </div>
       <div class="admin-actions">
         <button class="act log" id="btnLog">
-          <div class="a-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>
-          <div class="a-title">Log Arrival</div>
-          <div class="a-sub">Record new equipment that just came in.</div>
+          <div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>
+          <div class="a-title">Log Arrival</div><div class="a-sub">Record equipment that just came in.</div>
+        </button>
+        <button class="act rent" id="btnRental">
+          <div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M5 7l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13"></path></svg></div>
+          <div class="a-title">Log Rental</div><div class="a-sub">Track a rental, rate, and return.</div>
         </button>
         <button class="act imp" id="btnImport">
-          <div class="a-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
-          <div class="a-title">Import Excel</div>
-          <div class="a-sub">Upload the master sheet to load all past logs.</div>
+          <div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+          <div class="a-title">Import Excel</div><div class="a-sub">Load all past arrivals + rentals.</div>
         </button>
       </div>
-      <div class="admin-foot">
-        <button class="lock-again" id="btnLock">Lock admin</button>
-      </div>
+      <div class="admin-foot"><button class="lock-again" id="btnLock">Lock admin</button></div>
     </div>
   </section>
 </main>
 
-<!-- ============ LOG MODAL ============ -->
+<!-- ============ ARRIVAL MODAL ============ -->
 <div class="modal-back" id="logModal">
   <div class="modal">
     <div class="modal-grip"></div>
-    <div class="modal-head"><h3>Log Arrival</h3><button class="x" data-close="logModal">✕</button></div>
+    <div class="modal-head"><h3 id="logTitle">Log Arrival</h3><button class="x" data-close="logModal">✕</button></div>
     <div class="modal-body">
       <div class="field-2">
         <div class="field"><label>Date received <span class="req">*</span></label><input id="f_date" type="date"></div>
-        <div class="field"><label>P.O.</label><input id="f_po" type="text" inputmode="text" placeholder="e.g. 112736" autocomplete="off"></div>
+        <div class="field"><label>P.O.</label><input id="f_po" type="text" placeholder="e.g. 112736" autocomplete="off"></div>
       </div>
       <div class="field-2">
         <div class="field"><label>Job # <span class="req">*</span></label><input id="f_job" type="text" placeholder="e.g. 25-0205" autocomplete="off"></div>
         <div class="field"><label>Requested by</label><input id="f_req" type="text" placeholder="e.g. Pete M" autocomplete="off"></div>
       </div>
-      <div class="field"><label>Job name</label><input id="f_jobname" type="text" placeholder="e.g. OHSU HRC & OHS Peds" autocomplete="off"><div class="hint" id="jobnameHint"></div></div>
+      <div class="field"><label>Job name</label><input id="f_jobname" type="text" placeholder="e.g. OHSU Peds Emergency" autocomplete="off"><div class="hint" id="jobnameHint"></div></div>
       <div class="field"><label>Description <span class="req">*</span></label><textarea id="f_desc" placeholder="What arrived — qty, item, size…"></textarea></div>
       <div class="field-2">
         <div class="field"><label>Supplier</label><input id="f_supplier" type="text" placeholder="e.g. ACI" autocomplete="off"></div>
         <div class="field"><label>Delivery date</label><input id="f_deliv" type="date"></div>
       </div>
       <button class="submit" id="logSubmit">Save arrival</button>
+      <button class="del-link" id="logDelete" style="display:none">Delete this arrival</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RENTAL MODAL ============ -->
+<div class="modal-back" id="rentalModal">
+  <div class="modal">
+    <div class="modal-grip"></div>
+    <div class="modal-head"><h3 id="rentTitle">Log Rental</h3><button class="x" data-close="rentalModal">✕</button></div>
+    <div class="modal-body">
+      <div class="field-2">
+        <div class="field"><label>Date rented <span class="req">*</span></label><input id="r_date" type="date"></div>
+        <div class="field"><label>Rental ID / Contract #</label><input id="r_id" type="text" placeholder="e.g. 104334B" autocomplete="off"></div>
+      </div>
+      <div class="field-2">
+        <div class="field"><label>Job # <span class="req">*</span></label><input id="r_job" type="text" placeholder="e.g. 25-0150" autocomplete="off"></div>
+        <div class="field"><label>Ordered by</label><input id="r_by" type="text" placeholder="e.g. Dustin B" autocomplete="off"></div>
+      </div>
+      <div class="field"><label>Job name</label><input id="r_jobname" type="text" placeholder="e.g. Air National Guard B250" autocomplete="off"><div class="hint" id="rJobnameHint"></div></div>
+      <div class="field"><label>Equipment / Equipment # <span class="req">*</span></label><input id="r_equip" type="text" placeholder="e.g. Genie S45 - RB20183" autocomplete="off"></div>
+      <div class="field-2">
+        <div class="field"><label>Rate (daily / week / month)</label><input id="r_rate" type="text" placeholder="e.g. $300/$700/$1,820" autocomplete="off"></div>
+        <div class="field"><label>Vendor</label><input id="r_vendor" type="text" placeholder="e.g. Pape Rental" autocomplete="off"></div>
+      </div>
+      <div class="field-2">
+        <div class="field"><label>Status</label><select id="r_status"><option value="Renting">Renting</option><option value="Returned">Returned</option></select></div>
+        <div class="field"><label>Date returned</label><input id="r_returned" type="date"></div>
+      </div>
+      <div class="field"><label>PO #</label><input id="r_po" type="text" placeholder="e.g. 110085-25-0150" autocomplete="off"></div>
+      <button class="submit blue" id="rentSubmit">Save rental</button>
+      <button class="del-link" id="rentDelete" style="display:none">Delete this rental</button>
     </div>
   </div>
 </div>
@@ -428,17 +398,7 @@
   <div class="modal">
     <div class="modal-grip"></div>
     <div class="modal-head"><h3>Import Excel</h3><button class="x" data-close="importModal">✕</button></div>
-    <div class="modal-body" id="importBody">
-      <div class="dropzone" id="dropzone">
-        <div class="dz-ico">📄</div>
-        <h4>Upload master sheet</h4>
-        <p>Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it from your device. Re-importing is safe — duplicates are skipped.</p>
-        <label class="dz-btn">Choose file<input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden></label>
-      </div>
-      <div class="field" style="margin-top:18px">
-        <div class="hint">Reads every monthly tab. Columns: Date Received · P.O. · Job# · Job name · Description · Supplier · Delivery Date · Requested By. The Equipment Rentals tab is skipped.</div>
-      </div>
-    </div>
+    <div class="modal-body" id="importBody"></div>
   </div>
 </div>
 
@@ -447,10 +407,8 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getFirestore, collection, onSnapshot, doc, setDoc, writeBatch,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",
@@ -460,590 +418,390 @@ const firebaseConfig = {
   messagingSenderId: "164676400073",
   appId: "1:164676400073:web:552cc0e3dcc8e06951ae18"
 };
+let db=null, fbReady=false;
+try{ db=getFirestore(initializeApp(firebaseConfig)); fbReady=true; }catch(e){ console.error("FB init",e); }
 
-let db = null, fbReady = false;
-try {
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  fbReady = true;
-} catch (e) {
-  console.error("Firebase init failed", e);
-}
+/* ---------- State ---------- */
+let ARRIVALS=[], RENTALS=[];
+let MY_JOBS=loadMyJobs();
+const ADMIN_PIN="1977";
+let adminUnlocked = sessionStorage.getItem("er_admin")==="1";
+let editing=null;     // {type:'arrival'|'rental', id, seq}
 
-/* ---------------- State ---------------- */
-let ARRIVALS = [];                 // all docs, sorted newest first
-let MY_JOBS = loadMyJobs();        // array of saved job numbers (local)
-const ADMIN_PIN = "1977";
-let adminUnlocked = sessionStorage.getItem("er_admin") === "1";
+const $ = id=>document.getElementById(id);
+const esc = s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-const $ = id => document.getElementById(id);
-const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* ---------- Local storage ---------- */
+function loadMyJobs(){ try{return JSON.parse(localStorage.getItem("er_myjobs")||"[]");}catch(e){return[];} }
+function saveMyJobs(){ try{localStorage.setItem("er_myjobs",JSON.stringify(MY_JOBS));}catch(e){} }
 
-/* ---------------- Local storage helpers ---------------- */
-function loadMyJobs(){
-  try { return JSON.parse(localStorage.getItem("er_myjobs") || "[]"); }
-  catch(e){ return []; }
-}
-function saveMyJobs(){
-  try { localStorage.setItem("er_myjobs", JSON.stringify(MY_JOBS)); } catch(e){}
-}
-
-/* ---------------- Utilities ---------------- */
+/* ---------- Utils ---------- */
 function normJob(j){ return String(j==null?"":j).trim().toUpperCase(); }
-function isRealJob(j){
-  const n = normJob(j);
-  return n && n !== "NA" && n !== "N/A" && n !== "-";
-}
-// deterministic id so re-imports don't duplicate
-function makeId(rec){
-  const key = [rec.dateReceived, rec.po, normJob(rec.jobNumber), (rec.description||"").slice(0,80)].join("|").toLowerCase();
-  let h = 5381;
-  for (let i=0;i<key.length;i++){ h = ((h<<5)+h) ^ key.charCodeAt(i); }
+function isRealJob(j){ const n=normJob(j); return n && n!=="NA" && n!=="N/A" && n!=="-"; }
+function makeId(parts){
+  const key=parts.join("|").toLowerCase();
+  let h=5381; for(let i=0;i<key.length;i++){ h=((h<<5)+h)^key.charCodeAt(i); }
   return "a"+(h>>>0).toString(36)+key.length.toString(36);
 }
-function fmtDateKey(d){ // -> YYYY-MM-DD
+function fmtDateKey(d){
   if(!d) return "";
-  if(d instanceof Date && !isNaN(d)){
-    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-  }
-  const s = String(d).trim();
-  // already iso-ish
-  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(m) return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
-  // M/D/YYYY
-  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-  if(m){ let y=m[3]; if(y.length===2) y="20"+y; return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0"); }
-  // last resort: long formats like "Monday, June 01, 2026"
-  const p = new Date(s);
-  if(!isNaN(p)) return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0");
+  if(d instanceof Date && !isNaN(d)) return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const s=String(d).trim();
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){let y=m[3];if(y.length===2)y="20"+y;return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");}
+  const p=new Date(s); if(!isNaN(p)) return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0");
   return "";
 }
-function prettyDate(iso){
-  if(!iso) return "No date";
-  const [y,mo,da] = iso.split("-").map(Number);
-  const d = new Date(y, mo-1, da);
-  if(isNaN(d)) return iso;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const diff = Math.round((today - d)/86400000);
-  const base = d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-  if(diff===0) return "Today · "+base;
-  if(diff===1) return "Yesterday · "+base;
-  return base;
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function rowDate(iso){
+  if(!iso) return {top:"—",bot:""};
+  const [y,mo,da]=iso.split("-").map(Number);
+  const d=new Date(y,mo-1,da); if(isNaN(d)) return {top:iso,bot:""};
+  const today=new Date(); today.setHours(0,0,0,0);
+  const diff=Math.round((today-d)/86400000);
+  const top=MON[mo-1]+" "+da;
+  if(diff===0) return {top,bot:"Today",rel:true};
+  if(diff===1) return {top,bot:"Yesterday",rel:true};
+  return {top,bot:String(y)};
 }
+function shortDate(iso){ if(!iso) return ""; const [y,mo,da]=iso.split("-").map(Number); if(!mo) return iso; return MON[mo-1]+" "+da; }
 function todayIso(){ return fmtDateKey(new Date()); }
+function monthKey(iso){ return iso?iso.slice(0,7):""; }
+function monthLabel(k){ const [y,m]=k.split("-").map(Number); return MON[m-1]+" "+y; }
 
-/* ---------------- Toast ---------------- */
+/* ---------- Toast ---------- */
 let toastT;
-function toast(msg, type="ok"){
-  const t = $("toast");
-  t.className = "toast "+type;
-  t.innerHTML = (type==="ok"?"✓ ":type==="err"?"⚠ ":"")+esc(msg);
-  void t.offsetWidth;
-  t.classList.add("show");
-  clearTimeout(toastT);
-  toastT = setTimeout(()=>t.classList.remove("show"), 2800);
-}
+function toast(msg){ const t=$("toast"); t.textContent=msg; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
-/* ---------------- Sync status ---------------- */
-function setSync(state){
-  const dot = $("syncDot"), txt=$("syncTxt");
-  dot.className = "sync-dot "+(state==="live"?"live":state==="err"?"err":"");
-  txt.textContent = state==="live"?"Live":state==="err"?"Offline":"Connecting";
-}
-
-/* ---------------- Firestore live feed ---------------- */
+/* ---------- Sync ---------- */
+function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?"Live":s==="err"?"Offline":"Connecting"; }
 function startSync(){
-  if(!fbReady){ setSync("err"); showFeedError(); return; }
-  try{
-    onSnapshot(collection(db,"arrivals"), snap=>{
-      const list = [];
-      snap.forEach(d=>{
-        const v = d.data();
-        list.push({
-          id: d.id,
-          dateReceived: v.dateReceived||"",
-          po: v.po||"",
-          jobNumber: v.jobNumber||"",
-          jobName: v.jobName||"",
-          description: v.description||"",
-          supplier: v.supplier||"",
-          deliveryDate: v.deliveryDate||"",
-          requestedBy: v.requestedBy||"",
-          seq: v.seq||0
-        });
-      });
-      // newest first: by date desc, then seq desc
-      list.sort((a,b)=>{
-        if(a.dateReceived !== b.dateReceived) return a.dateReceived < b.dateReceived ? 1 : -1;
-        return (b.seq||0)-(a.seq||0);
-      });
-      ARRIVALS = list;
-      setSync("live");
-      renderAll();
-    }, err=>{
-      console.error("snapshot err", err);
-      setSync("err");
-      showFeedError(err.code);
-    });
-  }catch(e){
-    setSync("err"); showFeedError();
-  }
+  if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); return; }
+  onSnapshot(collection(db,"arrivals"), snap=>{
+    const list=[]; snap.forEach(d=>{ const v=d.data(); list.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",deliveryDate:v.deliveryDate||"",requestedBy:v.requestedBy||"",seq:v.seq||0}); });
+    list.sort((a,b)=> a.dateReceived!==b.dateReceived ? (a.dateReceived<b.dateReceived?1:-1) : (b.seq||0)-(a.seq||0));
+    ARRIVALS=list; setSync("live"); renderAll();
+  }, e=>{ console.error(e); setSync("err"); showErr("feedList",e.code); });
+  onSnapshot(collection(db,"rentals"), snap=>{
+    const list=[]; snap.forEach(d=>{ const v=d.data(); list.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0}); });
+    list.sort((a,b)=> a.dateRented!==b.dateRented ? (a.dateRented<b.dateRented?1:-1) : (b.seq||0)-(a.seq||0));
+    RENTALS=list; renderRentals(); renderJobs();
+  }, e=>{ console.error(e); showErr("rentList",e.code); });
 }
-function showFeedError(code){
-  $("feedList").innerHTML = `<div class="empty">
-    <div class="ico">📡</div><h3>Can't reach Firebase</h3>
-    <p>The live feed couldn't load${code?` (${esc(code)})`:""}. Check your connection and Firestore rules, then reload.</p></div>`;
-  $("feedMeta").textContent = "Offline";
-}
+function showErr(elId,code){ $(elId).innerHTML=`<div class="empty"><div class="ico">📡</div><h3>Can't reach Firebase</h3><p>Live data couldn't load${code?` (${esc(code)})`:""}. Check your connection and Firestore rules, then reload.</p></div>`; }
 
-/* ---------------- Render: Feed ---------------- */
-function cardHTML(r, opts={}){
-  const job = normJob(r.jobNumber);
-  const showStar = opts.star !== false;
-  const saved = MY_JOBS.includes(job);
-  const tabClass = isRealJob(job) ? "" : "na";
-  const tabInner = isRealJob(job)
-    ? `<div class="joblabel">Job</div><div class="jobnum">${esc(job)}</div>`
-    : `<div class="joblabel">Job</div><div class="card-tab-x">—</div>`;
-  return `<div class="card">
-    <div class="card-tab ${tabClass}">${tabInner}</div>
-    <div class="card-body">
-      ${r.jobName ? `<div class="card-jobname">${esc(r.jobName)}</div>`:""}
-      <p class="card-desc">${esc(r.description)||"<span style='color:var(--steel-light)'>No description</span>"}</p>
-      <dl class="card-grid">
-        ${r.po ? `<dt>P.O.</dt><dd class="mono">${esc(r.po)}</dd>`:""}
-      </dl>
-      <div class="card-foot">
-        ${r.supplier ? `<span class="chip supplier">${esc(r.supplier)}</span>`:""}
-        ${r.requestedBy ? `<span class="chip who">${esc(r.requestedBy)}</span>`:""}
-        ${r.deliveryDate ? `<span class="chip deliv">Deliv ${esc(prettyShort(r.deliveryDate))}</span>`:""}
-        ${(showStar && isRealJob(job)) ? `<button class="star-btn ${saved?'saved':''}" data-savejob="${esc(job)}">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="${saved?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg>
-          ${saved?'Saved':'Save job'}</button>`:""}
-      </div>
-    </div>
+/* ---------- Row builders ---------- */
+function adminActs(type,id){
+  if(!adminUnlocked) return "";
+  return `<button class="mini-btn edit" data-edit="${type}:${esc(id)}" title="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+  <button class="mini-btn del" data-del="${type}:${esc(id)}" title="Delete"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>`;
+}
+function arrivalRow(r,opts={}){
+  const job=normJob(r.jobNumber), d=rowDate(r.dateReceived);
+  const saved=MY_JOBS.includes(job);
+  const star = (opts.star!==false && isRealJob(job)) ? `<button class="star-btn ${saved?'saved':''}" data-savejob="${esc(job)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="${saved?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg></button>` : "";
+  return `<div class="row" data-type="arrival" data-id="${esc(r.id)}">
+    <div class="r-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></div>
+    <div class="r-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
+    <div class="r-main">${r.jobName?`<div class="r-name">${esc(r.jobName)}</div>`:""}<div class="r-desc">${esc(r.description)||"<span style='color:var(--steel-light)'>No description</span>"}</div></div>
+    <div class="r-meta">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">${esc(r.requestedBy)}</span>`:""}${r.deliveryDate?`<span class="m deliv">Deliv ${esc(shortDate(r.deliveryDate))}</span>`:""}</div>
+    <div class="r-act">${adminActs("arrival",r.id)}${star}</div>
   </div>`;
 }
-function prettyShort(iso){
-  if(!iso) return "";
-  const [y,mo,da] = iso.split("-").map(Number);
-  if(!mo) return iso;
-  return new Date(y,mo-1,da).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+function rentalRow(r,opts={}){
+  const job=normJob(r.jobNumber), d=rowDate(r.dateRented);
+  const ret=/return/i.test(r.status);
+  const saved=MY_JOBS.includes(job);
+  const star = (opts.star!==false && isRealJob(job)) ? `<button class="star-btn ${saved?'saved':''}" data-savejob="${esc(job)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="${saved?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg></button>` : "";
+  return `<div class="row rental" data-type="rental" data-id="${esc(r.id)}">
+    <div class="r-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></div>
+    <div class="r-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
+    <div class="r-main">${r.jobName?`<div class="r-name">${esc(r.jobName)}</div>`:""}<div class="r-desc">${esc(r.equipment)||"<span style='color:var(--steel-light)'>No equipment</span>"}</div></div>
+    <div class="r-meta"><span class="status ${ret?'returned':'renting'}">${esc(r.status||"Renting")}</span>${r.vendor?`<span class="m sup">${esc(r.vendor)}</span>`:""}${r.rate?`<span class="m rate">${esc(r.rate)}</span>`:""}${r.orderedBy?`<span class="m req">${esc(r.orderedBy)}</span>`:""}${ret&&r.dateReturned?`<span class="m deliv">Ret ${esc(shortDate(r.dateReturned))}</span>`:""}${r.rentalId?`<span class="m id">#${esc(r.rentalId)}</span>`:""}</div>
+    <div class="r-act">${adminActs("rental",r.id)}${star}</div>
+  </div>`;
 }
 
+/* ---------- Month dropdown ---------- */
+function refreshMonths(){
+  const sel=$("monthSel"); const cur=sel.value;
+  const keys=[...new Set(ARRIVALS.map(r=>monthKey(r.dateReceived)).filter(Boolean))].sort().reverse();
+  sel.innerHTML=`<option value="">All months</option>`+keys.map(k=>`<option value="${k}">${monthLabel(k)}</option>`).join("");
+  if(keys.includes(cur)) sel.value=cur;
+}
+
+/* ---------- Render: Arrivals ---------- */
 function renderFeed(){
-  const q = $("feedSearch").value.trim().toLowerCase();
-  $("feedClr").style.display = q ? "block" : "none";
-  let rows = ARRIVALS;
-  if(q){
-    rows = rows.filter(r =>
-      (r.jobNumber||"").toLowerCase().includes(q) ||
-      (r.jobName||"").toLowerCase().includes(q) ||
-      (r.description||"").toLowerCase().includes(q) ||
-      (r.supplier||"").toLowerCase().includes(q) ||
-      (r.po||"").toLowerCase().includes(q) ||
-      (r.requestedBy||"").toLowerCase().includes(q)
-    );
-  }
-  const list = $("feedList");
-  if(!ARRIVALS.length){
-    list.innerHTML = `<div class="empty"><div class="ico">📦</div><h3>No arrivals yet</h3>
-      <p>Once Bobby logs equipment or imports the master sheet, it shows up here — newest first.</p></div>`;
-    $("feedMeta").textContent = "0 arrivals";
-    return;
-  }
-  if(!rows.length){
-    list.innerHTML = `<div class="empty"><div class="ico">🔍</div><h3>No matches</h3>
-      <p>Nothing found for "${esc(q)}". Try a job number, supplier, or item.</p></div>`;
-    $("feedMeta").textContent = "0 of "+ARRIVALS.length;
-    return;
-  }
-  $("feedMeta").textContent = q ? `${rows.length} of ${ARRIVALS.length} arrivals` : `${ARRIVALS.length.toLocaleString()} arrivals`;
-
-  // group by date
-  let html = "", curDate = null, buf = [], groupCount = 0;
-  const flush = ()=>{
-    if(buf.length){
-      html += `<div class="daterow"><span class="d-main">${esc(prettyDate(curDate))}</span><span class="d-line"></span><span class="d-count">${groupCount}</span></div>`;
-      html += buf.join("");
-    }
-    buf = []; groupCount = 0;
-  };
-  // cap render for performance, with a "load more" note
-  const LIMIT = 400;
-  const slice = rows.slice(0, LIMIT);
-  for(const r of slice){
-    if(r.dateReceived !== curDate){ flush(); curDate = r.dateReceived; }
-    buf.push(cardHTML(r)); groupCount++;
-  }
-  flush();
-  if(rows.length > LIMIT){
-    html += `<div class="empty" style="padding:30px 20px"><p>Showing the ${LIMIT} most recent of ${rows.length.toLocaleString()}. Search to find older arrivals.</p></div>`;
-  }
-  list.innerHTML = html;
+  const q=$("feedSearch").value.trim().toLowerCase(); const month=$("monthSel").value;
+  $("feedClr").style.display=q?"block":"none";
+  let rows=ARRIVALS;
+  if(month) rows=rows.filter(r=>monthKey(r.dateReceived)===month);
+  if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.description,r.supplier,r.po,r.requestedBy].some(v=>(v||"").toLowerCase().includes(q)));
+  const list=$("feedList");
+  if(!ARRIVALS.length){ list.innerHTML=`<div class="empty"><div class="ico">📦</div><h3>No arrivals yet</h3><p>Once Bobby logs equipment or imports the master sheet, it shows here — newest first.</p></div>`; $("feedMeta").textContent="0 arrivals"; return; }
+  if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing found${month?` in ${monthLabel(month)}`:""}${q?` for "${esc(q)}"`:""}.</p></div>`; $("feedMeta").textContent="0 shown"; return; }
+  $("feedMeta").innerHTML = (q||month)?`<b>${rows.length}</b> of ${ARRIVALS.length.toLocaleString()} arrivals`:`<b>${ARRIVALS.length.toLocaleString()}</b> arrivals`;
+  const LIMIT=600, slice=rows.slice(0,LIMIT);
+  let html=slice.map(r=>arrivalRow(r)).join("");
+  if(rows.length>LIMIT) html+=`<div class="empty" style="padding:24px"><p>Showing ${LIMIT} of ${rows.length.toLocaleString()}. Pick a month or search to narrow.</p></div>`;
+  list.innerHTML=html;
 }
 
-/* ---------------- Render: My Jobs ---------------- */
+/* ---------- Render: Rentals ---------- */
+function renderRentals(){
+  const q=$("rentSearch").value.trim().toLowerCase(); const st=$("rentStatus").value;
+  $("rentClr").style.display=q?"block":"none";
+  $("pillRent").textContent=RENTALS.length;
+  let rows=RENTALS;
+  if(st) rows=rows.filter(r=> st==="Returned" ? /return/i.test(r.status) : !/return/i.test(r.status));
+  if(q) rows=rows.filter(r=>[r.rentalId,r.jobNumber,r.jobName,r.equipment,r.vendor,r.orderedBy,r.po].some(v=>(v||"").toLowerCase().includes(q)));
+  const list=$("rentList");
+  if(!RENTALS.length){ list.innerHTML=`<div class="empty"><div class="ico">🚜</div><h3>No rentals yet</h3><p>Bobby can log a rental from the Admin tab, or import the master sheet.</p></div>`; $("rentMeta").textContent="0 rentals"; return; }
+  if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>No rentals match that filter.</p></div>`; $("rentMeta").textContent="0 shown"; return; }
+  const out=rows.filter(r=>!/return/i.test(r.status)).length;
+  $("rentMeta").innerHTML=`<b>${out}</b> out · ${rows.length} shown`;
+  list.innerHTML=rows.map(r=>rentalRow(r)).join("");
+}
+
+/* ---------- Render: My Jobs ---------- */
 function distinctJobs(){
-  const map = new Map(); // job -> {jobName, count, lastDate}
-  for(const r of ARRIVALS){
-    const j = normJob(r.jobNumber);
-    if(!isRealJob(j)) continue;
-    if(!map.has(j)) map.set(j, {jobNumber:j, jobName:r.jobName||"", count:0, last:""});
-    const o = map.get(j);
-    o.count++;
-    if(r.jobName && !o.jobName) o.jobName = r.jobName;
-    if(r.dateReceived > o.last) o.last = r.dateReceived;
-  }
+  const map=new Map();
+  for(const r of ARRIVALS){ const j=normJob(r.jobNumber); if(!isRealJob(j)) continue; if(!map.has(j)) map.set(j,{jobNumber:j,jobName:r.jobName||"",last:""}); const o=map.get(j); if(r.jobName&&!o.jobName)o.jobName=r.jobName; if(r.dateReceived>o.last)o.last=r.dateReceived; }
+  for(const r of RENTALS){ const j=normJob(r.jobNumber); if(!isRealJob(j)) continue; if(!map.has(j)) map.set(j,{jobNumber:j,jobName:r.jobName||"",last:""}); const o=map.get(j); if(r.jobName&&!o.jobName)o.jobName=r.jobName; }
   return map;
 }
 function renderJobs(){
-  const jobsMap = distinctJobs();
-  $("pillJobs").textContent = MY_JOBS.length;
-
-  // suggestions
-  const sq = $("jobSearch").value.trim().toLowerCase();
-  const sugWrap = $("jobSuggest");
+  const jobsMap=distinctJobs();
+  $("pillJobs").textContent=MY_JOBS.length;
+  const sq=$("jobSearch").value.trim().toLowerCase(); const sugWrap=$("jobSuggest");
   if(sq){
-    const matches = [...jobsMap.values()]
-      .filter(o => o.jobNumber.toLowerCase().includes(sq) || (o.jobName||"").toLowerCase().includes(sq))
-      .filter(o => !MY_JOBS.includes(o.jobNumber))
-      .sort((a,b)=> b.last < a.last ? -1 : 1)
-      .slice(0,8);
-    sugWrap.innerHTML = matches.length
-      ? matches.map(o=>`<div class="s-item">
-          <span class="sj">${esc(o.jobNumber)}</span>
-          <span class="sn">${esc(o.jobName||"—")}</span>
-          <button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join("")
-      : `<div class="s-item" style="justify-content:center;color:var(--steel)">No matching job — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`;
-  } else {
-    sugWrap.innerHTML = "";
-  }
-
-  // folders
-  const wrap = $("foldersList");
-  if(!MY_JOBS.length){
-    wrap.innerHTML = `<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3>
-      <p>Search a job number above and tap Save. New arrivals on it will collect here automatically.</p></div>`;
-    return;
-  }
-  // sort saved jobs by most recent arrival
-  const sorted = [...MY_JOBS].sort((a,b)=>{
-    const la = jobsMap.get(a)?.last || ""; const lb = jobsMap.get(b)?.last || "";
-    return lb < la ? -1 : 1;
-  });
-  wrap.innerHTML = sorted.map(job=>{
-    const info = jobsMap.get(job);
-    const items = ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
-    const name = info?.jobName || (items[0]?.jobName) || "Unknown job name";
-    const cards = items.length
-      ? items.map(r=>cardHTML(r,{star:false})).join("")
-      : `<div class="empty" style="padding:24px 16px"><p>No arrivals on this job yet. We'll add them here as they come in.</p></div>`;
+    const matches=[...jobsMap.values()].filter(o=>o.jobNumber.toLowerCase().includes(sq)||(o.jobName||"").toLowerCase().includes(sq)).filter(o=>!MY_JOBS.includes(o.jobNumber)).sort((a,b)=>b.last<a.last?-1:1).slice(0,8);
+    sugWrap.innerHTML = matches.length ? matches.map(o=>`<div class="s-item"><span class="sj">${esc(o.jobNumber)}</span><span class="sn">${esc(o.jobName||"—")}</span><button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join("") : `<div class="s-item" style="justify-content:center;color:var(--steel)">No match — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`;
+  } else sugWrap.innerHTML="";
+  const wrap=$("foldersList");
+  if(!MY_JOBS.length){ wrap.innerHTML=`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save. New arrivals and rentals on it collect here automatically.</p></div>`; return; }
+  const sorted=[...MY_JOBS].sort((a,b)=>{ const la=jobsMap.get(a)?.last||"",lb=jobsMap.get(b)?.last||""; return lb<la?-1:1; });
+  wrap.innerHTML=sorted.map(job=>{
+    const info=jobsMap.get(job);
+    const arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
+    const rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
+    const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||"Unknown job name";
+    let body="";
+    body+=`<div class="subhead">Arrivals <span class="cnt">${arr.length}</span></div>`;
+    body+= arr.length ? `<div class="rows">${arr.map(r=>arrivalRow(r,{star:false})).join("")}</div>` : `<div class="empty" style="padding:14px 16px"><p style="font-size:13px">No arrivals yet.</p></div>`;
+    body+=`<div class="subhead">Rentals <span class="cnt">${rnt.length}</span></div>`;
+    body+= rnt.length ? `<div class="rows">${rnt.map(r=>rentalRow(r,{star:false})).join("")}</div>` : `<div class="empty" style="padding:14px 16px"><p style="font-size:13px">No rentals on this job.</p></div>`;
     return `<div class="folder" data-folder="${esc(job)}">
       <div class="folder-head" data-toggle="${esc(job)}">
         <span class="folder-tag">${esc(job)}</span>
-        <div class="folder-info">
-          <div class="fn">${esc(name)}</div>
-          <div class="fc"><b>${items.length}</b> arrival${items.length===1?"":"s"}${info?.last?` · last ${esc(prettyShort(info.last))}`:""}</div>
-        </div>
+        <div class="folder-info"><div class="fn">${esc(name)}</div><div class="fc"><b>${arr.length}</b> arrival${arr.length===1?"":"s"} · <b>${rnt.length}</b> rental${rnt.length===1?"":"s"}${info?.last?` · last ${esc(shortDate(info.last))}`:""}</div></div>
         <div class="folder-actions">
-          <button class="icon-btn" data-removejob="${esc(job)}" title="Remove">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>
-          </button>
+          <button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>
           <span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
         </div>
       </div>
-      <div class="folder-body">${cards}</div>
+      <div class="folder-body">${body}</div>
     </div>`;
   }).join("");
 }
 
-/* ---------------- Render: Admin stats ---------------- */
+/* ---------- Admin stats ---------- */
 function renderAdminStats(){
-  $("statTotal").textContent = ARRIVALS.length.toLocaleString();
-  const t = todayIso();
-  $("statToday").textContent = ARRIVALS.filter(r=>r.dateReceived===t).length;
-  $("statJobs").textContent = distinctJobs().size;
+  $("statTotal").textContent=ARRIVALS.length.toLocaleString();
+  $("statRent").textContent=RENTALS.filter(r=>!/return/i.test(r.status)).length;
+  $("statToday").textContent=ARRIVALS.filter(r=>r.dateReceived===todayIso()).length;
 }
 
-/* ---------------- Master render ---------------- */
+/* ---------- Master render ---------- */
 function renderAll(){
-  $("pillFeed").textContent = ARRIVALS.length > 999 ? (Math.floor(ARRIVALS.length/100)/10)+"k" : ARRIVALS.length;
-  renderFeed();
-  renderJobs();
-  renderAdminStats();
+  $("pillFeed").textContent = ARRIVALS.length>999 ? (Math.floor(ARRIVALS.length/100)/10)+"k" : ARRIVALS.length;
+  refreshMonths(); renderFeed(); renderRentals(); renderJobs(); renderAdminStats();
 }
 
-/* ---------------- Save / remove job ---------------- */
-function addJob(job){
-  const j = normJob(job);
-  if(!isRealJob(j)){ toast("Enter a valid job number", "err"); return; }
-  if(MY_JOBS.includes(j)){ toast(j+" is already saved"); return; }
-  MY_JOBS.push(j); saveMyJobs();
-  $("jobSearch").value = "";
-  renderJobs();
-  toast("Saved "+j+" to My Jobs");
-}
-function removeJob(job){
-  MY_JOBS = MY_JOBS.filter(j=>j!==job); saveMyJobs();
-  renderJobs();
-  toast("Removed "+job);
-}
+/* ---------- Save/remove job ---------- */
+function addJob(job){ const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); saveMyJobs(); $("jobSearch").value=""; renderJobs(); renderFeed(); renderRentals(); toast("Saved "+j+" to My Jobs"); }
+function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); saveMyJobs(); renderJobs(); renderFeed(); renderRentals(); toast("Removed "+job); }
 
-/* ---------------- Tabs ---------------- */
-document.querySelectorAll(".tab").forEach(t=>{
-  t.addEventListener("click", ()=>{
-    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
-    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
-    t.classList.add("active");
-    $("view-"+t.dataset.view).classList.add("active");
-    window.scrollTo(0,0);
-    if(t.dataset.view==="admin") syncAdminView();
-  });
+/* ---------- Tabs ---------- */
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active"); $("view-"+t.dataset.view).classList.add("active"); window.scrollTo(0,0);
+  if(t.dataset.view==="admin") syncAdminView();
+}));
+
+/* ---------- Filters ---------- */
+$("feedSearch").addEventListener("input",renderFeed);
+$("feedClr").addEventListener("click",()=>{$("feedSearch").value="";renderFeed();});
+$("monthSel").addEventListener("change",renderFeed);
+$("rentSearch").addEventListener("input",renderRentals);
+$("rentClr").addEventListener("click",()=>{$("rentSearch").value="";renderRentals();});
+$("rentStatus").addEventListener("change",renderRentals);
+
+/* ---------- Delegated clicks ---------- */
+document.addEventListener("click",e=>{
+  const save=e.target.closest("[data-savejob]"); if(save){ const j=save.dataset.savejob; MY_JOBS.includes(j)?removeJob(j):addJob(j); return; }
+  const addb=e.target.closest("[data-addjob]"); if(addb){ addJob(addb.dataset.addjob); return; }
+  const rem=e.target.closest("[data-removejob]"); if(rem){ e.stopPropagation(); removeJob(rem.dataset.removejob); return; }
+  const tog=e.target.closest("[data-toggle]"); if(tog){ tog.closest(".folder").classList.toggle("open"); return; }
+  const ed=e.target.closest("[data-edit]"); if(ed){ const [tp,id]=ed.dataset.edit.split(":"); openEdit(tp,id); return; }
+  const dl=e.target.closest("[data-del]"); if(dl){ const [tp,id]=dl.dataset.del.split(":"); doDelete(tp,id); return; }
 });
 
-/* ---------------- Feed search ---------------- */
-$("feedSearch").addEventListener("input", renderFeed);
-$("feedClr").addEventListener("click", ()=>{ $("feedSearch").value=""; renderFeed(); });
+/* ---------- My Jobs add ---------- */
+$("jobSearch").addEventListener("input",renderJobs);
+$("jobAddBtn").addEventListener("click",()=>{ const v=$("jobSearch").value.trim(); v?addJob(v):toast("Type a job number first"); });
+$("jobSearch").addEventListener("keydown",e=>{ if(e.key==="Enter"){const v=$("jobSearch").value.trim(); if(v)addJob(v);} });
 
-/* ---------------- Delegated clicks (save-job stars, folders) ---------------- */
-document.addEventListener("click", e=>{
-  const save = e.target.closest("[data-savejob]");
-  if(save){ const j = save.dataset.savejob; MY_JOBS.includes(j)?removeJob(j):addJob(j); renderFeed(); return; }
-  const addb = e.target.closest("[data-addjob]");
-  if(addb){ addJob(addb.dataset.addjob); return; }
-  const rem = e.target.closest("[data-removejob]");
-  if(rem){ e.stopPropagation(); removeJob(rem.dataset.removejob); return; }
-  const tog = e.target.closest("[data-toggle]");
-  if(tog){ tog.closest(".folder").classList.toggle("open"); return; }
-});
-
-/* ---------------- My Jobs add ---------------- */
-$("jobSearch").addEventListener("input", renderJobs);
-$("jobAddBtn").addEventListener("click", ()=>{
-  const v = $("jobSearch").value.trim();
-  if(v) addJob(v); else toast("Type a job number first","err");
-});
-$("jobSearch").addEventListener("keydown", e=>{ if(e.key==="Enter"){ const v=$("jobSearch").value.trim(); if(v) addJob(v);} });
-
-/* ---------------- Admin PIN ---------------- */
-const pin = $("pinInput");
+/* ---------- Admin PIN ---------- */
+const pin=$("pinInput");
 function syncAdminView(){
-  $("adminLocked").style.display = adminUnlocked ? "none":"block";
-  $("adminUnlocked").style.display = adminUnlocked ? "block":"none";
-  if(adminUnlocked){ renderAdminStats(); }
-  else { pin.value=""; $("pinMsg").textContent=""; pin.classList.remove("bad"); }
+  $("adminLocked").style.display=adminUnlocked?"none":"block";
+  $("adminUnlocked").style.display=adminUnlocked?"block":"none";
+  if(adminUnlocked) renderAdminStats(); else { pin.value=""; $("pinMsg").textContent=""; pin.classList.remove("bad"); }
 }
-pin.addEventListener("input", ()=>{
-  pin.value = pin.value.replace(/\D/g,"").slice(0,4);
-  $("pinMsg").className = "pin-msg";
-  $("pinMsg").textContent = "";
-  pin.classList.remove("bad");
+pin.addEventListener("input",()=>{
+  pin.value=pin.value.replace(/\D/g,"").slice(0,4); $("pinMsg").className="pin-msg"; $("pinMsg").textContent=""; pin.classList.remove("bad");
   if(pin.value.length===4){
-    if(pin.value===ADMIN_PIN){
-      adminUnlocked = true;
-      sessionStorage.setItem("er_admin","1");
-      syncAdminView();
-      toast("Welcome back, Bobby");
-    } else {
-      pin.classList.add("bad");
-      $("pinMsg").className = "pin-msg bad";
-      $("pinMsg").textContent = "Incorrect PIN — try again";
-      setTimeout(()=>{ pin.value=""; pin.classList.remove("bad"); pin.focus(); }, 600);
-    }
+    if(pin.value===ADMIN_PIN){ adminUnlocked=true; sessionStorage.setItem("er_admin","1"); syncAdminView(); renderFeed(); renderRentals(); renderJobs(); toast("Welcome back, Bobby"); }
+    else { pin.classList.add("bad"); $("pinMsg").className="pin-msg bad"; $("pinMsg").textContent="Incorrect PIN — try again"; setTimeout(()=>{pin.value="";pin.classList.remove("bad");pin.focus();},600); }
   }
 });
-$("btnLock").addEventListener("click", ()=>{
-  adminUnlocked = false; sessionStorage.removeItem("er_admin");
-  syncAdminView(); toast("Admin locked");
-});
+$("btnLock").addEventListener("click",()=>{ adminUnlocked=false; sessionStorage.removeItem("er_admin"); syncAdminView(); renderFeed(); renderRentals(); renderJobs(); toast("Admin locked"); });
 
-/* ---------------- Modals ---------------- */
+/* ---------- Modals ---------- */
 function openModal(id){ $(id).classList.add("show"); document.body.style.overflow="hidden"; }
 function closeModal(id){ $(id).classList.remove("show"); document.body.style.overflow=""; }
-document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click", ()=>closeModal(b.dataset.close)));
-document.querySelectorAll(".modal-back").forEach(m=>m.addEventListener("click", e=>{ if(e.target===m) closeModal(m.id); }));
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal(b.dataset.close)));
+document.querySelectorAll(".modal-back").forEach(m=>m.addEventListener("click",e=>{ if(e.target===m) closeModal(m.id); }));
 
-/* ---------------- Log arrival ---------------- */
-$("btnLog").addEventListener("click", ()=>{
-  $("f_date").value = todayIso();
-  ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_deliv"].forEach(i=>$(i).value="");
-  $("jobnameHint").textContent="";
-  openModal("logModal");
-  setTimeout(()=>$("f_job").focus(), 300);
+/* ---------- Arrival: new / edit ---------- */
+$("btnLog").addEventListener("click",()=>{
+  editing=null; $("logTitle").textContent="Log Arrival"; $("logSubmit").textContent="Save arrival"; $("logDelete").style.display="none";
+  $("f_date").value=todayIso(); ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_deliv"].forEach(i=>$(i).value=""); $("jobnameHint").textContent="";
+  openModal("logModal"); setTimeout(()=>$("f_job").focus(),300);
 });
-// auto-fill job name from known jobs
-$("f_job").addEventListener("input", ()=>{
-  const j = normJob($("f_job").value);
-  const hint = $("jobnameHint");
-  if(!isRealJob(j)){ hint.textContent=""; return; }
-  const found = distinctJobs().get(j);
-  if(found && found.jobName){
-    hint.textContent = `Known job: ${found.jobName}`;
-    if(!$("f_jobname").value) $("f_jobname").value = found.jobName;
-  } else hint.textContent = "";
-});
-$("logSubmit").addEventListener("click", saveArrival);
+$("f_job").addEventListener("input",()=>{ const j=normJob($("f_job").value); const h=$("jobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){ h.textContent="Known job: "+f.jobName; if(!$("f_jobname").value)$("f_jobname").value=f.jobName; } else h.textContent=""; });
+$("logSubmit").addEventListener("click",saveArrival);
+$("logDelete").addEventListener("click",()=>{ if(editing&&editing.type==="arrival") doDelete("arrival",editing.id,true); });
 async function saveArrival(){
-  const rec = {
-    dateReceived: $("f_date").value || todayIso(),
-    po: $("f_po").value.trim(),
-    jobNumber: $("f_job").value.trim(),
-    jobName: $("f_jobname").value.trim(),
-    description: $("f_desc").value.trim(),
-    supplier: $("f_supplier").value.trim(),
-    deliveryDate: $("f_deliv").value || "",
-    requestedBy: $("f_req").value.trim()
-  };
-  if(!rec.jobNumber){ toast("Job # is required","err"); $("f_job").focus(); return; }
-  if(!rec.description){ toast("Description is required","err"); $("f_desc").focus(); return; }
-  if(!fbReady){ toast("No Firebase connection","err"); return; }
-  const btn = $("logSubmit"); btn.disabled=true; btn.textContent="Saving…";
+  const rec={ dateReceived:$("f_date").value||todayIso(), po:$("f_po").value.trim(), jobNumber:$("f_job").value.trim(), jobName:$("f_jobname").value.trim(), description:$("f_desc").value.trim(), supplier:$("f_supplier").value.trim(), deliveryDate:$("f_deliv").value||"", requestedBy:$("f_req").value.trim() };
+  if(!rec.jobNumber){toast("Job # is required");$("f_job").focus();return;}
+  if(!rec.description){toast("Description is required");$("f_desc").focus();return;}
+  if(!fbReady){toast("No Firebase connection");return;}
+  const btn=$("logSubmit"); btn.disabled=true; btn.textContent="Saving…";
   try{
-    const id = makeId(rec) + "-" + Date.now().toString(36);
-    await setDoc(doc(db,"arrivals",id), {...rec, seq: Date.now(), createdAt: serverTimestamp(), source:"manual"});
+    if(editing&&editing.type==="arrival"){ await setDoc(doc(db,"arrivals",editing.id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); toast("Arrival updated"); }
+    else{ const id=makeId([rec.dateReceived,rec.po,normJob(rec.jobNumber),rec.description.slice(0,80)])+"-"+Date.now().toString(36); await setDoc(doc(db,"arrivals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); toast("Arrival logged"); }
     closeModal("logModal");
-    toast("Arrival logged");
-  }catch(e){
-    console.error(e);
-    toast("Save failed: "+(e.code||e.message), "err");
-  }finally{
-    btn.disabled=false; btn.textContent="Save arrival";
-  }
+  }catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  finally{ btn.disabled=false; btn.textContent=editing?"Save changes":"Save arrival"; }
 }
 
-/* ---------------- Import Excel ---------------- */
-$("btnImport").addEventListener("click", ()=>{
-  $("importBody").innerHTML = importDropHTML();
-  wireDropzone();
-  openModal("importModal");
+/* ---------- Rental: new / edit ---------- */
+$("btnRental").addEventListener("click",()=>{
+  editing=null; $("rentTitle").textContent="Log Rental"; $("rentSubmit").textContent="Save rental"; $("rentDelete").style.display="none";
+  $("r_date").value=todayIso(); ["r_id","r_job","r_by","r_jobname","r_equip","r_rate","r_vendor","r_po","r_returned"].forEach(i=>$(i).value=""); $("r_status").value="Renting"; $("rJobnameHint").textContent="";
+  openModal("rentalModal"); setTimeout(()=>$("r_job").focus(),300);
 });
-function importDropHTML(){
-  return `<div class="dropzone" id="dropzone">
-      <div class="dz-ico">📄</div>
-      <h4>Upload master sheet</h4>
-      <p>Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it from your device. Re-importing is safe — duplicates are skipped.</p>
-      <label class="dz-btn">Choose file<input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden></label>
-    </div>
-    <div class="field" style="margin-top:18px">
-      <div class="hint">Reads every monthly tab. Columns: Date Received · P.O. · Job# · Job name · Description · Supplier · Delivery Date · Requested By. The Equipment Rentals tab is skipped.</div>
-    </div>`;
-}
-function wireDropzone(){
-  const dz = $("dropzone"), input = $("fileInput");
-  if(!dz) return;
-  input.addEventListener("change", ()=>{ if(input.files[0]) handleFile(input.files[0]); });
-  ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault();dz.classList.add("drag");}));
-  ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault();dz.classList.remove("drag");}));
-  dz.addEventListener("drop", e=>{ const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+$("r_job").addEventListener("input",()=>{ const j=normJob($("r_job").value); const h=$("rJobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){ h.textContent="Known job: "+f.jobName; if(!$("r_jobname").value)$("r_jobname").value=f.jobName; } else h.textContent=""; });
+$("rentSubmit").addEventListener("click",saveRental);
+$("rentDelete").addEventListener("click",()=>{ if(editing&&editing.type==="rental") doDelete("rental",editing.id,true); });
+async function saveRental(){
+  const rec={ dateRented:$("r_date").value||todayIso(), rentalId:$("r_id").value.trim(), jobNumber:$("r_job").value.trim(), orderedBy:$("r_by").value.trim(), jobName:$("r_jobname").value.trim(), equipment:$("r_equip").value.trim(), rate:$("r_rate").value.trim(), vendor:$("r_vendor").value.trim(), status:$("r_status").value, dateReturned:$("r_returned").value||"", po:$("r_po").value.trim() };
+  if(!rec.jobNumber){toast("Job # is required");$("r_job").focus();return;}
+  if(!rec.equipment){toast("Equipment is required");$("r_equip").focus();return;}
+  if(!fbReady){toast("No Firebase connection");return;}
+  const btn=$("rentSubmit"); btn.disabled=true; btn.textContent="Saving…";
+  try{
+    if(editing&&editing.type==="rental"){ await setDoc(doc(db,"rentals",editing.id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); toast("Rental updated"); }
+    else{ const id=makeId([rec.rentalId,normJob(rec.jobNumber),rec.equipment.slice(0,60),rec.dateRented])+"-"+Date.now().toString(36); await setDoc(doc(db,"rentals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); toast("Rental logged"); }
+    closeModal("rentalModal");
+  }catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  finally{ btn.disabled=false; btn.textContent=editing?"Save changes":"Save rental"; }
 }
 
-// Parse one monthly worksheet into arrival records
-function parseSheet(ws, sheetName){
-  if(/rental/i.test(sheetName)) return [];        // skip Equipment Rentals tab
-  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:"", cellDates:true});
+/* ---------- Edit / delete entry points ---------- */
+function openEdit(type,id){
+  if(type==="arrival"){
+    const r=ARRIVALS.find(x=>x.id===id); if(!r) return;
+    editing={type:"arrival",id:r.id,seq:r.seq};
+    $("logTitle").textContent="Edit Arrival"; $("logSubmit").textContent="Save changes"; $("logDelete").style.display="block";
+    $("f_date").value=r.dateReceived||todayIso(); $("f_po").value=r.po; $("f_job").value=r.jobNumber; $("f_req").value=r.requestedBy; $("f_jobname").value=r.jobName; $("f_desc").value=r.description; $("f_supplier").value=r.supplier; $("f_deliv").value=r.deliveryDate||""; $("jobnameHint").textContent="";
+    openModal("logModal");
+  } else {
+    const r=RENTALS.find(x=>x.id===id); if(!r) return;
+    editing={type:"rental",id:r.id,seq:r.seq};
+    $("rentTitle").textContent="Edit Rental"; $("rentSubmit").textContent="Save changes"; $("rentDelete").style.display="block";
+    $("r_date").value=r.dateRented||todayIso(); $("r_id").value=r.rentalId; $("r_job").value=r.jobNumber; $("r_by").value=r.orderedBy; $("r_jobname").value=r.jobName; $("r_equip").value=r.equipment; $("r_rate").value=r.rate; $("r_vendor").value=r.vendor; $("r_status").value=/return/i.test(r.status)?"Returned":"Renting"; $("r_returned").value=r.dateReturned||""; $("r_po").value=r.po; $("rJobnameHint").textContent="";
+    openModal("rentalModal");
+  }
+}
+async function doDelete(type,id,fromModal){
+  const coll=type==="arrival"?"arrivals":"rentals";
+  const item=(type==="arrival"?ARRIVALS:RENTALS).find(x=>x.id===id);
+  const label=type==="arrival"?(item?.description||"this arrival"):(item?.equipment||"this rental");
+  if(!confirm(`Delete ${type}:\n\n${(label||"").slice(0,120)}\n\nThis can't be undone.`)) return;
+  try{ await deleteDoc(doc(db,coll,id)); toast((type==="arrival"?"Arrival":"Rental")+" deleted"); if(fromModal) closeModal(type==="arrival"?"logModal":"rentalModal"); }
+  catch(e){ console.error(e); toast("Delete failed: "+(e.code||e.message)); }
+}
+
+/* ---------- Import (arrivals + rentals) ---------- */
+$("btnImport").addEventListener("click",()=>{ $("importBody").innerHTML=dropHTML(); wireDrop(); openModal("importModal"); });
+function dropHTML(){ return `<div class="dropzone" id="dropzone"><div class="dz-ico">📄</div><h4>Upload master sheet</h4><p>Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it from your device. Re-importing is safe — duplicates merge, not duplicate.</p><label class="dz-btn">Choose file<input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden></label></div><div class="field" style="margin-top:16px"><div class="hint">Loads every monthly tab into Arrivals, plus the Equipment Rentals tab into Rentals (job numbers are pulled from the PO column).</div></div>`; }
+function wireDrop(){ const dz=$("dropzone"),input=$("fileInput"); if(!dz)return; input.addEventListener("change",()=>{if(input.files[0])handleFile(input.files[0]);}); ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");})); ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");})); dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0]; if(f)handleFile(f);}); }
+
+function parseArrivalSheet(ws,name){
+  if(/rental/i.test(name)) return [];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true});
   if(!rows.length) return [];
-  // find header row (contains "Date Received" or "Job#")
-  let hIdx = -1;
-  for(let i=0;i<Math.min(rows.length,6);i++){
-    const joined = rows[i].map(c=>String(c).toLowerCase()).join("|");
-    if(joined.includes("date received") || (joined.includes("job") && joined.includes("description"))){ hIdx=i; break; }
-  }
-  if(hIdx<0) hIdx = 1; // fallback: row 2
-  const header = rows[hIdx].map(c=>String(c).toLowerCase());
-  const col = (...keys)=>{
-    for(const k of keys){ const idx = header.findIndex(h=>h.includes(k)); if(idx>=0) return idx; }
-    return -1;
-  };
-  const cDate=col("date received","received"), cPo=col("p.o","po","p o"),
-        cJob=col("job#","job #","job num"), cName=col("job name"),
-        cDesc=col("description"), cSup=col("supplier"),
-        cDeliv=col("delivery"), cReq=col("requested");
-
+  let hIdx=-1;
+  for(let i=0;i<Math.min(rows.length,6);i++){ const j=rows[i].map(c=>String(c).toLowerCase()).join("|"); if(j.includes("date received")||(j.includes("job")&&j.includes("description"))){hIdx=i;break;} }
+  if(hIdx<0)hIdx=1;
+  const H=rows[hIdx].map(c=>String(c).toLowerCase());
+  const col=(...k)=>{for(const x of k){const i=H.findIndex(h=>h.includes(x));if(i>=0)return i;}return -1;};
+  const cD=col("date received","received"),cP=col("p.o","po","p o"),cJ=col("job#","job #","job num"),cN=col("job name"),cDe=col("description"),cS=col("supplier"),cDl=col("delivery"),cR=col("requested");
   const out=[];
-  for(let i=hIdx+1;i<rows.length;i++){
-    const row = rows[i];
-    const get = idx => idx>=0 ? row[idx] : "";
-    const desc = String(get(cDesc)||"").trim();
-    const rawDate = get(cDate);
-    const dateKey = fmtDateKey(rawDate);
-    // skip blank / title rows
-    if(!desc && !dateKey) continue;
-    if(!desc && !String(get(cJob)||"").trim()) continue;
-    out.push({
-      dateReceived: dateKey,
-      po: String(get(cPo)||"").trim(),
-      jobNumber: String(get(cJob)||"").trim(),
-      jobName: String(get(cName)||"").trim(),
-      description: desc,
-      supplier: String(get(cSup)||"").trim(),
-      deliveryDate: fmtDateKey(get(cDeliv)),
-      requestedBy: String(get(cReq)||"").trim()
-    });
-  }
+  for(let i=hIdx+1;i<rows.length;i++){ const row=rows[i]; const g=i2=>i2>=0?row[i2]:""; const desc=String(g(cDe)||"").trim(); const dk=fmtDateKey(g(cD)); if(!desc&&!dk)continue; if(!desc&&!String(g(cJ)||"").trim())continue;
+    out.push({dateReceived:dk,po:String(g(cP)||"").trim(),jobNumber:String(g(cJ)||"").trim(),jobName:String(g(cN)||"").trim(),description:desc,supplier:String(g(cS)||"").trim(),deliveryDate:fmtDateKey(g(cDl)),requestedBy:String(g(cR)||"").trim()}); }
   return out;
 }
-
+function parseRentalSheet(ws){
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true});
+  let hIdx=0; for(let i=0;i<Math.min(rows.length,4);i++){ if(rows[i].map(c=>String(c).toLowerCase()).join("|").includes("rental")){hIdx=i;break;} }
+  const out=[];
+  for(let i=hIdx+1;i<rows.length;i++){ const r=rows[i]; const rid=String(r[0]||"").trim(),jn=String(r[1]||"").trim(),eq=String(r[2]||"").trim(); if(!rid&&!jn&&!eq)continue; const po=String(r[9]||"").trim(); const jm=po.match(/(\d{2}-\d{4})/)||jn.match(/(\d{2}-\d{4})/);
+    out.push({rentalId:rid,jobName:jn,equipment:eq,rate:String(r[3]||"").trim(),vendor:String(r[4]||"").trim(),dateRented:fmtDateKey(r[5]),status:/return/i.test(String(r[6]))?"Returned":(String(r[6]||"").trim()||"Renting"),dateReturned:fmtDateKey(r[7]),orderedBy:String(r[8]||"").trim(),po,jobNumber:jm?jm[1]:""}); }
+  return out;
+}
 async function handleFile(file){
-  const body = $("importBody");
-  body.innerHTML = `<div class="imp-stage"><div class="ring"></div><h4>Reading file…</h4><p>${esc(file.name)}</p></div>`;
-  if(!fbReady){ body.innerHTML = stageErr("No Firebase connection. Can't import."); return; }
+  const body=$("importBody");
+  body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Reading file…</h4><p>${esc(file.name)}</p></div>`;
+  if(!fbReady){ body.innerHTML=stageErr("No Firebase connection."); return; }
   try{
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, {cellDates:true});
-    let records = [];
-    for(const name of wb.SheetNames){
-      records = records.concat(parseSheet(wb.Sheets[name], name));
-    }
-    if(!records.length){ body.innerHTML = stageErr("No arrival rows found. Make sure this is the Equipment Received master sheet."); return; }
-
-    // dedupe within file by deterministic id (re-importing merges, never duplicates)
-    const byId = new Map();
-    for(const r of records){ byId.set(makeId(r), r); }
-    const all = [...byId.entries()];
-    const total = all.length;
-
-    body.innerHTML = `<div class="imp-stage"><div class="ring"></div>
-      <h4>Importing ${total.toLocaleString()} records…</h4>
-      <p id="impCount">Syncing to Firebase</p>
-      <div class="imp-bar"><i id="impBar"></i></div></div>`;
-
-    let done = 0, baseSeq = Date.now() - total;
-    const CHUNK = 400;
-    for(let i=0;i<all.length;i+=CHUNK){
-      const batch = writeBatch(db);
-      const slice = all.slice(i, i+CHUNK);
-      slice.forEach(([id, r], k)=>{
-        batch.set(doc(db,"arrivals",id), {...r, seq: baseSeq + i + k, source:"import"}, {merge:true});
-      });
-      await batch.commit();
-      done += slice.length;
-      const pct = Math.round(done/total*100);
-      const bar = $("impBar"); if(bar) bar.style.width = pct+"%";
-      const cnt = $("impCount"); if(cnt) cnt.textContent = `${done.toLocaleString()} of ${total.toLocaleString()}`;
-    }
-    body.innerHTML = `<div class="imp-stage imp-done">
-      <div style="font-size:46px;margin-bottom:10px">✅</div>
-      <h4>Import complete</h4>
-      <p><b>${total.toLocaleString()}</b> records synced. Duplicates were merged, not duplicated.</p>
-      <button class="submit" style="margin-top:20px" id="impClose">Done</button></div>`;
-    $("impClose").addEventListener("click", ()=>closeModal("importModal"));
+    const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true});
+    let arr=[],rnt=[];
+    for(const name of wb.SheetNames){ if(/rental/i.test(name)) rnt=rnt.concat(parseRentalSheet(wb.Sheets[name])); else arr=arr.concat(parseArrivalSheet(wb.Sheets[name],name)); }
+    if(!arr.length && !rnt.length){ body.innerHTML=stageErr("No rows found. Make sure this is the Equipment Received & Rentals master sheet."); return; }
+    const aMap=new Map(); arr.forEach(r=>aMap.set(makeId([r.dateReceived,r.po,normJob(r.jobNumber),r.description.slice(0,80)]),r));
+    const rMap=new Map(); rnt.forEach(r=>rMap.set(makeId([r.rentalId,normJob(r.jobNumber),r.equipment.slice(0,60),r.dateRented]),r));
+    const aAll=[...aMap.entries()], rAll=[...rMap.entries()], total=aAll.length+rAll.length;
+    body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Importing ${total.toLocaleString()} records…</h4><p id="impCount">${aAll.length} arrivals · ${rAll.length} rentals</p><div class="imp-bar"><i id="impBar"></i></div></div>`;
+    let done=0; const CHUNK=400, baseSeq=Date.now()-total;
+    for(let i=0;i<aAll.length;i+=CHUNK){ const b=writeBatch(db); aAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"arrivals",id),{...r,seq:baseSeq+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,aAll.length-i); upd(done,total); }
+    for(let i=0;i<rAll.length;i+=CHUNK){ const b=writeBatch(db); rAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"rentals",id),{...r,seq:baseSeq+aAll.length+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,rAll.length-i); upd(done,total); }
+    body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${aAll.length.toLocaleString()}</b> arrivals and <b>${rAll.length}</b> rentals synced. Duplicates merged.</p><button class="submit" style="margin-top:20px" id="impClose">Done</button></div>`;
+    $("impClose").addEventListener("click",()=>closeModal("importModal"));
     toast(total.toLocaleString()+" records imported");
-  }catch(e){
-    console.error(e);
-    body.innerHTML = stageErr("Import failed: "+(e.code||e.message));
-  }
+  }catch(e){ console.error(e); body.innerHTML=stageErr("Import failed: "+(e.code||e.message)); }
 }
-function stageErr(msg){
-  return `<div class="imp-stage"><div style="font-size:42px;margin-bottom:10px">⚠️</div>
-    <h4>Couldn't import</h4><p>${esc(msg)}</p>
-    <button class="submit" style="margin-top:20px" onclick="document.getElementById('importBody').innerHTML='';location.hash='';">Close</button></div>`;
-}
+function upd(done,total){ const p=Math.round(done/total*100); const bar=$("impBar"); if(bar)bar.style.width=p+"%"; const c=$("impCount"); if(c)c.textContent=done.toLocaleString()+" of "+total.toLocaleString(); }
+function stageErr(msg){ return `<div class="imp-stage"><div style="font-size:42px;margin-bottom:10px">⚠️</div><h4>Couldn't import</h4><p>${esc(msg)}</p><button class="submit" style="margin-top:20px" id="impErrClose">Close</button></div>`; }
+document.addEventListener("click",e=>{ if(e.target&&e.target.id==="impErrClose") closeModal("importModal"); });
 
-/* ---------------- Init ---------------- */
-syncAdminView();
-startSync();
-window.addEventListener("pageshow", ()=>{ if($("view-admin").classList.contains("active")) syncAdminView(); });
+/* ---------- Init ---------- */
+syncAdminView(); startSync();
+window.addEventListener("pageshow",()=>{ if($("view-admin").classList.contains("active")) syncAdminView(); });
 </script>
 </body>
 </html>
