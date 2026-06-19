@@ -14,6 +14,7 @@
     --line:#e3e7ed; --line-soft:#eef1f5; --surface:#eef1f5; --card:#ffffff;
     --hivis:#ff6a1a; --hivis-dark:#e2540a;
     --blue:#1f1f9e; --blue-soft:#ececff;
+    --teal:#0d7a73; --teal-soft:#e2f5f3;
     --green:#1f9d57; --green-soft:#e7f6ee; --amber:#b9770a; --amber-soft:#fdf3e0;
     --radius:12px; --shadow:0 1px 2px rgba(20,24,31,.06), 0 4px 16px rgba(20,24,31,.05);
     --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -24,8 +25,7 @@
   button{font-family:inherit;cursor:pointer;border:none;background:none}
   input,textarea,select{font-family:inherit;font-size:16px}
 
-  /* ---------- White header ---------- */
-  .appbar{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);padding:calc(var(--safe-top) + 12px) 18px 0;box-shadow:0 1px 0 rgba(20,24,31,.02)}
+  .appbar{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);padding:calc(var(--safe-top) + 12px) 18px 0}
   .appbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .brand{display:flex;align-items:center;gap:12px;min-width:0}
   .brand img{height:30px;width:auto;display:block}
@@ -38,7 +38,7 @@
 
   .tabs{display:flex;gap:0;margin-top:12px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
   .tabs::-webkit-scrollbar{display:none}
-  .tab{flex:1;min-width:max-content;padding:10px 14px 12px;color:var(--steel);font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;border-bottom:3px solid transparent;transition:color .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+  .tab{flex:1 0 auto;min-width:max-content;padding:10px 14px 12px;color:var(--steel);font-family:'Barlow Condensed';font-weight:600;font-size:14.5px;letter-spacing:.05em;text-transform:uppercase;border-bottom:3px solid transparent;transition:color .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
   .tab.active{color:var(--ink);border-color:var(--hivis)}
   .tab .pill{background:var(--line-soft);color:var(--steel);font-family:'JetBrains Mono';font-weight:700;font-size:10px;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center}
   .tab.active .pill{background:var(--hivis);color:#fff}
@@ -47,9 +47,8 @@
   .view{display:none}
   .view.active{display:block}
 
-  /* ---------- Controls bar ---------- */
   .controls{position:sticky;top:0;z-index:30;background:var(--surface);padding:13px 14px 9px;display:flex;gap:9px;flex-wrap:wrap}
-  .search{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 13px;box-shadow:var(--shadow);flex:1;min-width:200px}
+  .search{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 13px;box-shadow:var(--shadow);flex:1;min-width:180px}
   .search svg{flex:none;color:var(--steel-light)}
   .search input{border:none;outline:none;background:none;width:100%;font-size:16px;color:var(--ink)}
   .search input::placeholder{color:var(--steel-light)}
@@ -58,19 +57,17 @@
   select.filter{appearance:none;-webkit-appearance:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 34px 10px 14px;box-shadow:var(--shadow);font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);outline:none;cursor:pointer}
   select.filter:focus{border-color:var(--hivis)}
   .selwrap::after{content:"";position:absolute;right:13px;top:50%;width:8px;height:8px;border-right:2px solid var(--steel);border-bottom:2px solid var(--steel);transform:translateY(-65%) rotate(45deg);pointer-events:none}
+  .seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .seg button{padding:9px 13px;font-family:'Barlow Condensed';font-weight:600;font-size:14px;letter-spacing:.04em;text-transform:uppercase;color:var(--steel);border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:none}
+  .seg button.on{background:var(--ink);color:#fff}
 
   .meta-row{display:flex;justify-content:space-between;align-items:baseline;padding:2px 18px 6px;color:var(--steel);font-size:12px}
   .meta-row b{font-family:'JetBrains Mono';color:var(--ink-soft);font-weight:700}
 
-  /* ---------- Dense rows ---------- */
+  /* ---------- Compact arrival rows ---------- */
   .rows{margin:0 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-  .row{
-    display:grid;
-    grid-template-columns:86px 92px minmax(0,1fr) minmax(230px,320px) auto;
-    grid-template-areas:"date job main meta act";
-    align-items:center;gap:6px 14px;
-    padding:11px 15px;border-bottom:1px solid var(--line-soft);
-  }
+  .row{display:grid;grid-template-columns:86px 92px minmax(0,1fr) minmax(220px,310px) auto;grid-template-areas:"date job main meta act";align-items:center;gap:6px 14px;padding:11px 15px;border-bottom:1px solid var(--line-soft)}
   .row:last-child{border-bottom:none}
   .row:nth-child(even){background:#fcfcfd}
   .r-date{grid-area:date;line-height:1.15}
@@ -78,22 +75,17 @@
   .r-date span{font-family:'JetBrains Mono';font-size:10.5px;color:var(--steel-light);font-weight:500}
   .r-date span.rel{color:var(--hivis-dark);font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:11px}
   .r-job{grid-area:job}
-  .jobbadge{font-family:'JetBrains Mono';font-weight:700;font-size:12.5px;color:#fff;background:var(--hivis);padding:4px 8px;border-radius:7px;display:inline-block;white-space:nowrap;letter-spacing:.01em}
+  .jobbadge{font-family:'JetBrains Mono';font-weight:700;font-size:12.5px;color:#fff;background:var(--hivis);padding:4px 8px;border-radius:7px;display:inline-block;white-space:nowrap}
   .jobbadge.na{background:var(--line);color:var(--steel-light)}
   .r-main{grid-area:main;min-width:0}
   .r-name{font-family:'Barlow Condensed';font-weight:600;font-size:13px;letter-spacing:.02em;color:var(--hivis-dark);text-transform:uppercase;line-height:1.2;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .r-desc{font-size:13.5px;font-weight:500;line-height:1.35;color:var(--ink);word-wrap:break-word}
   .r-meta{grid-area:meta;display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
-  .m{font-size:11px;padding:3px 8px;border-radius:18px;font-weight:600;letter-spacing:.01em;white-space:nowrap}
+  .m{font-size:11px;padding:3px 8px;border-radius:18px;font-weight:600;white-space:nowrap}
   .m.sup{background:var(--line-soft);color:var(--steel)}
   .m.po{background:#f1f3f7;color:var(--ink-soft);font-family:'JetBrains Mono';font-weight:500;font-size:10.5px}
   .m.req{background:var(--blue-soft);color:#3a3ab0}
   .m.deliv{background:var(--amber-soft);color:var(--amber)}
-  .m.rate{background:#f1f3f7;color:var(--ink-soft);font-family:'JetBrains Mono';font-weight:500;font-size:10.5px}
-  .m.id{background:var(--line-soft);color:var(--steel-light);font-family:'JetBrains Mono';font-weight:500;font-size:10.5px}
-  .status{font-size:10.5px;padding:3px 9px;border-radius:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
-  .status.renting{background:var(--green-soft);color:var(--green)}
-  .status.returned{background:var(--line-soft);color:var(--steel)}
   .r-act{grid-area:act;display:flex;align-items:center;gap:3px;justify-content:flex-end}
   .star-btn{display:flex;align-items:center;gap:5px;color:var(--steel-light);font-size:11px;font-weight:600;padding:5px 8px;border-radius:8px;white-space:nowrap}
   .star-btn svg{transition:transform .15s}
@@ -102,15 +94,41 @@
   .mini-btn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--steel)}
   .mini-btn:active{background:var(--line-soft)}
   .mini-btn.del:active{background:#fde8e4;color:var(--hivis-dark)}
-
+  .mini-btn.cam{color:var(--hivis-dark)}
   @media (max-width:780px){
     .row{grid-template-columns:auto 1fr auto;grid-template-areas:"job date act" "main main main" "meta meta meta";row-gap:7px;padding:12px 14px}
-    .r-date{text-align:left}
     .r-date b,.r-date span{display:inline}
     .r-date span{margin-left:6px}
     .r-meta{justify-content:flex-start}
     .r-name{white-space:normal}
   }
+
+  /* ---------- Detailed rows (rentals + tools) ---------- */
+  .drows{margin:0 14px;display:flex;flex-direction:column;gap:10px}
+  .drow{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 15px}
+  .drow.tool{border-left-color:var(--teal)}
+  .drow.returned{border-left-color:var(--steel-light)}
+  .dr-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+  .dr-title{font-family:'Barlow Condensed';font-weight:700;font-size:16px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);flex:1;min-width:0;line-height:1.1}
+  .dr-act{display:flex;gap:3px;margin-left:auto}
+  .status{font-size:10.5px;padding:3px 9px;border-radius:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+  .status.renting,.status.out{background:var(--green-soft);color:var(--green)}
+  .status.returned{background:var(--line-soft);color:var(--steel)}
+  .closedtag{font-size:10px;padding:3px 8px;border-radius:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#fde8e4;color:var(--hivis-dark)}
+  .dr-item{font-size:14.5px;font-weight:600;color:var(--ink-soft);margin-bottom:10px;line-height:1.35}
+  .dr-item .tid{font-family:'JetBrains Mono';font-weight:700;color:var(--teal);font-size:13px}
+  .dr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px 16px}
+  .dr-grid>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .dr-grid>div.wide{grid-column:1/-1}
+  .dr-grid .k{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--steel-light);font-weight:600}
+  .dr-grid .v{font-size:13px;font-weight:500;color:var(--ink);word-break:break-word}
+  .dr-grid .v.mono{font-family:'JetBrains Mono';font-weight:500;font-size:12.5px}
+  .dr-grid .v.money{font-family:'JetBrains Mono';font-weight:700}
+  .dr-grid .v.empty{color:var(--steel-light)}
+  .rate-line{display:flex;flex-wrap:wrap;gap:6px}
+  .rate-chip{font-size:11.5px;font-weight:600;padding:2px 0}
+  .rate-chip b{font-family:'JetBrains Mono';color:var(--ink)}
+  .rate-chip .rl{color:var(--steel-light);font-size:10px;letter-spacing:.04em;text-transform:uppercase;margin-right:3px}
 
   /* ---------- Empty / loading ---------- */
   .empty{text-align:center;padding:64px 30px;color:var(--steel)}
@@ -146,11 +164,10 @@
   .icon-btn:active{background:var(--line-soft)}
   .chev{transition:transform .2s;color:var(--steel-light)}
   .folder.open .chev{transform:rotate(180deg)}
-  .folder-body{display:none;border-top:1px solid var(--line-soft);background:#fafbfc;padding:0}
+  .folder-body{display:none;border-top:1px solid var(--line-soft);background:#fafbfc;padding:8px 10px 12px}
   .folder.open .folder-body{display:block}
-  .subhead{font-family:'Barlow Condensed';font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);padding:11px 16px 5px;display:flex;align-items:center;gap:8px}
-  .subhead .cnt{font-family:'JetBrains Mono';font-size:11px;color:var(--steel-light)}
-  .folder-body .rows{margin:4px 10px 12px;box-shadow:none}
+  .folder-body .rows,.folder-body .drows{margin:4px 0}
+  .sub-empty{padding:14px 8px;color:var(--steel);font-size:13px;text-align:center}
 
   /* ---------- Admin ---------- */
   .admin-lock{padding:40px 24px;text-align:center;max-width:380px;margin:0 auto}
@@ -163,24 +180,44 @@
   @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
   .pin-msg{margin-top:14px;font-size:13px;color:var(--steel);min-height:18px}
   .pin-msg.bad{color:var(--hivis-dark);font-weight:600}
+
+  .chooser{padding:24px 16px 4px;max-width:560px;margin:0 auto}
+  .chooser h2{font-family:'Barlow Condensed';font-weight:700;font-size:22px;letter-spacing:.04em;text-transform:uppercase;text-align:center;margin:0 0 4px}
+  .chooser p{text-align:center;color:var(--steel);font-size:13px;margin:0 0 18px}
+  .role-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:12px;transition:transform .12s,border-color .12s}
+  .role-card:active{transform:scale(.98)}
+  .role-card .ri{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+  .role-card.bobby .ri{background:var(--hivis)}
+  .role-card.eric .ri{background:var(--teal)}
+  .role-card .rt{font-family:'Barlow Condensed';font-weight:700;font-size:19px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
+  .role-card .rs{font-size:12.5px;color:var(--steel);margin-top:2px;line-height:1.4}
+
   .welcome{padding:18px 16px 4px}
-  .welcome-card{background:linear-gradient(135deg,#14181f,#262d39);color:#fff;border-radius:var(--radius);padding:20px 20px 22px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-  .welcome-card::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(255,106,26,.22),transparent 70%)}
-  .welcome-card .eyebrow{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.18em;text-transform:uppercase;font-size:11px;color:var(--hivis)}
+  .welcome-card{color:#fff;border-radius:var(--radius);padding:20px 20px 22px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .welcome-card.bobby{background:linear-gradient(135deg,#14181f,#2a2330)}
+  .welcome-card.eric{background:linear-gradient(135deg,#0c2b29,#11423d)}
+  .welcome-card::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%}
+  .welcome-card.bobby::after{background:radial-gradient(circle,rgba(255,106,26,.24),transparent 70%)}
+  .welcome-card.eric::after{background:radial-gradient(circle,rgba(13,122,115,.4),transparent 70%)}
+  .welcome-card .eyebrow{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.18em;text-transform:uppercase;font-size:11px}
+  .welcome-card.bobby .eyebrow{color:var(--hivis)}
+  .welcome-card.eric .eyebrow{color:#3fd6c9}
   .welcome-card h2{font-family:'Barlow Condensed';font-weight:700;font-size:28px;letter-spacing:.03em;margin:4px 0 3px;line-height:1}
   .welcome-card .role{font-size:13px;color:var(--steel-light)}
   .admin-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;padding:14px 16px 4px}
+  .admin-actions.two{grid-template-columns:1fr 1fr}
   .act{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 14px;display:flex;flex-direction:column;gap:8px;text-align:left;transition:transform .12s}
   .act:active{transform:scale(.97)}
-  .act .a-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center}
-  .act.log .a-ico{background:var(--hivis);color:#fff}
-  .act.rent .a-ico{background:var(--blue);color:#fff}
-  .act.imp .a-ico{background:var(--ink);color:var(--hivis)}
+  .act .a-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff}
+  .act.log .a-ico{background:var(--hivis)}
+  .act.rent .a-ico{background:var(--blue)}
+  .act.imp .a-ico{background:var(--ink)}
+  .act.tool .a-ico{background:var(--teal)}
   .act .a-title{font-family:'Barlow Condensed';font-weight:700;font-size:16px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
   .act .a-sub{font-size:11.5px;color:var(--steel);line-height:1.4}
-  .admin-foot{padding:18px 18px;text-align:center}
-  .lock-again{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--steel);padding:9px 18px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
-  .lock-again:active{background:var(--line-soft)}
+  .admin-foot{padding:18px 18px;text-align:center;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .lock-again,.switch-role{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--steel);padding:9px 18px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+  .lock-again:active,.switch-role:active{background:var(--line-soft)}
   .admin-stats{display:flex;gap:10px;padding:6px 16px 0}
   .stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px;text-align:center;box-shadow:var(--shadow)}
   .stat .num{font-family:'JetBrains Mono';font-weight:700;font-size:22px;color:var(--ink)}
@@ -206,11 +243,23 @@
   .field textarea{resize:vertical;min-height:70px;line-height:1.45}
   .field .hint{font-size:11px;color:var(--steel-light);margin-top:5px}
   .field-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .check{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink);font-weight:500}
+  .check input{width:20px;height:20px;flex:none}
   .submit{width:100%;background:var(--hivis);color:#fff;border-radius:13px;padding:16px;font-family:'Barlow Condensed';font-weight:700;font-size:18px;letter-spacing:.05em;text-transform:uppercase;box-shadow:0 4px 14px rgba(255,106,26,.3);margin-top:4px}
   .submit:active{background:var(--hivis-dark)}
   .submit.blue{background:var(--blue);box-shadow:0 4px 14px rgba(31,31,158,.28)}
+  .submit.teal{background:var(--teal);box-shadow:0 4px 14px rgba(13,122,115,.28)}
   .submit:disabled{background:var(--steel-light);box-shadow:none}
   .del-link{display:block;width:100%;text-align:center;margin-top:14px;color:var(--hivis-dark);font-weight:600;font-size:13px;padding:10px;letter-spacing:.03em}
+
+  .photo-slots{display:flex;gap:10px}
+  .pslot{width:84px;height:84px;border-radius:11px;border:1px solid var(--line);background:var(--card);overflow:hidden;position:relative;flex:none}
+  .pslot img{width:100%;height:100%;object-fit:cover;display:block}
+  .pslot .rm{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(20,24,31,.7);color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .padd{width:84px;height:84px;border-radius:11px;border:2px dashed var(--line);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--steel-light);font-size:11px;font-weight:600}
+  .padd:active{border-color:var(--hivis);color:var(--hivis-dark)}
+  .photo-view{display:flex;flex-direction:column;gap:12px}
+  .photo-view img{width:100%;border-radius:12px;display:block}
 
   .imp-stage{text-align:center;padding:24px 10px}
   .imp-stage .ring{width:64px;height:64px;border-radius:50%;border:5px solid var(--line);border-top-color:var(--hivis);margin:0 auto 18px;animation:spin .8s linear infinite}
@@ -229,7 +278,7 @@
   .toast{position:fixed;left:50%;bottom:calc(28px + var(--safe-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 8px 28px rgba(0,0,0,.3);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:90vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  @media (max-width:560px){ .admin-actions{grid-template-columns:1fr} }
+  @media (max-width:560px){ .admin-actions,.admin-actions.two{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -246,302 +295,319 @@
   <nav class="tabs">
     <button class="tab active" data-view="feed">Arrivals <span class="pill" id="pillFeed">0</span></button>
     <button class="tab" data-view="rentals">Rentals <span class="pill" id="pillRent">0</span></button>
+    <button class="tab" data-view="tools">Tool Rentals <span class="pill" id="pillTool">0</span></button>
     <button class="tab" data-view="jobs">My Jobs <span class="pill" id="pillJobs">0</span></button>
     <button class="tab" data-view="admin">Admin</button>
   </nav>
 </header>
 
 <main>
-  <!-- ============ ARRIVALS ============ -->
+  <!-- ARRIVALS -->
   <section class="view active" id="view-feed">
     <div class="controls">
-      <div class="search">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input id="feedSearch" type="search" placeholder="Search job #, item, supplier…" autocomplete="off">
-        <button class="clr" id="feedClr" style="display:none">Clear</button>
-      </div>
+      <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="feedSearch" type="search" placeholder="Search job #, item, supplier…" autocomplete="off"><button class="clr" id="feedClr" style="display:none">Clear</button></div>
       <div class="selwrap"><select class="filter" id="monthSel"><option value="">All months</option></select></div>
     </div>
-    <div class="meta-row"><span id="feedMeta">Loading arrivals…</span><span>Newest first</span></div>
-    <div id="feedList" class="rows"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+    <div class="meta-row"><span id="feedMeta">Loading…</span><span>Newest first</span></div>
+    <div id="feedList" class="rows"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
   </section>
 
-  <!-- ============ RENTALS ============ -->
+  <!-- RENTALS -->
   <section class="view" id="view-rentals">
     <div class="controls">
-      <div class="search">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input id="rentSearch" type="search" placeholder="Search equipment, job #, vendor…" autocomplete="off">
-        <button class="clr" id="rentClr" style="display:none">Clear</button>
-      </div>
+      <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="rentSearch" type="search" placeholder="Search equipment, job #, vendor…" autocomplete="off"><button class="clr" id="rentClr" style="display:none">Clear</button></div>
       <div class="selwrap"><select class="filter" id="rentStatus"><option value="">All</option><option value="Renting">Renting</option><option value="Returned">Returned</option></select></div>
     </div>
-    <div class="meta-row"><span id="rentMeta">Loading rentals…</span><span>Newest first</span></div>
-    <div id="rentList" class="rows"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+    <div class="meta-row"><span id="rentMeta">Loading…</span><span>Newest first</span></div>
+    <div id="rentList" class="drows"><div class="skel" style="border-radius:12px"></div></div>
   </section>
 
-  <!-- ============ MY JOBS ============ -->
+  <!-- TOOL RENTALS -->
+  <section class="view" id="view-tools">
+    <div class="controls">
+      <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="toolSearch" type="search" placeholder="Search tool, job #, ID…" autocomplete="off"><button class="clr" id="toolClr" style="display:none">Clear</button></div>
+      <div class="selwrap"><select class="filter" id="toolStatus"><option value="">All</option><option value="Out">Out</option><option value="Returned">Returned</option></select></div>
+    </div>
+    <div class="meta-row"><span id="toolMeta">Loading…</span><span>Newest first</span></div>
+    <div id="toolList" class="drows"><div class="skel" style="border-radius:12px"></div></div>
+  </section>
+
+  <!-- MY JOBS -->
   <section class="view" id="view-jobs">
-    <div class="mj-head">
-      <h2>My Jobs</h2>
-      <p>Save a job number to your phone. New arrivals and rentals on those jobs collect here automatically. Saved jobs stay on this device only.</p>
-    </div>
-    <div class="addjob">
-      <input id="jobSearch" type="search" placeholder="Search or type a job # (e.g. 25-0205)" autocomplete="off">
-      <button class="btn-add" id="jobAddBtn">Save</button>
-    </div>
+    <div class="mj-head"><h2>My Jobs</h2><p>Save a job number to your phone. Arrivals, rentals, and tool rentals on those jobs collect here automatically. Saved jobs stay on this device only.</p></div>
+    <div class="addjob"><input id="jobSearch" type="search" placeholder="Search or type a job # (e.g. 25-0205)" autocomplete="off"><button class="btn-add" id="jobAddBtn">Save</button></div>
     <div class="suggest" id="jobSuggest"></div>
+    <div class="controls" style="position:static">
+      <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="mjSearch" type="search" placeholder="Search within my jobs…" autocomplete="off"><button class="clr" id="mjClr" style="display:none">Clear</button></div>
+      <div class="selwrap"><select class="filter" id="mjMonth"><option value="">All months</option></select></div>
+    </div>
+    <div class="controls" style="position:static;padding-top:0">
+      <div class="seg" id="mjSeg">
+        <button data-seg="arrivals" class="on">Arrivals</button>
+        <button data-seg="rentals">Rentals</button>
+        <button data-seg="tools">Tool Rentals</button>
+      </div>
+    </div>
     <div id="foldersList"></div>
   </section>
 
-  <!-- ============ ADMIN ============ -->
+  <!-- ADMIN -->
   <section class="view" id="view-admin">
     <div id="adminLocked">
       <div class="admin-lock">
         <div class="lockico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></div>
-        <h2>Admin Access</h2>
-        <p>Enter your 4-digit PIN to log, edit, and import records.</p>
+        <h2>Admin Access</h2><p>Enter your 4-digit PIN to log, edit, and import.</p>
         <input id="pinInput" class="pin-input" type="tel" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
         <div class="pin-msg" id="pinMsg"></div>
       </div>
     </div>
-    <div id="adminUnlocked" style="display:none">
-      <div class="welcome"><div class="welcome-card">
-        <div class="eyebrow">Logged in</div><h2>Welcome Bobby Dunckel</h2><div class="role">Receiving Admin · full access</div>
-      </div></div>
+
+    <div id="adminChooser" style="display:none">
+      <div class="chooser">
+        <h2>What are you logging?</h2><p>Both can edit everything — this just sets up your screen.</p>
+        <button class="role-card bobby" data-role="bobby">
+          <div class="ri"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.3 7L12 12l8.7-5M12 22V12"></path></svg></div>
+          <div><div class="rt">Equipment Received / Rentals</div><div class="rs">Log arrivals and equipment rentals · Bobby</div></div>
+        </button>
+        <button class="role-card eric" data-role="eric">
+          <div class="ri"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.3L3 18l3 3 6.4-6.3a4 4 0 0 0 5.3-5.4l-2.6 2.6-2-2 2.6-2.6z"></path></svg></div>
+          <div><div class="rt">Tool Rentals</div><div class="rs">Upload the Webduct tool rental report · Eric</div></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bobby panel -->
+    <div id="adminBobby" style="display:none">
+      <div class="welcome"><div class="welcome-card bobby"><div class="eyebrow">Logged in</div><h2>Welcome Bobby Dunckel</h2><div class="role">Equipment Received &amp; Rentals</div></div></div>
       <div class="admin-stats">
         <div class="stat"><div class="num" id="statTotal">0</div><div class="lab">Arrivals</div></div>
         <div class="stat"><div class="num" id="statRent">0</div><div class="lab">Rentals out</div></div>
         <div class="stat"><div class="num" id="statToday">0</div><div class="lab">Today</div></div>
       </div>
-      <div class="admin-banner">
-        <span>✎</span><span>You're unlocked — edit and delete buttons now show on every arrival and rental row.</span>
-      </div>
+      <div class="admin-banner"><span>✎</span><span>Unlocked — edit and delete buttons now show on every arrival, rental, and tool row.</span></div>
       <div class="admin-actions">
-        <button class="act log" id="btnLog">
-          <div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>
-          <div class="a-title">Log Arrival</div><div class="a-sub">Record equipment that just came in.</div>
-        </button>
-        <button class="act rent" id="btnRental">
-          <div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M5 7l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13"></path></svg></div>
-          <div class="a-title">Log Rental</div><div class="a-sub">Track a rental, rate, and return.</div>
-        </button>
-        <button class="act imp" id="btnImport">
-          <div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
-          <div class="a-title">Import Excel</div><div class="a-sub">Load all past arrivals + rentals.</div>
-        </button>
+        <button class="act log" id="btnLog"><div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div><div class="a-title">Log Arrival</div><div class="a-sub">Record equipment that came in. Add up to 2 photos.</div></button>
+        <button class="act rent" id="btnRental"><div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M5 7l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13"></path></svg></div><div class="a-title">Log Rental</div><div class="a-sub">Track a rental, rate, and return.</div></button>
+        <button class="act imp" id="btnImport"><div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div><div class="a-title">Import Excel</div><div class="a-sub">Load past arrivals + rentals.</div></button>
       </div>
-      <div class="admin-foot"><button class="lock-again" id="btnLock">Lock admin</button></div>
+      <div class="admin-foot"><button class="switch-role" data-switch>Switch role</button><button class="lock-again" id="btnLock">Lock admin</button></div>
+    </div>
+
+    <!-- Eric panel -->
+    <div id="adminEric" style="display:none">
+      <div class="welcome"><div class="welcome-card eric"><div class="eyebrow">Logged in</div><h2>Hello Eric!</h2><div class="role">Tool Rentals</div></div></div>
+      <div class="admin-stats">
+        <div class="stat"><div class="num" id="statTool">0</div><div class="lab">Tool lines</div></div>
+        <div class="stat"><div class="num" id="statToolOut">0</div><div class="lab">Out</div></div>
+        <div class="stat"><div class="num" id="statToolJobs">0</div><div class="lab">Jobs</div></div>
+      </div>
+      <div class="admin-banner"><span>✎</span><span>Unlocked — you can edit or delete any record across the app.</span></div>
+      <div class="admin-actions two">
+        <button class="act tool" id="btnToolImport"><div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div><div class="a-title">Upload Tool Report</div><div class="a-sub">Import the Webduct tool rental PDF.</div></button>
+        <button class="act tool" id="btnTool"><div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div><div class="a-title">Add Tool Rental</div><div class="a-sub">Manually add or fix one line.</div></button>
+      </div>
+      <div class="admin-foot"><button class="switch-role" data-switch>Switch role</button><button class="lock-again" id="btnLock2">Lock admin</button></div>
     </div>
   </section>
 </main>
 
-<!-- ============ ARRIVAL MODAL ============ -->
-<div class="modal-back" id="logModal">
-  <div class="modal">
-    <div class="modal-grip"></div>
-    <div class="modal-head"><h3 id="logTitle">Log Arrival</h3><button class="x" data-close="logModal">✕</button></div>
-    <div class="modal-body">
-      <div class="field-2">
-        <div class="field"><label>Date received <span class="req">*</span></label><input id="f_date" type="date"></div>
-        <div class="field"><label>P.O.</label><input id="f_po" type="text" placeholder="e.g. 112736" autocomplete="off"></div>
-      </div>
-      <div class="field-2">
-        <div class="field"><label>Job # <span class="req">*</span></label><input id="f_job" type="text" placeholder="e.g. 25-0205" autocomplete="off"></div>
-        <div class="field"><label>Requested by</label><input id="f_req" type="text" placeholder="e.g. Pete M" autocomplete="off"></div>
-      </div>
-      <div class="field"><label>Job name</label><input id="f_jobname" type="text" placeholder="e.g. OHSU Peds Emergency" autocomplete="off"><div class="hint" id="jobnameHint"></div></div>
-      <div class="field"><label>Description <span class="req">*</span></label><textarea id="f_desc" placeholder="What arrived — qty, item, size…"></textarea></div>
-      <div class="field-2">
-        <div class="field"><label>Supplier</label><input id="f_supplier" type="text" placeholder="e.g. ACI" autocomplete="off"></div>
-        <div class="field"><label>Delivery date</label><input id="f_deliv" type="date"></div>
-      </div>
-      <button class="submit" id="logSubmit">Save arrival</button>
-      <button class="del-link" id="logDelete" style="display:none">Delete this arrival</button>
-    </div>
+<!-- ARRIVAL MODAL -->
+<div class="modal-back" id="logModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3 id="logTitle">Log Arrival</h3><button class="x" data-close="logModal">✕</button></div>
+  <div class="modal-body">
+    <div class="field-2"><div class="field"><label>Date received <span class="req">*</span></label><input id="f_date" type="date"></div><div class="field"><label>P.O.</label><input id="f_po" type="text" placeholder="e.g. 112736" autocomplete="off"></div></div>
+    <div class="field-2"><div class="field"><label>Job # <span class="req">*</span></label><input id="f_job" type="text" placeholder="e.g. 25-0205" autocomplete="off"></div><div class="field"><label>Requested by</label><input id="f_req" type="text" placeholder="e.g. Pete M" autocomplete="off"></div></div>
+    <div class="field"><label>Job name</label><input id="f_jobname" type="text" placeholder="e.g. OHSU Peds Emergency" autocomplete="off"><div class="hint" id="jobnameHint"></div></div>
+    <div class="field"><label>Description <span class="req">*</span></label><textarea id="f_desc" placeholder="What arrived — qty, item, size…"></textarea></div>
+    <div class="field-2"><div class="field"><label>Supplier</label><input id="f_supplier" type="text" placeholder="e.g. ACI" autocomplete="off"></div><div class="field"><label>Delivery date</label><input id="f_deliv" type="date"></div></div>
+    <div class="field"><label>Photos — saved on this device only</label><div class="photo-slots" id="photoSlots"></div><input id="photoInput" type="file" accept="image/*" capture="environment" hidden><div class="hint">Up to 2 photos. They stay on this phone and are not synced to anyone else.</div></div>
+    <button class="submit" id="logSubmit">Save arrival</button>
+    <button class="del-link" id="logDelete" style="display:none">Delete this arrival</button>
   </div>
-</div>
+</div></div>
 
-<!-- ============ RENTAL MODAL ============ -->
-<div class="modal-back" id="rentalModal">
-  <div class="modal">
-    <div class="modal-grip"></div>
-    <div class="modal-head"><h3 id="rentTitle">Log Rental</h3><button class="x" data-close="rentalModal">✕</button></div>
-    <div class="modal-body">
-      <div class="field-2">
-        <div class="field"><label>Date rented <span class="req">*</span></label><input id="r_date" type="date"></div>
-        <div class="field"><label>Rental ID / Contract #</label><input id="r_id" type="text" placeholder="e.g. 104334B" autocomplete="off"></div>
-      </div>
-      <div class="field-2">
-        <div class="field"><label>Job # <span class="req">*</span></label><input id="r_job" type="text" placeholder="e.g. 25-0150" autocomplete="off"></div>
-        <div class="field"><label>Ordered by</label><input id="r_by" type="text" placeholder="e.g. Dustin B" autocomplete="off"></div>
-      </div>
-      <div class="field"><label>Job name</label><input id="r_jobname" type="text" placeholder="e.g. Air National Guard B250" autocomplete="off"><div class="hint" id="rJobnameHint"></div></div>
-      <div class="field"><label>Equipment / Equipment # <span class="req">*</span></label><input id="r_equip" type="text" placeholder="e.g. Genie S45 - RB20183" autocomplete="off"></div>
-      <div class="field-2">
-        <div class="field"><label>Rate (daily / week / month)</label><input id="r_rate" type="text" placeholder="e.g. $300/$700/$1,820" autocomplete="off"></div>
-        <div class="field"><label>Vendor</label><input id="r_vendor" type="text" placeholder="e.g. Pape Rental" autocomplete="off"></div>
-      </div>
-      <div class="field-2">
-        <div class="field"><label>Status</label><select id="r_status"><option value="Renting">Renting</option><option value="Returned">Returned</option></select></div>
-        <div class="field"><label>Date returned</label><input id="r_returned" type="date"></div>
-      </div>
-      <div class="field"><label>PO #</label><input id="r_po" type="text" placeholder="e.g. 110085-25-0150" autocomplete="off"></div>
-      <button class="submit blue" id="rentSubmit">Save rental</button>
-      <button class="del-link" id="rentDelete" style="display:none">Delete this rental</button>
-    </div>
+<!-- RENTAL MODAL -->
+<div class="modal-back" id="rentalModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3 id="rentTitle">Log Rental</h3><button class="x" data-close="rentalModal">✕</button></div>
+  <div class="modal-body">
+    <div class="field-2"><div class="field"><label>Date rented <span class="req">*</span></label><input id="r_date" type="date"></div><div class="field"><label>Rental ID / Contract #</label><input id="r_id" type="text" placeholder="e.g. 104334B" autocomplete="off"></div></div>
+    <div class="field-2"><div class="field"><label>Job # <span class="req">*</span></label><input id="r_job" type="text" placeholder="e.g. 25-0150" autocomplete="off"></div><div class="field"><label>Ordered by</label><input id="r_by" type="text" placeholder="e.g. Dustin B" autocomplete="off"></div></div>
+    <div class="field"><label>Job name</label><input id="r_jobname" type="text" placeholder="e.g. Air National Guard B250" autocomplete="off"><div class="hint" id="rJobnameHint"></div></div>
+    <div class="field"><label>Equipment / Equipment # <span class="req">*</span></label><input id="r_equip" type="text" placeholder="e.g. Genie S45 - RB20183" autocomplete="off"></div>
+    <div class="field"><label>Rate — daily / weekly / monthly</label><input id="r_rate" type="text" placeholder="e.g. $300/$700/$1,820" autocomplete="off"><div class="hint">Use slashes between daily, weekly, and monthly rates.</div></div>
+    <div class="field"><label>Vendor</label><input id="r_vendor" type="text" placeholder="e.g. Pape Rental" autocomplete="off"></div>
+    <div class="field-2"><div class="field"><label>Status</label><select id="r_status"><option value="Renting">Renting</option><option value="Returned">Returned</option></select></div><div class="field"><label>Date returned</label><input id="r_returned" type="date"></div></div>
+    <div class="field"><label>PO #</label><input id="r_po" type="text" placeholder="e.g. 110085-25-0150" autocomplete="off"></div>
+    <button class="submit blue" id="rentSubmit">Save rental</button>
+    <button class="del-link" id="rentDelete" style="display:none">Delete this rental</button>
   </div>
-</div>
+</div></div>
 
-<!-- ============ IMPORT MODAL ============ -->
-<div class="modal-back" id="importModal">
-  <div class="modal">
-    <div class="modal-grip"></div>
-    <div class="modal-head"><h3>Import Excel</h3><button class="x" data-close="importModal">✕</button></div>
-    <div class="modal-body" id="importBody"></div>
+<!-- TOOL RENTAL MODAL -->
+<div class="modal-back" id="toolModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3 id="toolTitle">Add Tool Rental</h3><button class="x" data-close="toolModal">✕</button></div>
+  <div class="modal-body">
+    <div class="field-2"><div class="field"><label>Job # <span class="req">*</span></label><input id="t_job" type="text" placeholder="e.g. 24-0071" autocomplete="off"></div><div class="field"><label>Job name</label><input id="t_jobname" type="text" placeholder="e.g. PDX TCore DP-F" autocomplete="off"><div class="hint" id="tJobnameHint"></div></div></div>
+    <div class="field"><label>Tool type <span class="req">*</span></label><input id="t_type" type="text" placeholder="e.g. Cordless 20 V SawZall" autocomplete="off"></div>
+    <div class="field"><label>Tool ID <span class="req">*</span></label><input id="t_id" type="text" placeholder="e.g. 4865" autocomplete="off"></div>
+    <div class="field-2"><div class="field"><label>Date started <span class="req">*</span></label><input id="t_start" type="date"></div><div class="field"><label>Date ended</label><input id="t_end" type="date"></div></div>
+    <div class="field-2"><div class="field"><label>Billing days</label><input id="t_days" type="number" inputmode="numeric" placeholder="31"></div><div class="field"><label>Daily rate ($)</label><input id="t_daily" type="text" inputmode="decimal" placeholder="1.54"></div></div>
+    <div class="field-2"><div class="field"><label>Billing total ($)</label><input id="t_total" type="text" placeholder="47.74"></div><div class="field"><label>Discounted rate ($)</label><input id="t_disc" type="text" placeholder="26.26"></div></div>
+    <div class="field"><label class="check"><input id="t_closed" type="checkbox"> Job is closed</label></div>
+    <button class="submit teal" id="toolSubmit">Save tool rental</button>
+    <button class="del-link" id="toolDelete" style="display:none">Delete this tool rental</button>
   </div>
-</div>
+</div></div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-back" id="importModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3 id="importTitle">Import</h3><button class="x" data-close="importModal">✕</button></div>
+  <div class="modal-body" id="importBody"></div>
+</div></div>
+
+<!-- PHOTO VIEWER -->
+<div class="modal-back" id="photoModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3>Photos</h3><button class="x" data-close="photoModal">✕</button></div>
+  <div class="modal-body"><div class="photo-view" id="photoView"></div></div>
+</div></div>
 
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",
-  authDomain: "equipment-received.firebaseapp.com",
-  projectId: "equipment-received",
-  storageBucket: "equipment-received.firebasestorage.app",
-  messagingSenderId: "164676400073",
-  appId: "1:164676400073:web:552cc0e3dcc8e06951ae18"
-};
-let db=null, fbReady=false;
-try{ db=getFirestore(initializeApp(firebaseConfig)); fbReady=true; }catch(e){ console.error("FB init",e); }
+if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const firebaseConfig={apiKey:"AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",authDomain:"equipment-received.firebaseapp.com",projectId:"equipment-received",storageBucket:"equipment-received.firebasestorage.app",messagingSenderId:"164676400073",appId:"1:164676400073:web:552cc0e3dcc8e06951ae18"};
+let db=null,fbReady=false;
+try{ db=getFirestore(initializeApp(firebaseConfig)); fbReady=true; }catch(e){ console.error("FB",e); }
 
 /* ---------- State ---------- */
-let ARRIVALS=[], RENTALS=[];
+let ARRIVALS=[],RENTALS=[],TOOLS=[];
 let MY_JOBS=loadMyJobs();
 const ADMIN_PIN="1977";
-let adminUnlocked = sessionStorage.getItem("er_admin")==="1";
-let editing=null;     // {type:'arrival'|'rental', id, seq}
+let adminUnlocked=sessionStorage.getItem("er_admin")==="1";
+let adminMode=sessionStorage.getItem("er_mode")||"";
+let editing=null;
+let pendingPhotos=[];      // dataURLs while arrival modal open
+let PHOTO_IDS=new Set();   // arrival ids that have local photos
+let mjSeg="arrivals";
 
-const $ = id=>document.getElementById(id);
-const esc = s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ---------- Local storage ---------- */
 function loadMyJobs(){ try{return JSON.parse(localStorage.getItem("er_myjobs")||"[]");}catch(e){return[];} }
 function saveMyJobs(){ try{localStorage.setItem("er_myjobs",JSON.stringify(MY_JOBS));}catch(e){} }
 
+/* ---------- IndexedDB (photos, device-only) ---------- */
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open("erPhotos",1); r.onupgradeneeded=()=>r.result.createObjectStore("photos"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbSet(k,v){ const d=await idbOpen(); return new Promise((res,rej)=>{ const t=d.transaction("photos","readwrite"); t.objectStore("photos").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }
+async function idbGet(k){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readonly"); const q=t.objectStore("photos").get(k); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }); }
+async function idbDel(k){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readwrite"); t.objectStore("photos").delete(k); t.oncomplete=()=>res(); }); }
+async function idbKeys(){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readonly"); const q=t.objectStore("photos").getAllKeys(); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>res([]); }); }
+
 /* ---------- Utils ---------- */
 function normJob(j){ return String(j==null?"":j).trim().toUpperCase(); }
-function isRealJob(j){ const n=normJob(j); return n && n!=="NA" && n!=="N/A" && n!=="-"; }
-function makeId(parts){
-  const key=parts.join("|").toLowerCase();
-  let h=5381; for(let i=0;i<key.length;i++){ h=((h<<5)+h)^key.charCodeAt(i); }
-  return "a"+(h>>>0).toString(36)+key.length.toString(36);
-}
-function fmtDateKey(d){
-  if(!d) return "";
-  if(d instanceof Date && !isNaN(d)) return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-  const s=String(d).trim();
-  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
-  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){let y=m[3];if(y.length===2)y="20"+y;return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");}
-  const p=new Date(s); if(!isNaN(p)) return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0");
-  return "";
-}
+function isRealJob(j){ const n=normJob(j); return n&&n!=="NA"&&n!=="N/A"&&n!=="-"; }
+function makeId(parts){ const key=parts.join("|").toLowerCase(); let h=5381; for(let i=0;i<key.length;i++){h=((h<<5)+h)^key.charCodeAt(i);} return "a"+(h>>>0).toString(36)+key.length.toString(36); }
+function fmtDateKey(d){ if(!d)return""; if(d instanceof Date&&!isNaN(d))return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); const s=String(d).trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0"); m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){let y=m[3];if(y.length===2)y="20"+y;return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");} const p=new Date(s); if(!isNaN(p))return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0"); return""; }
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function rowDate(iso){
-  if(!iso) return {top:"—",bot:""};
-  const [y,mo,da]=iso.split("-").map(Number);
-  const d=new Date(y,mo-1,da); if(isNaN(d)) return {top:iso,bot:""};
-  const today=new Date(); today.setHours(0,0,0,0);
-  const diff=Math.round((today-d)/86400000);
-  const top=MON[mo-1]+" "+da;
-  if(diff===0) return {top,bot:"Today",rel:true};
-  if(diff===1) return {top,bot:"Yesterday",rel:true};
-  return {top,bot:String(y)};
-}
-function shortDate(iso){ if(!iso) return ""; const [y,mo,da]=iso.split("-").map(Number); if(!mo) return iso; return MON[mo-1]+" "+da; }
+function rowDate(iso){ if(!iso)return{top:"—",bot:""}; const[y,mo,da]=iso.split("-").map(Number); const d=new Date(y,mo-1,da); if(isNaN(d))return{top:iso,bot:""}; const today=new Date(); today.setHours(0,0,0,0); const diff=Math.round((today-d)/86400000); const top=MON[mo-1]+" "+da; if(diff===0)return{top,bot:"Today",rel:true}; if(diff===1)return{top,bot:"Yesterday",rel:true}; return{top,bot:String(y)}; }
+function longDate(iso){ if(!iso)return""; const[y,mo,da]=iso.split("-").map(Number); if(!mo)return iso; return MON[mo-1]+" "+da+", "+y; }
 function todayIso(){ return fmtDateKey(new Date()); }
 function monthKey(iso){ return iso?iso.slice(0,7):""; }
-function monthLabel(k){ const [y,m]=k.split("-").map(Number); return MON[m-1]+" "+y; }
+function monthLabel(k){ const[y,m]=k.split("-").map(Number); return MON[m-1]+" "+y; }
+function rateChips(rate){ if(!rate)return""; const parts=String(rate).split("/").map(s=>s.replace(/,+$/,"").trim()).filter(Boolean); const labels=["Daily","Weekly","Monthly"]; if(parts.length>=2&&parts.length<=3) return `<div class="rate-line">${parts.map((p,i)=>`<span class="rate-chip"><span class="rl">${labels[i]}</span><b>${esc(p)}</b></span>`).join("")}</div>`; return `<span class="v">${esc(rate)}</span>`; }
+function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(s==="-"||s==="")return"—"; return s.startsWith("$")?s:"$"+s; }
 
 /* ---------- Toast ---------- */
-let toastT;
-function toast(msg){ const t=$("toast"); t.textContent=msg; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
+let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?"Live":s==="err"?"Offline":"Connecting"; }
 function startSync(){
-  if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); return; }
-  onSnapshot(collection(db,"arrivals"), snap=>{
-    const list=[]; snap.forEach(d=>{ const v=d.data(); list.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",deliveryDate:v.deliveryDate||"",requestedBy:v.requestedBy||"",seq:v.seq||0}); });
-    list.sort((a,b)=> a.dateReceived!==b.dateReceived ? (a.dateReceived<b.dateReceived?1:-1) : (b.seq||0)-(a.seq||0));
-    ARRIVALS=list; setSync("live"); renderAll();
-  }, e=>{ console.error(e); setSync("err"); showErr("feedList",e.code); });
-  onSnapshot(collection(db,"rentals"), snap=>{
-    const list=[]; snap.forEach(d=>{ const v=d.data(); list.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0}); });
-    list.sort((a,b)=> a.dateRented!==b.dateRented ? (a.dateRented<b.dateRented?1:-1) : (b.seq||0)-(a.seq||0));
-    RENTALS=list; renderRentals(); renderJobs();
-  }, e=>{ console.error(e); showErr("rentList",e.code); });
+  if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
+  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",deliveryDate:v.deliveryDate||"",requestedBy:v.requestedBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; setSync("live"); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
+  onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("rentList",e.code);});
+  onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("toolList",e.code);});
 }
-function showErr(elId,code){ $(elId).innerHTML=`<div class="empty"><div class="ico">📡</div><h3>Can't reach Firebase</h3><p>Live data couldn't load${code?` (${esc(code)})`:""}. Check your connection and Firestore rules, then reload.</p></div>`; }
+function showErr(id,code){ $(id).innerHTML=`<div class="empty"><div class="ico">📡</div><h3>Can't reach Firebase</h3><p>Live data couldn't load${code?` (${esc(code)})`:""}. Check your connection and Firestore rules, then reload.</p></div>`; }
 
 /* ---------- Row builders ---------- */
-function adminActs(type,id){
-  if(!adminUnlocked) return "";
-  return `<button class="mini-btn edit" data-edit="${type}:${esc(id)}" title="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
-  <button class="mini-btn del" data-del="${type}:${esc(id)}" title="Delete"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>`;
-}
+function adminActs(type,id){ if(!adminUnlocked)return""; return `<button class="mini-btn edit" data-edit="${type}:${esc(id)}" title="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button><button class="mini-btn del" data-del="${type}:${esc(id)}" title="Delete"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>`; }
+function starBtn(job){ const saved=MY_JOBS.includes(normJob(job)); return isRealJob(job)?`<button class="star-btn ${saved?'saved':''}" data-savejob="${esc(normJob(job))}"><svg width="14" height="14" viewBox="0 0 24 24" fill="${saved?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg></button>`:""; }
+
 function arrivalRow(r,opts={}){
-  const job=normJob(r.jobNumber), d=rowDate(r.dateReceived);
-  const saved=MY_JOBS.includes(job);
-  const star = (opts.star!==false && isRealJob(job)) ? `<button class="star-btn ${saved?'saved':''}" data-savejob="${esc(job)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="${saved?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg></button>` : "";
+  const job=normJob(r.jobNumber),d=rowDate(r.dateReceived);
+  const hasPhoto=PHOTO_IDS.has(r.id);
+  const cam=hasPhoto?`<button class="mini-btn cam" data-photos="${esc(r.id)}" title="Photos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></button>`:"";
   return `<div class="row" data-type="arrival" data-id="${esc(r.id)}">
     <div class="r-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></div>
     <div class="r-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
     <div class="r-main">${r.jobName?`<div class="r-name">${esc(r.jobName)}</div>`:""}<div class="r-desc">${esc(r.description)||"<span style='color:var(--steel-light)'>No description</span>"}</div></div>
-    <div class="r-meta">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">${esc(r.requestedBy)}</span>`:""}${r.deliveryDate?`<span class="m deliv">Deliv ${esc(shortDate(r.deliveryDate))}</span>`:""}</div>
-    <div class="r-act">${adminActs("arrival",r.id)}${star}</div>
+    <div class="r-meta">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">${esc(r.requestedBy)}</span>`:""}${r.deliveryDate?`<span class="m deliv">Deliv ${esc(longDate(r.deliveryDate).split(",")[0])}</span>`:""}</div>
+    <div class="r-act">${cam}${adminActs("arrival",r.id)}${opts.star!==false?starBtn(job):""}</div>
   </div>`;
 }
 function rentalRow(r,opts={}){
-  const job=normJob(r.jobNumber), d=rowDate(r.dateRented);
-  const ret=/return/i.test(r.status);
-  const saved=MY_JOBS.includes(job);
-  const star = (opts.star!==false && isRealJob(job)) ? `<button class="star-btn ${saved?'saved':''}" data-savejob="${esc(job)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="${saved?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg></button>` : "";
-  return `<div class="row rental" data-type="rental" data-id="${esc(r.id)}">
-    <div class="r-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></div>
-    <div class="r-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
-    <div class="r-main">${r.jobName?`<div class="r-name">${esc(r.jobName)}</div>`:""}<div class="r-desc">${esc(r.equipment)||"<span style='color:var(--steel-light)'>No equipment</span>"}</div></div>
-    <div class="r-meta"><span class="status ${ret?'returned':'renting'}">${esc(r.status||"Renting")}</span>${r.vendor?`<span class="m sup">${esc(r.vendor)}</span>`:""}${r.rate?`<span class="m rate">${esc(r.rate)}</span>`:""}${r.orderedBy?`<span class="m req">${esc(r.orderedBy)}</span>`:""}${ret&&r.dateReturned?`<span class="m deliv">Ret ${esc(shortDate(r.dateReturned))}</span>`:""}${r.rentalId?`<span class="m id">#${esc(r.rentalId)}</span>`:""}</div>
-    <div class="r-act">${adminActs("rental",r.id)}${star}</div>
+  const job=normJob(r.jobNumber),ret=/return/i.test(r.status);
+  return `<div class="drow ${ret?'returned':''}" data-type="rental" data-id="${esc(r.id)}">
+    <div class="dr-top"><span class="status ${ret?'returned':'renting'}">${esc(r.status||"Renting")}</span><span class="dr-title">${esc(r.jobName||"—")}</span>${isRealJob(job)?`<span class="jobbadge">${esc(job)}</span>`:""}<span class="dr-act">${adminActs("rental",r.id)}${opts.star!==false?starBtn(job):""}</span></div>
+    <div class="dr-item">${esc(r.equipment)||"<span style='color:var(--steel-light)'>No equipment listed</span>"}</div>
+    <div class="dr-grid">
+      <div><span class="k">ID / Contract #</span><span class="v mono${r.rentalId?'':' empty'}">${esc(r.rentalId)||"—"}</span></div>
+      <div><span class="k">PO #</span><span class="v mono${r.po?'':' empty'}">${esc(r.po)||"—"}</span></div>
+      <div><span class="k">Date rented</span><span class="v${r.dateRented?'':' empty'}">${esc(longDate(r.dateRented))||"—"}</span></div>
+      <div><span class="k">Date returned</span><span class="v${ret&&r.dateReturned?'':' empty'}">${ret&&r.dateReturned?esc(longDate(r.dateReturned)):"—"}</span></div>
+      <div class="wide"><span class="k">Rate</span>${rateChips(r.rate)||'<span class="v empty">—</span>'}</div>
+      <div><span class="k">Vendor</span><span class="v${r.vendor?'':' empty'}">${esc(r.vendor)||"—"}</span></div>
+      <div><span class="k">Ordered by</span><span class="v${r.orderedBy?'':' empty'}">${esc(r.orderedBy)||"—"}</span></div>
+    </div>
+  </div>`;
+}
+function toolRow(r,opts={}){
+  const job=normJob(r.jobNumber),ret=/return/i.test(r.status);
+  return `<div class="drow tool ${ret?'returned':''}" data-type="tool" data-id="${esc(r.id)}">
+    <div class="dr-top"><span class="status ${ret?'returned':'out'}">${ret?"Returned":"Out"}</span><span class="dr-title">${esc(r.jobName||"—")}</span>${r.jobClosed?'<span class="closedtag">Closed</span>':""}${isRealJob(job)?`<span class="jobbadge">${esc(job)}</span>`:""}<span class="dr-act">${adminActs("tool",r.id)}${opts.star!==false?starBtn(job):""}</span></div>
+    <div class="dr-item">${esc(r.toolType||"Tool")} <span class="tid">#${esc(r.toolId)||"—"}</span></div>
+    <div class="dr-grid">
+      <div><span class="k">Date started</span><span class="v${r.rentalStarted?'':' empty'}">${esc(longDate(r.rentalStarted))||"—"}</span></div>
+      <div><span class="k">Date ended</span><span class="v${ret&&r.rentalEnded?'':' empty'}">${ret&&r.rentalEnded?esc(longDate(r.rentalEnded)):"—"}</span></div>
+      <div><span class="k">Billing days</span><span class="v">${esc(String(r.billingDays||0))}</span></div>
+      <div><span class="k">Daily rate</span><span class="v money">$${esc(String(r.dailyRate||0))}</span></div>
+      <div><span class="k">Billing total</span><span class="v money">${esc(money(r.billingTotal))}</span></div>
+      <div><span class="k">Discounted rate</span><span class="v money">${esc(money(r.discountedRate))}</span></div>
+    </div>
   </div>`;
 }
 
-/* ---------- Month dropdown ---------- */
+/* ---------- Month dropdowns ---------- */
 function refreshMonths(){
-  const sel=$("monthSel"); const cur=sel.value;
-  const keys=[...new Set(ARRIVALS.map(r=>monthKey(r.dateReceived)).filter(Boolean))].sort().reverse();
-  sel.innerHTML=`<option value="">All months</option>`+keys.map(k=>`<option value="${k}">${monthLabel(k)}</option>`).join("");
-  if(keys.includes(cur)) sel.value=cur;
+  const fill=(sel,keys)=>{ const cur=sel.value; sel.innerHTML=`<option value="">All months</option>`+keys.map(k=>`<option value="${k}">${monthLabel(k)}</option>`).join(""); if(keys.includes(cur))sel.value=cur; };
+  fill($("monthSel"),[...new Set(ARRIVALS.map(r=>monthKey(r.dateReceived)).filter(Boolean))].sort().reverse());
+  const mjKeys = mjSeg==="arrivals" ? ARRIVALS.map(r=>monthKey(r.dateReceived))
+    : mjSeg==="rentals" ? RENTALS.map(r=>monthKey(r.dateRented))
+    : TOOLS.map(r=>monthKey(r.rentalStarted));
+  fill($("mjMonth"),[...new Set(mjKeys.filter(Boolean))].sort().reverse());
 }
 
 /* ---------- Render: Arrivals ---------- */
 function renderFeed(){
-  const q=$("feedSearch").value.trim().toLowerCase(); const month=$("monthSel").value;
+  const q=$("feedSearch").value.trim().toLowerCase(),month=$("monthSel").value;
   $("feedClr").style.display=q?"block":"none";
   let rows=ARRIVALS;
   if(month) rows=rows.filter(r=>monthKey(r.dateReceived)===month);
   if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.description,r.supplier,r.po,r.requestedBy].some(v=>(v||"").toLowerCase().includes(q)));
   const list=$("feedList");
-  if(!ARRIVALS.length){ list.innerHTML=`<div class="empty"><div class="ico">📦</div><h3>No arrivals yet</h3><p>Once Bobby logs equipment or imports the master sheet, it shows here — newest first.</p></div>`; $("feedMeta").textContent="0 arrivals"; return; }
+  if(!ARRIVALS.length){ list.innerHTML=`<div class="empty"><div class="ico">📦</div><h3>No arrivals yet</h3><p>Once Bobby logs equipment or imports the master sheet, it shows here.</p></div>`; $("feedMeta").textContent="0 arrivals"; return; }
   if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing found${month?` in ${monthLabel(month)}`:""}${q?` for "${esc(q)}"`:""}.</p></div>`; $("feedMeta").textContent="0 shown"; return; }
-  $("feedMeta").innerHTML = (q||month)?`<b>${rows.length}</b> of ${ARRIVALS.length.toLocaleString()} arrivals`:`<b>${ARRIVALS.length.toLocaleString()}</b> arrivals`;
-  const LIMIT=600, slice=rows.slice(0,LIMIT);
+  $("feedMeta").innerHTML=(q||month)?`<b>${rows.length}</b> of ${ARRIVALS.length.toLocaleString()} arrivals`:`<b>${ARRIVALS.length.toLocaleString()}</b> arrivals`;
+  const LIMIT=600,slice=rows.slice(0,LIMIT);
   let html=slice.map(r=>arrivalRow(r)).join("");
   if(rows.length>LIMIT) html+=`<div class="empty" style="padding:24px"><p>Showing ${LIMIT} of ${rows.length.toLocaleString()}. Pick a month or search to narrow.</p></div>`;
   list.innerHTML=html;
@@ -549,94 +615,98 @@ function renderFeed(){
 
 /* ---------- Render: Rentals ---------- */
 function renderRentals(){
-  const q=$("rentSearch").value.trim().toLowerCase(); const st=$("rentStatus").value;
-  $("rentClr").style.display=q?"block":"none";
-  $("pillRent").textContent=RENTALS.length;
+  const q=$("rentSearch").value.trim().toLowerCase(),st=$("rentStatus").value;
+  $("rentClr").style.display=q?"block":"none"; $("pillRent").textContent=RENTALS.length;
   let rows=RENTALS;
-  if(st) rows=rows.filter(r=> st==="Returned" ? /return/i.test(r.status) : !/return/i.test(r.status));
+  if(st) rows=rows.filter(r=> st==="Returned"?/return/i.test(r.status):!/return/i.test(r.status));
   if(q) rows=rows.filter(r=>[r.rentalId,r.jobNumber,r.jobName,r.equipment,r.vendor,r.orderedBy,r.po].some(v=>(v||"").toLowerCase().includes(q)));
   const list=$("rentList");
-  if(!RENTALS.length){ list.innerHTML=`<div class="empty"><div class="ico">🚜</div><h3>No rentals yet</h3><p>Bobby can log a rental from the Admin tab, or import the master sheet.</p></div>`; $("rentMeta").textContent="0 rentals"; return; }
+  if(!RENTALS.length){ list.innerHTML=`<div class="empty"><div class="ico">🚜</div><h3>No rentals yet</h3><p>Bobby can log a rental from Admin, or import the master sheet.</p></div>`; $("rentMeta").textContent="0 rentals"; return; }
   if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>No rentals match that filter.</p></div>`; $("rentMeta").textContent="0 shown"; return; }
-  const out=rows.filter(r=>!/return/i.test(r.status)).length;
-  $("rentMeta").innerHTML=`<b>${out}</b> out · ${rows.length} shown`;
+  $("rentMeta").innerHTML=`<b>${rows.filter(r=>!/return/i.test(r.status)).length}</b> out · ${rows.length} shown`;
   list.innerHTML=rows.map(r=>rentalRow(r)).join("");
 }
 
-/* ---------- Render: My Jobs ---------- */
+/* ---------- Render: Tool rentals ---------- */
+function renderTools(){
+  const q=$("toolSearch").value.trim().toLowerCase(),st=$("toolStatus").value;
+  $("toolClr").style.display=q?"block":"none"; $("pillTool").textContent=TOOLS.length>999?(Math.floor(TOOLS.length/100)/10)+"k":TOOLS.length;
+  let rows=TOOLS;
+  if(st) rows=rows.filter(r=> st==="Returned"?/return/i.test(r.status):!/return/i.test(r.status));
+  if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.toolType,r.toolId].some(v=>(v||"").toLowerCase().includes(q)));
+  const list=$("toolList");
+  if(!TOOLS.length){ list.innerHTML=`<div class="empty"><div class="ico">🔧</div><h3>No tool rentals yet</h3><p>Eric can upload the Webduct tool rental PDF from the Admin tab.</p></div>`; $("toolMeta").textContent="0 tools"; return; }
+  if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>No tools match that filter.</p></div>`; $("toolMeta").textContent="0 shown"; return; }
+  $("toolMeta").innerHTML=`<b>${rows.filter(r=>!/return/i.test(r.status)).length}</b> out · ${rows.length} shown`;
+  const LIMIT=500,slice=rows.slice(0,LIMIT);
+  let html=slice.map(r=>toolRow(r)).join("");
+  if(rows.length>LIMIT) html+=`<div class="empty" style="padding:24px"><p>Showing ${LIMIT} of ${rows.length.toLocaleString()}. Search to narrow.</p></div>`;
+  list.innerHTML=html;
+}
+
+/* ---------- My Jobs ---------- */
 function distinctJobs(){
   const map=new Map();
-  for(const r of ARRIVALS){ const j=normJob(r.jobNumber); if(!isRealJob(j)) continue; if(!map.has(j)) map.set(j,{jobNumber:j,jobName:r.jobName||"",last:""}); const o=map.get(j); if(r.jobName&&!o.jobName)o.jobName=r.jobName; if(r.dateReceived>o.last)o.last=r.dateReceived; }
-  for(const r of RENTALS){ const j=normJob(r.jobNumber); if(!isRealJob(j)) continue; if(!map.has(j)) map.set(j,{jobNumber:j,jobName:r.jobName||"",last:""}); const o=map.get(j); if(r.jobName&&!o.jobName)o.jobName=r.jobName; }
+  const add=(j,name,date)=>{ if(!isRealJob(j))return; if(!map.has(j))map.set(j,{jobNumber:j,jobName:name||"",last:""}); const o=map.get(j); if(name&&!o.jobName)o.jobName=name; if(date&&date>o.last)o.last=date; };
+  ARRIVALS.forEach(r=>add(normJob(r.jobNumber),r.jobName,r.dateReceived));
+  RENTALS.forEach(r=>add(normJob(r.jobNumber),r.jobName,r.dateRented));
+  TOOLS.forEach(r=>add(normJob(r.jobNumber),r.jobName,r.rentalStarted));
   return map;
 }
 function renderJobs(){
-  const jobsMap=distinctJobs();
-  $("pillJobs").textContent=MY_JOBS.length;
-  const sq=$("jobSearch").value.trim().toLowerCase(); const sugWrap=$("jobSuggest");
-  if(sq){
-    const matches=[...jobsMap.values()].filter(o=>o.jobNumber.toLowerCase().includes(sq)||(o.jobName||"").toLowerCase().includes(sq)).filter(o=>!MY_JOBS.includes(o.jobNumber)).sort((a,b)=>b.last<a.last?-1:1).slice(0,8);
-    sugWrap.innerHTML = matches.length ? matches.map(o=>`<div class="s-item"><span class="sj">${esc(o.jobNumber)}</span><span class="sn">${esc(o.jobName||"—")}</span><button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join("") : `<div class="s-item" style="justify-content:center;color:var(--steel)">No match — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`;
-  } else sugWrap.innerHTML="";
+  const jobsMap=distinctJobs(); $("pillJobs").textContent=MY_JOBS.length;
+  const sq=$("jobSearch").value.trim().toLowerCase(),sugWrap=$("jobSuggest");
+  if(sq){ const matches=[...jobsMap.values()].filter(o=>o.jobNumber.toLowerCase().includes(sq)||(o.jobName||"").toLowerCase().includes(sq)).filter(o=>!MY_JOBS.includes(o.jobNumber)).sort((a,b)=>b.last<a.last?-1:1).slice(0,8); sugWrap.innerHTML=matches.length?matches.map(o=>`<div class="s-item"><span class="sj">${esc(o.jobNumber)}</span><span class="sn">${esc(o.jobName||"—")}</span><button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join(""):`<div class="s-item" style="justify-content:center;color:var(--steel)">No match — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`; } else sugWrap.innerHTML="";
+
+  const kw=$("mjSearch").value.trim().toLowerCase(); $("mjClr").style.display=kw?"block":"none";
+  const month=$("mjMonth").value;
   const wrap=$("foldersList");
-  if(!MY_JOBS.length){ wrap.innerHTML=`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save. New arrivals and rentals on it collect here automatically.</p></div>`; return; }
+  if(!MY_JOBS.length){ wrap.innerHTML=`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save. Arrivals, rentals, and tool rentals on it collect here.</p></div>`; return; }
   const sorted=[...MY_JOBS].sort((a,b)=>{ const la=jobsMap.get(a)?.last||"",lb=jobsMap.get(b)?.last||""; return lb<la?-1:1; });
   wrap.innerHTML=sorted.map(job=>{
     const info=jobsMap.get(job);
-    const arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
-    const rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
-    const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||"Unknown job name";
+    let arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
+    let rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
+    let tls=TOOLS.filter(r=>normJob(r.jobNumber)===job);
+    const totalArr=arr.length,totalRnt=rnt.length,totalTls=tls.length;
+    if(month){ arr=arr.filter(r=>monthKey(r.dateReceived)===month); rnt=rnt.filter(r=>monthKey(r.dateRented)===month); tls=tls.filter(r=>monthKey(r.rentalStarted)===month); }
+    if(kw){ arr=arr.filter(r=>[r.description,r.supplier,r.po,r.requestedBy,r.jobName].some(v=>(v||"").toLowerCase().includes(kw))); rnt=rnt.filter(r=>[r.equipment,r.vendor,r.rentalId,r.po,r.orderedBy].some(v=>(v||"").toLowerCase().includes(kw))); tls=tls.filter(r=>[r.toolType,r.toolId].some(v=>(v||"").toLowerCase().includes(kw))); }
+    const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||tls[0]?.jobName||"Unknown job name";
     let body="";
-    body+=`<div class="subhead">Arrivals <span class="cnt">${arr.length}</span></div>`;
-    body+= arr.length ? `<div class="rows">${arr.map(r=>arrivalRow(r,{star:false})).join("")}</div>` : `<div class="empty" style="padding:14px 16px"><p style="font-size:13px">No arrivals yet.</p></div>`;
-    body+=`<div class="subhead">Rentals <span class="cnt">${rnt.length}</span></div>`;
-    body+= rnt.length ? `<div class="rows">${rnt.map(r=>rentalRow(r,{star:false})).join("")}</div>` : `<div class="empty" style="padding:14px 16px"><p style="font-size:13px">No rentals on this job.</p></div>`;
+    if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No arrivals${(kw||month)?" match the filter":" yet"}.</div>`;
+    else if(mjSeg==="rentals") body = rnt.length?`<div class="drows">${rnt.map(r=>rentalRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
+    else body = tls.length?`<div class="drows">${tls.map(r=>toolRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No tool rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
     return `<div class="folder" data-folder="${esc(job)}">
       <div class="folder-head" data-toggle="${esc(job)}">
         <span class="folder-tag">${esc(job)}</span>
-        <div class="folder-info"><div class="fn">${esc(name)}</div><div class="fc"><b>${arr.length}</b> arrival${arr.length===1?"":"s"} · <b>${rnt.length}</b> rental${rnt.length===1?"":"s"}${info?.last?` · last ${esc(shortDate(info.last))}`:""}</div></div>
-        <div class="folder-actions">
-          <button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>
-          <span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
-        </div>
+        <div class="folder-info"><div class="fn">${esc(name)}</div><div class="fc"><b>${totalArr}</b> arrivals · <b>${totalRnt}</b> rentals · <b>${totalTls}</b> tools${info?.last?` · last ${esc(longDate(info.last).split(",")[0])}`:""}</div></div>
+        <div class="folder-actions"><button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button><span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
       </div>
       <div class="folder-body">${body}</div>
     </div>`;
   }).join("");
 }
 
-/* ---------- Admin stats ---------- */
-function renderAdminStats(){
-  $("statTotal").textContent=ARRIVALS.length.toLocaleString();
-  $("statRent").textContent=RENTALS.filter(r=>!/return/i.test(r.status)).length;
-  $("statToday").textContent=ARRIVALS.filter(r=>r.dateReceived===todayIso()).length;
-}
+/* ---------- Stats ---------- */
+function renderAdminStats(){ if($("statTotal")){ $("statTotal").textContent=ARRIVALS.length.toLocaleString(); $("statRent").textContent=RENTALS.filter(r=>!/return/i.test(r.status)).length; $("statToday").textContent=ARRIVALS.filter(r=>r.dateReceived===todayIso()).length; } }
+function renderEricStats(){ if($("statTool")){ $("statTool").textContent=TOOLS.length.toLocaleString(); $("statToolOut").textContent=TOOLS.filter(r=>!/return/i.test(r.status)).length; $("statToolJobs").textContent=new Set(TOOLS.map(r=>normJob(r.jobNumber)).filter(isRealJob)).size; } }
 
 /* ---------- Master render ---------- */
-function renderAll(){
-  $("pillFeed").textContent = ARRIVALS.length>999 ? (Math.floor(ARRIVALS.length/100)/10)+"k" : ARRIVALS.length;
-  refreshMonths(); renderFeed(); renderRentals(); renderJobs(); renderAdminStats();
-}
+function renderAll(){ $("pillFeed").textContent=ARRIVALS.length>999?(Math.floor(ARRIVALS.length/100)/10)+"k":ARRIVALS.length; refreshMonths(); renderFeed(); renderRentals(); renderTools(); renderJobs(); renderAdminStats(); renderEricStats(); }
 
 /* ---------- Save/remove job ---------- */
-function addJob(job){ const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); saveMyJobs(); $("jobSearch").value=""; renderJobs(); renderFeed(); renderRentals(); toast("Saved "+j+" to My Jobs"); }
-function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); saveMyJobs(); renderJobs(); renderFeed(); renderRentals(); toast("Removed "+job); }
+function addJob(job){ const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); saveMyJobs(); $("jobSearch").value=""; renderAll(); toast("Saved "+j+" to My Jobs"); }
+function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); saveMyJobs(); renderAll(); toast("Removed "+job); }
 
 /* ---------- Tabs ---------- */
-document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
-  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
-  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
-  t.classList.add("active"); $("view-"+t.dataset.view).classList.add("active"); window.scrollTo(0,0);
-  if(t.dataset.view==="admin") syncAdminView();
-}));
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); document.querySelectorAll(".view").forEach(x=>x.classList.remove("active")); t.classList.add("active"); $("view-"+t.dataset.view).classList.add("active"); window.scrollTo(0,0); if(t.dataset.view==="admin")syncAdminView(); }));
 
 /* ---------- Filters ---------- */
-$("feedSearch").addEventListener("input",renderFeed);
-$("feedClr").addEventListener("click",()=>{$("feedSearch").value="";renderFeed();});
-$("monthSel").addEventListener("change",renderFeed);
-$("rentSearch").addEventListener("input",renderRentals);
-$("rentClr").addEventListener("click",()=>{$("rentSearch").value="";renderRentals();});
-$("rentStatus").addEventListener("change",renderRentals);
+$("feedSearch").addEventListener("input",renderFeed); $("feedClr").addEventListener("click",()=>{$("feedSearch").value="";renderFeed();}); $("monthSel").addEventListener("change",renderFeed);
+$("rentSearch").addEventListener("input",renderRentals); $("rentClr").addEventListener("click",()=>{$("rentSearch").value="";renderRentals();}); $("rentStatus").addEventListener("change",renderRentals);
+$("toolSearch").addEventListener("input",renderTools); $("toolClr").addEventListener("click",()=>{$("toolSearch").value="";renderTools();}); $("toolStatus").addEventListener("change",renderTools);
+$("mjSearch").addEventListener("input",renderJobs); $("mjClr").addEventListener("click",()=>{$("mjSearch").value="";renderJobs();}); $("mjMonth").addEventListener("change",renderJobs);
+document.querySelectorAll("#mjSeg button").forEach(b=>b.addEventListener("click",()=>{ mjSeg=b.dataset.seg; document.querySelectorAll("#mjSeg button").forEach(x=>x.classList.toggle("on",x===b)); refreshMonths(); renderJobs(); }));
 
 /* ---------- Delegated clicks ---------- */
 document.addEventListener("click",e=>{
@@ -644,8 +714,9 @@ document.addEventListener("click",e=>{
   const addb=e.target.closest("[data-addjob]"); if(addb){ addJob(addb.dataset.addjob); return; }
   const rem=e.target.closest("[data-removejob]"); if(rem){ e.stopPropagation(); removeJob(rem.dataset.removejob); return; }
   const tog=e.target.closest("[data-toggle]"); if(tog){ tog.closest(".folder").classList.toggle("open"); return; }
-  const ed=e.target.closest("[data-edit]"); if(ed){ const [tp,id]=ed.dataset.edit.split(":"); openEdit(tp,id); return; }
-  const dl=e.target.closest("[data-del]"); if(dl){ const [tp,id]=dl.dataset.del.split(":"); doDelete(tp,id); return; }
+  const ed=e.target.closest("[data-edit]"); if(ed){ const i=ed.dataset.edit.indexOf(":"); openEdit(ed.dataset.edit.slice(0,i),ed.dataset.edit.slice(i+1)); return; }
+  const dl=e.target.closest("[data-del]"); if(dl){ const i=dl.dataset.del.indexOf(":"); doDelete(dl.dataset.del.slice(0,i),dl.dataset.del.slice(i+1)); return; }
+  const ph=e.target.closest("[data-photos]"); if(ph){ openPhotos(ph.dataset.photos); return; }
 });
 
 /* ---------- My Jobs add ---------- */
@@ -653,155 +724,193 @@ $("jobSearch").addEventListener("input",renderJobs);
 $("jobAddBtn").addEventListener("click",()=>{ const v=$("jobSearch").value.trim(); v?addJob(v):toast("Type a job number first"); });
 $("jobSearch").addEventListener("keydown",e=>{ if(e.key==="Enter"){const v=$("jobSearch").value.trim(); if(v)addJob(v);} });
 
-/* ---------- Admin PIN ---------- */
+/* ---------- Admin PIN + roles ---------- */
 const pin=$("pinInput");
 function syncAdminView(){
   $("adminLocked").style.display=adminUnlocked?"none":"block";
-  $("adminUnlocked").style.display=adminUnlocked?"block":"none";
-  if(adminUnlocked) renderAdminStats(); else { pin.value=""; $("pinMsg").textContent=""; pin.classList.remove("bad"); }
+  $("adminChooser").style.display=(adminUnlocked&&!adminMode)?"block":"none";
+  $("adminBobby").style.display=(adminUnlocked&&adminMode==="bobby")?"block":"none";
+  $("adminEric").style.display=(adminUnlocked&&adminMode==="eric")?"block":"none";
+  if(adminUnlocked){ renderAdminStats(); renderEricStats(); } else { pin.value=""; $("pinMsg").textContent=""; pin.classList.remove("bad"); }
 }
-pin.addEventListener("input",()=>{
-  pin.value=pin.value.replace(/\D/g,"").slice(0,4); $("pinMsg").className="pin-msg"; $("pinMsg").textContent=""; pin.classList.remove("bad");
-  if(pin.value.length===4){
-    if(pin.value===ADMIN_PIN){ adminUnlocked=true; sessionStorage.setItem("er_admin","1"); syncAdminView(); renderFeed(); renderRentals(); renderJobs(); toast("Welcome back, Bobby"); }
-    else { pin.classList.add("bad"); $("pinMsg").className="pin-msg bad"; $("pinMsg").textContent="Incorrect PIN — try again"; setTimeout(()=>{pin.value="";pin.classList.remove("bad");pin.focus();},600); }
-  }
+pin.addEventListener("input",()=>{ pin.value=pin.value.replace(/\D/g,"").slice(0,4); $("pinMsg").className="pin-msg"; $("pinMsg").textContent=""; pin.classList.remove("bad");
+  if(pin.value.length===4){ if(pin.value===ADMIN_PIN){ adminUnlocked=true; sessionStorage.setItem("er_admin","1"); syncAdminView(); renderAll(); } else { pin.classList.add("bad"); $("pinMsg").className="pin-msg bad"; $("pinMsg").textContent="Incorrect PIN — try again"; setTimeout(()=>{pin.value="";pin.classList.remove("bad");pin.focus();},600); } }
 });
-$("btnLock").addEventListener("click",()=>{ adminUnlocked=false; sessionStorage.removeItem("er_admin"); syncAdminView(); renderFeed(); renderRentals(); renderJobs(); toast("Admin locked"); });
+document.querySelectorAll("[data-role]").forEach(b=>b.addEventListener("click",()=>{ adminMode=b.dataset.role; sessionStorage.setItem("er_mode",adminMode); syncAdminView(); }));
+document.querySelectorAll("[data-switch]").forEach(b=>b.addEventListener("click",()=>{ adminMode=""; sessionStorage.removeItem("er_mode"); syncAdminView(); }));
+function lockAdmin(){ adminUnlocked=false; adminMode=""; sessionStorage.removeItem("er_admin"); sessionStorage.removeItem("er_mode"); syncAdminView(); renderAll(); toast("Admin locked"); }
+$("btnLock").addEventListener("click",lockAdmin); $("btnLock2").addEventListener("click",lockAdmin);
 
 /* ---------- Modals ---------- */
 function openModal(id){ $(id).classList.add("show"); document.body.style.overflow="hidden"; }
 function closeModal(id){ $(id).classList.remove("show"); document.body.style.overflow=""; }
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal(b.dataset.close)));
-document.querySelectorAll(".modal-back").forEach(m=>m.addEventListener("click",e=>{ if(e.target===m) closeModal(m.id); }));
+document.querySelectorAll(".modal-back").forEach(m=>m.addEventListener("click",e=>{ if(e.target===m)closeModal(m.id); }));
 
-/* ---------- Arrival: new / edit ---------- */
-$("btnLog").addEventListener("click",()=>{
-  editing=null; $("logTitle").textContent="Log Arrival"; $("logSubmit").textContent="Save arrival"; $("logDelete").style.display="none";
-  $("f_date").value=todayIso(); ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_deliv"].forEach(i=>$(i).value=""); $("jobnameHint").textContent="";
-  openModal("logModal"); setTimeout(()=>$("f_job").focus(),300);
-});
-$("f_job").addEventListener("input",()=>{ const j=normJob($("f_job").value); const h=$("jobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){ h.textContent="Known job: "+f.jobName; if(!$("f_jobname").value)$("f_jobname").value=f.jobName; } else h.textContent=""; });
+/* ---------- Photos ---------- */
+function renderPhotoSlots(){
+  const wrap=$("photoSlots"); let h="";
+  pendingPhotos.forEach((p,i)=>{ h+=`<div class="pslot"><img src="${p}"><button class="rm" data-rmphoto="${i}">✕</button></div>`; });
+  if(pendingPhotos.length<2) h+=`<button class="padd" id="addPhoto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>Add</button>`;
+  wrap.innerHTML=h;
+  const ap=$("addPhoto"); if(ap) ap.addEventListener("click",()=>$("photoInput").click());
+}
+$("photoSlots").addEventListener("click",e=>{ const rm=e.target.closest("[data-rmphoto]"); if(rm){ pendingPhotos.splice(Number(rm.dataset.rmphoto),1); renderPhotoSlots(); } });
+$("photoInput").addEventListener("change",async()=>{ const f=$("photoInput").files[0]; $("photoInput").value=""; if(!f)return; if(pendingPhotos.length>=2)return; try{ pendingPhotos.push(await fileToDataURL(f)); renderPhotoSlots(); }catch(e){ toast("Couldn't read photo"); } });
+function fileToDataURL(file,max=1200,q=0.7){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onerror=()=>rej(); fr.onload=()=>{ const img=new Image(); img.onerror=()=>rej(); img.onload=()=>{ let w=img.width,h=img.height; if(w>h&&w>max){h=Math.round(h*max/w);w=max;} else if(h>max){w=Math.round(w*max/h);h=max;} const c=document.createElement("canvas"); c.width=w;c.height=h; c.getContext("2d").drawImage(img,0,0,w,h); res(c.toDataURL("image/jpeg",q)); }; img.src=fr.result; }; fr.readAsDataURL(file); }); }
+async function openPhotos(id){ const data=await idbGet(id); const view=$("photoView"); view.innerHTML=(data&&data.length)?data.map(p=>`<img src="${p}">`).join(""):`<div class="sub-empty">No photos on this device.</div>`; openModal("photoModal"); }
+
+/* ---------- Arrival new/edit ---------- */
+$("btnLog").addEventListener("click",()=>{ editing=null; pendingPhotos=[]; $("logTitle").textContent="Log Arrival"; $("logSubmit").textContent="Save arrival"; $("logDelete").style.display="none"; $("f_date").value=todayIso(); ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_deliv"].forEach(i=>$(i).value=""); $("jobnameHint").textContent=""; renderPhotoSlots(); openModal("logModal"); setTimeout(()=>$("f_job").focus(),300); });
+$("f_job").addEventListener("input",()=>{ const j=normJob($("f_job").value),h=$("jobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){h.textContent="Known job: "+f.jobName; if(!$("f_jobname").value)$("f_jobname").value=f.jobName;} else h.textContent=""; });
 $("logSubmit").addEventListener("click",saveArrival);
-$("logDelete").addEventListener("click",()=>{ if(editing&&editing.type==="arrival") doDelete("arrival",editing.id,true); });
+$("logDelete").addEventListener("click",()=>{ if(editing&&editing.type==="arrival")doDelete("arrival",editing.id,true); });
 async function saveArrival(){
-  const rec={ dateReceived:$("f_date").value||todayIso(), po:$("f_po").value.trim(), jobNumber:$("f_job").value.trim(), jobName:$("f_jobname").value.trim(), description:$("f_desc").value.trim(), supplier:$("f_supplier").value.trim(), deliveryDate:$("f_deliv").value||"", requestedBy:$("f_req").value.trim() };
+  const rec={dateReceived:$("f_date").value||todayIso(),po:$("f_po").value.trim(),jobNumber:$("f_job").value.trim(),jobName:$("f_jobname").value.trim(),description:$("f_desc").value.trim(),supplier:$("f_supplier").value.trim(),deliveryDate:$("f_deliv").value||"",requestedBy:$("f_req").value.trim()};
   if(!rec.jobNumber){toast("Job # is required");$("f_job").focus();return;}
   if(!rec.description){toast("Description is required");$("f_desc").focus();return;}
   if(!fbReady){toast("No Firebase connection");return;}
   const btn=$("logSubmit"); btn.disabled=true; btn.textContent="Saving…";
   try{
-    if(editing&&editing.type==="arrival"){ await setDoc(doc(db,"arrivals",editing.id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); toast("Arrival updated"); }
-    else{ const id=makeId([rec.dateReceived,rec.po,normJob(rec.jobNumber),rec.description.slice(0,80)])+"-"+Date.now().toString(36); await setDoc(doc(db,"arrivals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); toast("Arrival logged"); }
-    closeModal("logModal");
+    let id;
+    if(editing&&editing.type==="arrival"){ id=editing.id; await setDoc(doc(db,"arrivals",id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); }
+    else{ id=makeId([rec.dateReceived,rec.po,normJob(rec.jobNumber),rec.description.slice(0,80)])+"-"+Date.now().toString(36); await setDoc(doc(db,"arrivals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); }
+    if(pendingPhotos.length){ await idbSet(id,pendingPhotos.slice(0,2)); PHOTO_IDS.add(id); } else { await idbDel(id); PHOTO_IDS.delete(id); }
+    closeModal("logModal"); renderFeed(); renderJobs();
+    toast(editing?"Arrival updated":"Arrival logged");
   }catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
   finally{ btn.disabled=false; btn.textContent=editing?"Save changes":"Save arrival"; }
 }
 
-/* ---------- Rental: new / edit ---------- */
-$("btnRental").addEventListener("click",()=>{
-  editing=null; $("rentTitle").textContent="Log Rental"; $("rentSubmit").textContent="Save rental"; $("rentDelete").style.display="none";
-  $("r_date").value=todayIso(); ["r_id","r_job","r_by","r_jobname","r_equip","r_rate","r_vendor","r_po","r_returned"].forEach(i=>$(i).value=""); $("r_status").value="Renting"; $("rJobnameHint").textContent="";
-  openModal("rentalModal"); setTimeout(()=>$("r_job").focus(),300);
-});
-$("r_job").addEventListener("input",()=>{ const j=normJob($("r_job").value); const h=$("rJobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){ h.textContent="Known job: "+f.jobName; if(!$("r_jobname").value)$("r_jobname").value=f.jobName; } else h.textContent=""; });
+/* ---------- Rental new/edit ---------- */
+$("btnRental").addEventListener("click",()=>{ editing=null; $("rentTitle").textContent="Log Rental"; $("rentSubmit").textContent="Save rental"; $("rentDelete").style.display="none"; $("r_date").value=todayIso(); ["r_id","r_job","r_by","r_jobname","r_equip","r_rate","r_vendor","r_po","r_returned"].forEach(i=>$(i).value=""); $("r_status").value="Renting"; $("rJobnameHint").textContent=""; openModal("rentalModal"); setTimeout(()=>$("r_job").focus(),300); });
+$("r_job").addEventListener("input",()=>{ const j=normJob($("r_job").value),h=$("rJobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){h.textContent="Known job: "+f.jobName; if(!$("r_jobname").value)$("r_jobname").value=f.jobName;} else h.textContent=""; });
 $("rentSubmit").addEventListener("click",saveRental);
-$("rentDelete").addEventListener("click",()=>{ if(editing&&editing.type==="rental") doDelete("rental",editing.id,true); });
+$("rentDelete").addEventListener("click",()=>{ if(editing&&editing.type==="rental")doDelete("rental",editing.id,true); });
 async function saveRental(){
-  const rec={ dateRented:$("r_date").value||todayIso(), rentalId:$("r_id").value.trim(), jobNumber:$("r_job").value.trim(), orderedBy:$("r_by").value.trim(), jobName:$("r_jobname").value.trim(), equipment:$("r_equip").value.trim(), rate:$("r_rate").value.trim(), vendor:$("r_vendor").value.trim(), status:$("r_status").value, dateReturned:$("r_returned").value||"", po:$("r_po").value.trim() };
+  const rec={dateRented:$("r_date").value||todayIso(),rentalId:$("r_id").value.trim(),jobNumber:$("r_job").value.trim(),orderedBy:$("r_by").value.trim(),jobName:$("r_jobname").value.trim(),equipment:$("r_equip").value.trim(),rate:$("r_rate").value.trim(),vendor:$("r_vendor").value.trim(),status:$("r_status").value,dateReturned:$("r_returned").value||"",po:$("r_po").value.trim()};
   if(!rec.jobNumber){toast("Job # is required");$("r_job").focus();return;}
   if(!rec.equipment){toast("Equipment is required");$("r_equip").focus();return;}
   if(!fbReady){toast("No Firebase connection");return;}
   const btn=$("rentSubmit"); btn.disabled=true; btn.textContent="Saving…";
-  try{
-    if(editing&&editing.type==="rental"){ await setDoc(doc(db,"rentals",editing.id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); toast("Rental updated"); }
-    else{ const id=makeId([rec.rentalId,normJob(rec.jobNumber),rec.equipment.slice(0,60),rec.dateRented])+"-"+Date.now().toString(36); await setDoc(doc(db,"rentals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); toast("Rental logged"); }
-    closeModal("rentalModal");
-  }catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  try{ if(editing&&editing.type==="rental"){ await setDoc(doc(db,"rentals",editing.id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); } else { const id=makeId([rec.rentalId,normJob(rec.jobNumber),rec.equipment.slice(0,60),rec.dateRented])+"-"+Date.now().toString(36); await setDoc(doc(db,"rentals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); } closeModal("rentalModal"); toast(editing?"Rental updated":"Rental logged"); }
+  catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
   finally{ btn.disabled=false; btn.textContent=editing?"Save changes":"Save rental"; }
 }
 
-/* ---------- Edit / delete entry points ---------- */
-function openEdit(type,id){
-  if(type==="arrival"){
-    const r=ARRIVALS.find(x=>x.id===id); if(!r) return;
-    editing={type:"arrival",id:r.id,seq:r.seq};
-    $("logTitle").textContent="Edit Arrival"; $("logSubmit").textContent="Save changes"; $("logDelete").style.display="block";
-    $("f_date").value=r.dateReceived||todayIso(); $("f_po").value=r.po; $("f_job").value=r.jobNumber; $("f_req").value=r.requestedBy; $("f_jobname").value=r.jobName; $("f_desc").value=r.description; $("f_supplier").value=r.supplier; $("f_deliv").value=r.deliveryDate||""; $("jobnameHint").textContent="";
-    openModal("logModal");
-  } else {
-    const r=RENTALS.find(x=>x.id===id); if(!r) return;
-    editing={type:"rental",id:r.id,seq:r.seq};
-    $("rentTitle").textContent="Edit Rental"; $("rentSubmit").textContent="Save changes"; $("rentDelete").style.display="block";
-    $("r_date").value=r.dateRented||todayIso(); $("r_id").value=r.rentalId; $("r_job").value=r.jobNumber; $("r_by").value=r.orderedBy; $("r_jobname").value=r.jobName; $("r_equip").value=r.equipment; $("r_rate").value=r.rate; $("r_vendor").value=r.vendor; $("r_status").value=/return/i.test(r.status)?"Returned":"Renting"; $("r_returned").value=r.dateReturned||""; $("r_po").value=r.po; $("rJobnameHint").textContent="";
-    openModal("rentalModal");
-  }
+/* ---------- Tool rental new/edit ---------- */
+$("btnTool").addEventListener("click",()=>{ editing=null; $("toolTitle").textContent="Add Tool Rental"; $("toolSubmit").textContent="Save tool rental"; $("toolDelete").style.display="none"; $("t_start").value=todayIso(); ["t_job","t_jobname","t_type","t_id","t_end","t_days","t_daily","t_total","t_disc"].forEach(i=>$(i).value=""); $("t_closed").checked=false; $("tJobnameHint").textContent=""; openModal("toolModal"); setTimeout(()=>$("t_job").focus(),300); });
+$("t_job").addEventListener("input",()=>{ const j=normJob($("t_job").value),h=$("tJobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){h.textContent="Known job: "+f.jobName; if(!$("t_jobname").value)$("t_jobname").value=f.jobName;} else h.textContent=""; });
+$("toolSubmit").addEventListener("click",saveTool);
+$("toolDelete").addEventListener("click",()=>{ if(editing&&editing.type==="tool")doDelete("tool",editing.id,true); });
+async function saveTool(){
+  const end=$("t_end").value||"";
+  const rec={jobNumber:$("t_job").value.trim(),jobName:$("t_jobname").value.trim(),jobClosed:$("t_closed").checked,toolType:$("t_type").value.trim(),toolId:$("t_id").value.trim(),rentalStarted:$("t_start").value||todayIso(),rentalEnded:end,billingDays:Number($("t_days").value)||0,dailyRate:Number($("t_daily").value)||0,billingTotal:$("t_total").value.trim(),discountedRate:$("t_disc").value.trim(),status:end?"Returned":"Out"};
+  if(!rec.jobNumber){toast("Job # is required");$("t_job").focus();return;}
+  if(!rec.toolType){toast("Tool type is required");$("t_type").focus();return;}
+  if(!rec.toolId){toast("Tool ID is required");$("t_id").focus();return;}
+  if(!fbReady){toast("No Firebase connection");return;}
+  const btn=$("toolSubmit"); btn.disabled=true; btn.textContent="Saving…";
+  try{ if(editing&&editing.type==="tool"){ await setDoc(doc(db,"toolRentals",editing.id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); } else { const id=makeId([normJob(rec.jobNumber),rec.toolType,rec.toolId,rec.rentalStarted])+"-"+Date.now().toString(36); await setDoc(doc(db,"toolRentals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); } closeModal("toolModal"); toast(editing?"Tool rental updated":"Tool rental added"); }
+  catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  finally{ btn.disabled=false; btn.textContent=editing?"Save changes":"Save tool rental"; }
+}
+
+/* ---------- Edit / delete ---------- */
+async function openEdit(type,id){
+  if(type==="arrival"){ const r=ARRIVALS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; pendingPhotos=(await idbGet(id))||[]; $("logTitle").textContent="Edit Arrival"; $("logSubmit").textContent="Save changes"; $("logDelete").style.display="block"; $("f_date").value=r.dateReceived||todayIso(); $("f_po").value=r.po; $("f_job").value=r.jobNumber; $("f_req").value=r.requestedBy; $("f_jobname").value=r.jobName; $("f_desc").value=r.description; $("f_supplier").value=r.supplier; $("f_deliv").value=r.deliveryDate||""; $("jobnameHint").textContent=""; renderPhotoSlots(); openModal("logModal"); }
+  else if(type==="rental"){ const r=RENTALS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; $("rentTitle").textContent="Edit Rental"; $("rentSubmit").textContent="Save changes"; $("rentDelete").style.display="block"; $("r_date").value=r.dateRented||todayIso(); $("r_id").value=r.rentalId; $("r_job").value=r.jobNumber; $("r_by").value=r.orderedBy; $("r_jobname").value=r.jobName; $("r_equip").value=r.equipment; $("r_rate").value=r.rate; $("r_vendor").value=r.vendor; $("r_status").value=/return/i.test(r.status)?"Returned":"Renting"; $("r_returned").value=r.dateReturned||""; $("r_po").value=r.po; $("rJobnameHint").textContent=""; openModal("rentalModal"); }
+  else { const r=TOOLS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; $("toolTitle").textContent="Edit Tool Rental"; $("toolSubmit").textContent="Save changes"; $("toolDelete").style.display="block"; $("t_job").value=r.jobNumber; $("t_jobname").value=r.jobName; $("t_type").value=r.toolType; $("t_id").value=r.toolId; $("t_start").value=r.rentalStarted||todayIso(); $("t_end").value=r.rentalEnded||""; $("t_days").value=r.billingDays||""; $("t_daily").value=r.dailyRate||""; $("t_total").value=r.billingTotal||""; $("t_disc").value=r.discountedRate||""; $("t_closed").checked=!!r.jobClosed; $("tJobnameHint").textContent=""; openModal("toolModal"); }
 }
 async function doDelete(type,id,fromModal){
-  const coll=type==="arrival"?"arrivals":"rentals";
-  const item=(type==="arrival"?ARRIVALS:RENTALS).find(x=>x.id===id);
-  const label=type==="arrival"?(item?.description||"this arrival"):(item?.equipment||"this rental");
-  if(!confirm(`Delete ${type}:\n\n${(label||"").slice(0,120)}\n\nThis can't be undone.`)) return;
-  try{ await deleteDoc(doc(db,coll,id)); toast((type==="arrival"?"Arrival":"Rental")+" deleted"); if(fromModal) closeModal(type==="arrival"?"logModal":"rentalModal"); }
+  const coll=type==="arrival"?"arrivals":type==="rental"?"rentals":"toolRentals";
+  const item=(type==="arrival"?ARRIVALS:type==="rental"?RENTALS:TOOLS).find(x=>x.id===id);
+  const label=type==="arrival"?(item?.description||"this arrival"):type==="rental"?(item?.equipment||"this rental"):((item?.toolType||"")+" #"+(item?.toolId||""));
+  if(!confirm(`Delete this ${type}:\n\n${(label||"").slice(0,120)}\n\nThis can't be undone.`))return;
+  try{ await deleteDoc(doc(db,coll,id)); if(type==="arrival"){ await idbDel(id); PHOTO_IDS.delete(id); } toast("Deleted"); if(fromModal)closeModal(type==="arrival"?"logModal":type==="rental"?"rentalModal":"toolModal"); }
   catch(e){ console.error(e); toast("Delete failed: "+(e.code||e.message)); }
 }
 
-/* ---------- Import (arrivals + rentals) ---------- */
-$("btnImport").addEventListener("click",()=>{ $("importBody").innerHTML=dropHTML(); wireDrop(); openModal("importModal"); });
-function dropHTML(){ return `<div class="dropzone" id="dropzone"><div class="dz-ico">📄</div><h4>Upload master sheet</h4><p>Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it from your device. Re-importing is safe — duplicates merge, not duplicate.</p><label class="dz-btn">Choose file<input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden></label></div><div class="field" style="margin-top:16px"><div class="hint">Loads every monthly tab into Arrivals, plus the Equipment Rentals tab into Rentals (job numbers are pulled from the PO column).</div></div>`; }
-function wireDrop(){ const dz=$("dropzone"),input=$("fileInput"); if(!dz)return; input.addEventListener("change",()=>{if(input.files[0])handleFile(input.files[0]);}); ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");})); ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");})); dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0]; if(f)handleFile(f);}); }
+/* ---------- Import: Excel (arrivals + rentals) ---------- */
+$("btnImport").addEventListener("click",()=>{ $("importTitle").textContent="Import Excel"; $("importBody").innerHTML=dropHTML("excel"); wireDrop("excel"); openModal("importModal"); });
+$("btnToolImport").addEventListener("click",()=>{ $("importTitle").textContent="Upload Tool Report"; $("importBody").innerHTML=dropHTML("pdf"); wireDrop("pdf"); openModal("importModal"); });
+function dropHTML(kind){ const isPdf=kind==="pdf"; return `<div class="dropzone" id="dropzone"><div class="dz-ico">${isPdf?"🧰":"📄"}</div><h4>${isPdf?"Upload tool report":"Upload master sheet"}</h4><p>${isPdf?'Drop the <b>Webduct Tool Rental</b> PDF here, or pick it from your device.':'Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it.'} Re-importing is safe — duplicates merge.</p><label class="dz-btn">Choose file<input id="fileInput" type="file" accept="${isPdf?'.pdf':'.xlsx,.xlsm,.xls'}" hidden></label></div><div class="field" style="margin-top:16px"><div class="hint">${isPdf?'Reads every job and tool line. Job numbers, dates, days, and rates are pulled automatically.':'Loads every monthly tab into Arrivals, plus the Equipment Rentals tab into Rentals.'}</div></div>`; }
+function wireDrop(kind){ const dz=$("dropzone"),input=$("fileInput"); if(!dz)return; const go=f=>{ if(kind==="pdf")handlePdf(f); else handleExcel(f); }; input.addEventListener("change",()=>{if(input.files[0])go(input.files[0]);}); ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");})); ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");})); dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)go(f);}); }
 
-function parseArrivalSheet(ws,name){
-  if(/rental/i.test(name)) return [];
-  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true});
-  if(!rows.length) return [];
-  let hIdx=-1;
-  for(let i=0;i<Math.min(rows.length,6);i++){ const j=rows[i].map(c=>String(c).toLowerCase()).join("|"); if(j.includes("date received")||(j.includes("job")&&j.includes("description"))){hIdx=i;break;} }
-  if(hIdx<0)hIdx=1;
-  const H=rows[hIdx].map(c=>String(c).toLowerCase());
-  const col=(...k)=>{for(const x of k){const i=H.findIndex(h=>h.includes(x));if(i>=0)return i;}return -1;};
-  const cD=col("date received","received"),cP=col("p.o","po","p o"),cJ=col("job#","job #","job num"),cN=col("job name"),cDe=col("description"),cS=col("supplier"),cDl=col("delivery"),cR=col("requested");
-  const out=[];
-  for(let i=hIdx+1;i<rows.length;i++){ const row=rows[i]; const g=i2=>i2>=0?row[i2]:""; const desc=String(g(cDe)||"").trim(); const dk=fmtDateKey(g(cD)); if(!desc&&!dk)continue; if(!desc&&!String(g(cJ)||"").trim())continue;
-    out.push({dateReceived:dk,po:String(g(cP)||"").trim(),jobNumber:String(g(cJ)||"").trim(),jobName:String(g(cN)||"").trim(),description:desc,supplier:String(g(cS)||"").trim(),deliveryDate:fmtDateKey(g(cDl)),requestedBy:String(g(cR)||"").trim()}); }
-  return out;
-}
-function parseRentalSheet(ws){
-  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true});
-  let hIdx=0; for(let i=0;i<Math.min(rows.length,4);i++){ if(rows[i].map(c=>String(c).toLowerCase()).join("|").includes("rental")){hIdx=i;break;} }
-  const out=[];
-  for(let i=hIdx+1;i<rows.length;i++){ const r=rows[i]; const rid=String(r[0]||"").trim(),jn=String(r[1]||"").trim(),eq=String(r[2]||"").trim(); if(!rid&&!jn&&!eq)continue; const po=String(r[9]||"").trim(); const jm=po.match(/(\d{2}-\d{4})/)||jn.match(/(\d{2}-\d{4})/);
-    out.push({rentalId:rid,jobName:jn,equipment:eq,rate:String(r[3]||"").trim(),vendor:String(r[4]||"").trim(),dateRented:fmtDateKey(r[5]),status:/return/i.test(String(r[6]))?"Returned":(String(r[6]||"").trim()||"Renting"),dateReturned:fmtDateKey(r[7]),orderedBy:String(r[8]||"").trim(),po,jobNumber:jm?jm[1]:""}); }
-  return out;
-}
-async function handleFile(file){
-  const body=$("importBody");
-  body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Reading file…</h4><p>${esc(file.name)}</p></div>`;
+function parseArrivalSheet(ws,name){ if(/rental/i.test(name))return[]; const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true}); if(!rows.length)return[]; let hIdx=-1; for(let i=0;i<Math.min(rows.length,6);i++){const j=rows[i].map(c=>String(c).toLowerCase()).join("|"); if(j.includes("date received")||(j.includes("job")&&j.includes("description"))){hIdx=i;break;}} if(hIdx<0)hIdx=1; const H=rows[hIdx].map(c=>String(c).toLowerCase()); const col=(...k)=>{for(const x of k){const i=H.findIndex(h=>h.includes(x));if(i>=0)return i;}return -1;}; const cD=col("date received","received"),cP=col("p.o","po","p o"),cJ=col("job#","job #","job num"),cN=col("job name"),cDe=col("description"),cS=col("supplier"),cDl=col("delivery"),cR=col("requested"); const out=[]; for(let i=hIdx+1;i<rows.length;i++){const row=rows[i];const g=x=>x>=0?row[x]:"";const desc=String(g(cDe)||"").trim();const dk=fmtDateKey(g(cD));if(!desc&&!dk)continue;if(!desc&&!String(g(cJ)||"").trim())continue; out.push({dateReceived:dk,po:String(g(cP)||"").trim(),jobNumber:String(g(cJ)||"").trim(),jobName:String(g(cN)||"").trim(),description:desc,supplier:String(g(cS)||"").trim(),deliveryDate:fmtDateKey(g(cDl)),requestedBy:String(g(cR)||"").trim()});} return out; }
+function parseRentalSheet(ws){ const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true}); let hIdx=0; for(let i=0;i<Math.min(rows.length,4);i++){if(rows[i].map(c=>String(c).toLowerCase()).join("|").includes("rental")){hIdx=i;break;}} const out=[]; for(let i=hIdx+1;i<rows.length;i++){const r=rows[i];const rid=String(r[0]||"").trim(),jn=String(r[1]||"").trim(),eq=String(r[2]||"").trim();if(!rid&&!jn&&!eq)continue;const po=String(r[9]||"").trim();const jm=po.match(/(\d{2}-\d{4})/)||jn.match(/(\d{2}-\d{4})/); out.push({rentalId:rid,jobName:jn,equipment:eq,rate:String(r[3]||"").trim(),vendor:String(r[4]||"").trim(),dateRented:fmtDateKey(r[5]),status:/return/i.test(String(r[6]))?"Returned":(String(r[6]||"").trim()||"Renting"),dateReturned:fmtDateKey(r[7]),orderedBy:String(r[8]||"").trim(),po,jobNumber:jm?jm[1]:""});} return out; }
+
+async function handleExcel(file){
+  const body=$("importBody"); body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Reading file…</h4><p>${esc(file.name)}</p></div>`;
   if(!fbReady){ body.innerHTML=stageErr("No Firebase connection."); return; }
   try{
     const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true});
     let arr=[],rnt=[];
-    for(const name of wb.SheetNames){ if(/rental/i.test(name)) rnt=rnt.concat(parseRentalSheet(wb.Sheets[name])); else arr=arr.concat(parseArrivalSheet(wb.Sheets[name],name)); }
-    if(!arr.length && !rnt.length){ body.innerHTML=stageErr("No rows found. Make sure this is the Equipment Received & Rentals master sheet."); return; }
+    for(const name of wb.SheetNames){ if(/rental/i.test(name))rnt=rnt.concat(parseRentalSheet(wb.Sheets[name])); else arr=arr.concat(parseArrivalSheet(wb.Sheets[name],name)); }
+    if(!arr.length&&!rnt.length){ body.innerHTML=stageErr("No rows found. Make sure this is the master sheet."); return; }
     const aMap=new Map(); arr.forEach(r=>aMap.set(makeId([r.dateReceived,r.po,normJob(r.jobNumber),r.description.slice(0,80)]),r));
     const rMap=new Map(); rnt.forEach(r=>rMap.set(makeId([r.rentalId,normJob(r.jobNumber),r.equipment.slice(0,60),r.dateRented]),r));
-    const aAll=[...aMap.entries()], rAll=[...rMap.entries()], total=aAll.length+rAll.length;
-    body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Importing ${total.toLocaleString()} records…</h4><p id="impCount">${aAll.length} arrivals · ${rAll.length} rentals</p><div class="imp-bar"><i id="impBar"></i></div></div>`;
-    let done=0; const CHUNK=400, baseSeq=Date.now()-total;
-    for(let i=0;i<aAll.length;i+=CHUNK){ const b=writeBatch(db); aAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"arrivals",id),{...r,seq:baseSeq+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,aAll.length-i); upd(done,total); }
-    for(let i=0;i<rAll.length;i+=CHUNK){ const b=writeBatch(db); rAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"rentals",id),{...r,seq:baseSeq+aAll.length+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,rAll.length-i); upd(done,total); }
-    body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${aAll.length.toLocaleString()}</b> arrivals and <b>${rAll.length}</b> rentals synced. Duplicates merged.</p><button class="submit" style="margin-top:20px" id="impClose">Done</button></div>`;
-    $("impClose").addEventListener("click",()=>closeModal("importModal"));
-    toast(total.toLocaleString()+" records imported");
+    const aAll=[...aMap.entries()],rAll=[...rMap.entries()],total=aAll.length+rAll.length;
+    body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Importing ${total.toLocaleString()}…</h4><p id="impCount">${aAll.length} arrivals · ${rAll.length} rentals</p><div class="imp-bar"><i id="impBar"></i></div></div>`;
+    let done=0; const CHUNK=400,base=Date.now()-total;
+    for(let i=0;i<aAll.length;i+=CHUNK){ const b=writeBatch(db); aAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"arrivals",id),{...r,seq:base+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,aAll.length-i); upd(done,total); }
+    for(let i=0;i<rAll.length;i+=CHUNK){ const b=writeBatch(db); rAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"rentals",id),{...r,seq:base+aAll.length+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,rAll.length-i); upd(done,total); }
+    body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${aAll.length.toLocaleString()}</b> arrivals and <b>${rAll.length}</b> rentals synced.</p><button class="submit" style="margin-top:20px" id="impClose">Done</button></div>`;
+    $("impClose").addEventListener("click",()=>closeModal("importModal")); toast(total.toLocaleString()+" imported");
   }catch(e){ console.error(e); body.innerHTML=stageErr("Import failed: "+(e.code||e.message)); }
 }
+
+async function handlePdf(file){
+  const body=$("importBody"); body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Reading PDF…</h4><p>${esc(file.name)}</p></div>`;
+  if(!fbReady){ body.innerHTML=stageErr("No Firebase connection."); return; }
+  if(!window.pdfjsLib){ body.innerHTML=stageErr("PDF reader didn't load. Check your connection and retry."); return; }
+  try{
+    const items=await parseToolPdf(await file.arrayBuffer());
+    if(!items.length){ body.innerHTML=stageErr("No tool lines found. Make sure this is the Webduct tool rental PDF."); return; }
+    const map=new Map(); items.forEach(r=>map.set(makeId([normJob(r.jobNumber),r.toolType,r.toolId,r.rentalStarted]),r));
+    const all=[...map.entries()],total=all.length;
+    body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Importing ${total} tool lines…</h4><p id="impCount">Syncing</p><div class="imp-bar"><i id="impBar"></i></div></div>`;
+    let done=0; const CHUNK=400,base=Date.now()-total;
+    for(let i=0;i<all.length;i+=CHUNK){ const b=writeBatch(db); all.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"toolRentals",id),{...r,seq:base+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,all.length-i); upd(done,total); }
+    body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${total}</b> tool rental lines synced across ${new Set(items.map(i=>i.jobNumber)).size} jobs.</p><button class="submit teal" style="margin-top:20px" id="impClose">Done</button></div>`;
+    $("impClose").addEventListener("click",()=>closeModal("importModal")); toast(total+" tool lines imported");
+  }catch(e){ console.error(e); body.innerHTML=stageErr("Import failed: "+(e.message||e)); }
+}
+
+async function parseToolPdf(buf){
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let lines=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p); const tc=await page.getTextContent(); const buckets=[];
+    for(const it of tc.items){ if(!it.str||!it.str.trim())continue; const y=it.transform[5],x=it.transform[4],w=it.width||0; let b=buckets.find(bk=>Math.abs(bk.y-y)<=2.5); if(!b){b={y,items:[]};buckets.push(b);} b.items.push({x,end:x+w,s:it.str}); }
+    buckets.sort((a,b)=>b.y-a.y);
+    for(const b of buckets){ b.items.sort((p,q)=>p.x-q.x); let line="",prev=null; for(const it of b.items){ if(prev!==null)line+=(it.x-prev>1.2?" ":"")+it.s; else line=it.s; prev=it.end; } lines.push(line.replace(/\s+/g," ").trim()); }
+  }
+  return parseToolLines(lines);
+}
+function parseToolLines(lines){
+  const LINEITEM=/^(.*?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\(blank\)|\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d+)\s+([\d.]+)\s+\$\s*([\d.,]+|-)\s+\$\s*([\d.,]+|-)$/;
+  const JOBHDR=/^(CLOSED\s+)?(\d{2}-\d{4})$/;
+  const skip=l=>!l.trim()||/^Webduct Tool Rental/.test(l)||/^Rates are based/.test(l)||/^Row Labels/.test(l)||/^Page /.test(l)||/^Grand Total/.test(l)||/\bTotal\b\s*\$/.test(l);
+  const out=[]; let job=null,name=null,tool=null,closed=false,expectName=false;
+  for(const raw of lines){ const l=raw.trim(); if(skip(l))continue;
+    const jh=JOBHDR.exec(l); if(jh){ closed=!!jh[1]; job=jh[2]; expectName=true; tool=null; name=null; continue; }
+    if(expectName){ name=l; expectName=false; continue; }
+    const mi=LINEITEM.exec(l);
+    if(mi){ const end=mi[3]==="(blank)"?"":fmtDateKey(mi[3]); out.push({jobNumber:job,jobName:name,jobClosed:closed,toolType:tool||"",toolId:mi[1].trim(),rentalStarted:fmtDateKey(mi[2]),rentalEnded:end,billingDays:Number(mi[4])||0,dailyRate:Number(mi[5])||0,billingTotal:mi[6],discountedRate:mi[7],status:end?"Returned":"Out"}); }
+    else { tool=l; }
+  }
+  return out;
+}
+
 function upd(done,total){ const p=Math.round(done/total*100); const bar=$("impBar"); if(bar)bar.style.width=p+"%"; const c=$("impCount"); if(c)c.textContent=done.toLocaleString()+" of "+total.toLocaleString(); }
 function stageErr(msg){ return `<div class="imp-stage"><div style="font-size:42px;margin-bottom:10px">⚠️</div><h4>Couldn't import</h4><p>${esc(msg)}</p><button class="submit" style="margin-top:20px" id="impErrClose">Close</button></div>`; }
-document.addEventListener("click",e=>{ if(e.target&&e.target.id==="impErrClose") closeModal("importModal"); });
+document.addEventListener("click",e=>{ if(e.target&&e.target.id==="impErrClose")closeModal("importModal"); });
 
 /* ---------- Init ---------- */
+(async()=>{ try{ PHOTO_IDS=new Set(await idbKeys()); }catch(e){} renderFeed(); })();
 syncAdminView(); startSync();
-window.addEventListener("pageshow",()=>{ if($("view-admin").classList.contains("active")) syncAdminView(); });
+window.addEventListener("pageshow",()=>{ if($("view-admin").classList.contains("active"))syncAdminView(); });
 </script>
 </body>
 </html>
