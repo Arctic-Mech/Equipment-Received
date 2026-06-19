@@ -1,1 +1,1049 @@
-t
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Equipment Received</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14181f;
+    --ink-soft:#2a313c;
+    --steel:#5b6573;
+    --steel-light:#8a93a1;
+    --line:#e3e7ed;
+    --line-soft:#eef1f5;
+    --surface:#eef1f5;
+    --card:#ffffff;
+    --hivis:#ff6a1a;
+    --hivis-dark:#e2540a;
+    --green:#1f9d57;
+    --green-soft:#e7f6ee;
+    --amber:#b9770a;
+    --amber-soft:#fdf3e0;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(20,24,31,.06), 0 4px 16px rgba(20,24,31,.05);
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:'Inter',-apple-system,system-ui,sans-serif;
+    background:var(--surface);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior-y:none;
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,textarea,select{font-family:inherit;font-size:16px}
+
+  /* ---------- Top bar ---------- */
+  .appbar{
+    position:sticky;top:0;z-index:40;
+    background:var(--ink);
+    color:#fff;
+    padding:calc(var(--safe-top) + 14px) 18px 0;
+  }
+  .appbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .brand-mark{
+    width:34px;height:34px;border-radius:8px;flex:none;
+    background:var(--hivis);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Barlow Condensed';font-weight:700;font-size:20px;color:#14181f;
+    box-shadow:inset 0 0 0 2px rgba(0,0,0,.15);
+  }
+  .brand-text{min-width:0}
+  .brand-text h1{
+    font-family:'Barlow Condensed';font-weight:700;letter-spacing:.06em;
+    font-size:21px;line-height:1;margin:0;text-transform:uppercase;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .brand-text .sub{font-size:10.5px;color:var(--steel-light);letter-spacing:.16em;text-transform:uppercase;margin-top:3px}
+  .sync-dot{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--steel-light);letter-spacing:.06em;white-space:nowrap}
+  .sync-dot i{width:8px;height:8px;border-radius:50%;background:var(--steel);display:block}
+  .sync-dot.live i{background:var(--green);box-shadow:0 0 0 3px rgba(31,157,87,.25)}
+  .sync-dot.err i{background:var(--hivis)}
+
+  .tabs{display:flex;gap:2px;margin-top:14px}
+  .tab{
+    flex:1;padding:11px 6px 13px;background:none;color:var(--steel-light);
+    font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.07em;text-transform:uppercase;
+    border-bottom:3px solid transparent;transition:color .15s,border-color .15s;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .tab.active{color:#fff;border-color:var(--hivis)}
+  .tab .pill{
+    background:var(--ink-soft);color:var(--steel-light);font-family:'JetBrains Mono';font-weight:700;
+    font-size:10px;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center;
+  }
+  .tab.active .pill{background:var(--hivis);color:#14181f}
+
+  /* ---------- Layout ---------- */
+  main{max-width:760px;margin:0 auto;padding:0 0 120px}
+  .view{display:none}
+  .view.active{display:block}
+
+  .searchwrap{
+    position:sticky;top:0;z-index:30;background:var(--surface);
+    padding:14px 14px 10px;
+  }
+  .search{
+    display:flex;align-items:center;gap:9px;background:var(--card);
+    border:1px solid var(--line);border-radius:11px;padding:11px 13px;box-shadow:var(--shadow);
+  }
+  .search svg{flex:none;color:var(--steel-light)}
+  .search input{border:none;outline:none;background:none;width:100%;font-size:16px;color:var(--ink)}
+  .search input::placeholder{color:var(--steel-light)}
+  .search .clr{font-family:'JetBrains Mono';color:var(--steel-light);font-size:13px;padding:2px 6px;border-radius:6px}
+  .search .clr:active{background:var(--line-soft)}
+
+  .meta-row{display:flex;justify-content:space-between;align-items:baseline;padding:2px 18px 4px;color:var(--steel);font-size:12px}
+  .meta-row b{font-family:'JetBrains Mono';color:var(--ink-soft);font-weight:700}
+
+  /* ---------- Date divider ---------- */
+  .daterow{
+    display:flex;align-items:center;gap:10px;padding:18px 18px 8px;
+  }
+  .daterow .d-main{font-family:'Barlow Condensed';font-weight:700;font-size:16px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink)}
+  .daterow .d-line{flex:1;height:1px;background:var(--line)}
+  .daterow .d-count{font-family:'JetBrains Mono';font-size:11px;color:var(--steel-light);font-weight:700}
+
+  /* ---------- Manifest card ---------- */
+  .feed{padding:0 14px}
+  .card{
+    position:relative;background:var(--card);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--shadow);
+    margin-bottom:11px;overflow:hidden;
+    display:flex;
+  }
+  .card-tab{
+    flex:none;width:60px;background:#fafbfc;border-right:1px dashed var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:12px 6px;position:relative;
+  }
+  .card-tab::before{content:"";position:absolute;left:-1px;top:0;width:4px;height:100%;background:var(--hivis)}
+  .card-tab .joblabel{font-size:8px;letter-spacing:.14em;color:var(--steel-light);text-transform:uppercase;font-weight:600;margin-bottom:4px}
+  .card-tab .jobnum{font-family:'JetBrains Mono';font-weight:700;font-size:13px;color:var(--ink);text-align:center;line-height:1.15;word-break:break-all}
+  .card-tab.na .card-tab-x{font-family:'JetBrains Mono';color:var(--steel-light);font-size:13px;font-weight:700}
+
+  .card-body{flex:1;min-width:0;padding:12px 14px 12px}
+  .card-desc{font-size:14.5px;font-weight:500;line-height:1.38;color:var(--ink);margin:0 0 9px;word-wrap:break-word}
+  .card-jobname{font-family:'Barlow Condensed';font-weight:600;font-size:14px;letter-spacing:.02em;color:var(--hivis-dark);text-transform:uppercase;margin:-3px 0 8px;line-height:1.2}
+  .card-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px}
+  .card-grid dt{color:var(--steel-light);text-transform:uppercase;letter-spacing:.05em;font-size:10px;font-weight:600;align-self:center}
+  .card-grid dd{margin:0;color:var(--ink-soft);font-weight:500;min-width:0;word-break:break-word}
+  .card-grid dd.mono{font-family:'JetBrains Mono';font-weight:500;font-size:12px}
+  .card-foot{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+  .chip{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;letter-spacing:.02em;display:inline-flex;gap:5px;align-items:center}
+  .chip.supplier{background:var(--line-soft);color:var(--steel)}
+  .chip.who{background:#eef4ff;color:#3257a8}
+  .chip.deliv{background:var(--amber-soft);color:var(--amber)}
+  .star-btn{margin-left:auto;display:flex;align-items:center;gap:5px;color:var(--steel-light);font-size:11px;font-weight:600;padding:4px 8px;border-radius:8px}
+  .star-btn svg{transition:transform .15s}
+  .star-btn.saved{color:var(--hivis-dark)}
+  .star-btn:active svg{transform:scale(.8)}
+
+  /* ---------- Empty / loading ---------- */
+  .empty{text-align:center;padding:70px 30px;color:var(--steel)}
+  .empty .ico{font-size:44px;margin-bottom:14px;opacity:.55}
+  .empty h3{font-family:'Barlow Condensed';font-weight:700;font-size:22px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px}
+  .empty p{font-size:14px;margin:0 auto;max-width:300px;line-height:1.5}
+  .skel{height:96px;background:linear-gradient(100deg,#fff 30%,#f3f5f8 50%,#fff 70%);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:var(--radius);margin:0 14px 11px;border:1px solid var(--line)}
+  @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+
+  /* ---------- My Jobs ---------- */
+  .mj-head{padding:16px 18px 6px}
+  .mj-head h2{font-family:'Barlow Condensed';font-weight:700;font-size:20px;letter-spacing:.05em;text-transform:uppercase;margin:0}
+  .mj-head p{color:var(--steel);font-size:13px;margin:5px 0 0;line-height:1.45}
+  .addjob{display:flex;gap:8px;padding:12px 14px 4px}
+  .addjob input{flex:1;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px;box-shadow:var(--shadow);outline:none;color:var(--ink)}
+  .addjob input:focus{border-color:var(--hivis)}
+  .btn-add{background:var(--ink);color:#fff;border-radius:11px;padding:0 18px;font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.05em;text-transform:uppercase;box-shadow:var(--shadow)}
+  .btn-add:active{background:var(--ink-soft)}
+  .suggest{padding:2px 14px 0}
+  .suggest .s-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:7px}
+  .suggest .s-item .sj{font-family:'JetBrains Mono';font-weight:700;font-size:13px;color:var(--ink)}
+  .suggest .s-item .sn{font-size:12px;color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin:0 8px}
+  .suggest .s-item button{color:var(--hivis-dark);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:5px 8px}
+
+  .folder{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin:0 14px 11px;overflow:hidden;
+  }
+  .folder-head{display:flex;align-items:center;gap:12px;padding:14px 15px;cursor:pointer}
+  .folder-tag{font-family:'JetBrains Mono';font-weight:700;font-size:14px;color:#14181f;background:var(--hivis);padding:5px 10px;border-radius:8px;flex:none}
+  .folder-info{flex:1;min-width:0}
+  .folder-info .fn{font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .folder-info .fc{font-size:12px;color:var(--steel);margin-top:2px}
+  .folder-info .fc b{color:var(--hivis-dark);font-family:'JetBrains Mono';font-weight:700}
+  .folder-actions{display:flex;align-items:center;gap:4px}
+  .icon-btn{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--steel-light)}
+  .icon-btn:active{background:var(--line-soft)}
+  .chev{transition:transform .2s;color:var(--steel-light)}
+  .folder.open .chev{transform:rotate(180deg)}
+  .folder-body{display:none;border-top:1px solid var(--line-soft);background:#fafbfc;padding:6px 10px 10px}
+  .folder.open .folder-body{display:block}
+  .folder-body .card{margin:8px 0 0;box-shadow:none}
+
+  /* ---------- Admin ---------- */
+  .admin-lock{padding:40px 24px;text-align:center;max-width:380px;margin:0 auto}
+  .admin-lock .lockico{width:62px;height:62px;border-radius:16px;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:var(--hivis)}
+  .admin-lock h2{font-family:'Barlow Condensed';font-weight:700;font-size:24px;letter-spacing:.04em;text-transform:uppercase;margin:0 0 6px}
+  .admin-lock p{color:var(--steel);font-size:13.5px;margin:0 0 22px;line-height:1.5}
+  .pin-input{
+    width:100%;text-align:center;letter-spacing:.7em;font-family:'JetBrains Mono';font-weight:700;font-size:30px;
+    padding:16px 12px 16px 22px;border:2px solid var(--line);border-radius:14px;background:var(--card);outline:none;color:var(--ink);
+    box-shadow:var(--shadow);
+  }
+  .pin-input:focus{border-color:var(--hivis)}
+  .pin-input.bad{border-color:var(--hivis);animation:shake .35s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+  .pin-msg{margin-top:14px;font-size:13px;color:var(--steel);min-height:18px}
+  .pin-msg.bad{color:var(--hivis-dark);font-weight:600}
+
+  .welcome{padding:18px 16px 4px}
+  .welcome-card{
+    background:linear-gradient(135deg,#14181f,#262d39);color:#fff;border-radius:var(--radius);
+    padding:20px 20px 22px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+  }
+  .welcome-card::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(255,106,26,.22),transparent 70%)}
+  .welcome-card .eyebrow{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.18em;text-transform:uppercase;font-size:11px;color:var(--hivis)}
+  .welcome-card h2{font-family:'Barlow Condensed';font-weight:700;font-size:28px;letter-spacing:.03em;margin:4px 0 3px;line-height:1}
+  .welcome-card .role{font-size:13px;color:var(--steel-light)}
+  .admin-actions{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:14px 16px 4px}
+  .act{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:18px 14px;display:flex;flex-direction:column;gap:9px;text-align:left;transition:transform .12s;
+  }
+  .act:active{transform:scale(.97)}
+  .act .a-ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center}
+  .act.log .a-ico{background:var(--hivis);color:#14181f}
+  .act.imp .a-ico{background:var(--ink);color:var(--hivis)}
+  .act .a-title{font-family:'Barlow Condensed';font-weight:700;font-size:17px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink)}
+  .act .a-sub{font-size:12px;color:var(--steel);line-height:1.4}
+  .admin-foot{padding:18px 18px;text-align:center}
+  .lock-again{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--steel);padding:9px 18px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+  .lock-again:active{background:var(--line-soft)}
+  .admin-stats{display:flex;gap:10px;padding:6px 16px 0}
+  .stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px;text-align:center;box-shadow:var(--shadow)}
+  .stat .num{font-family:'JetBrains Mono';font-weight:700;font-size:22px;color:var(--ink)}
+  .stat .lab{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--steel-light);margin-top:2px}
+
+  /* ---------- Modal ---------- */
+  .modal-back{position:fixed;inset:0;z-index:100;background:rgba(20,24,31,.5);backdrop-filter:blur(2px);display:none;align-items:flex-end;justify-content:center}
+  .modal-back.show{display:flex}
+  .modal{
+    background:var(--surface);width:100%;max-width:560px;border-radius:20px 20px 0 0;
+    max-height:92vh;display:flex;flex-direction:column;animation:slideup .28s cubic-bezier(.2,.8,.2,1);
+    padding-bottom:var(--safe-bottom);
+  }
+  @keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);background:var(--card);border-radius:20px 20px 0 0}
+  .modal-head h3{font-family:'Barlow Condensed';font-weight:700;font-size:20px;letter-spacing:.04em;text-transform:uppercase;margin:0}
+  .modal-head .x{width:34px;height:34px;border-radius:50%;background:var(--line-soft);display:flex;align-items:center;justify-content:center;color:var(--steel);font-size:18px}
+  .modal-grip{width:38px;height:5px;border-radius:3px;background:var(--line);margin:9px auto 0}
+  .modal-body{overflow-y:auto;padding:16px 18px 24px;-webkit-overflow-scrolling:touch}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--steel);font-weight:600;margin-bottom:6px}
+  .field label .req{color:var(--hivis-dark)}
+  .field input,.field textarea{
+    width:100%;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 13px;outline:none;color:var(--ink);
+  }
+  .field input:focus,.field textarea:focus{border-color:var(--hivis)}
+  .field textarea{resize:vertical;min-height:74px;line-height:1.45}
+  .field .hint{font-size:11px;color:var(--steel-light);margin-top:5px}
+  .field-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .submit{
+    width:100%;background:var(--hivis);color:#14181f;border-radius:13px;padding:16px;
+    font-family:'Barlow Condensed';font-weight:700;font-size:18px;letter-spacing:.05em;text-transform:uppercase;
+    box-shadow:0 4px 14px rgba(255,106,26,.3);margin-top:4px;
+  }
+  .submit:active{background:var(--hivis-dark)}
+  .submit:disabled{background:var(--steel-light);box-shadow:none;color:#fff}
+
+  /* import progress */
+  .imp-stage{text-align:center;padding:24px 10px}
+  .imp-stage .ring{width:64px;height:64px;border-radius:50%;border:5px solid var(--line);border-top-color:var(--hivis);margin:0 auto 18px;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .imp-stage h4{font-family:'Barlow Condensed';font-weight:700;font-size:20px;letter-spacing:.03em;text-transform:uppercase;margin:0 0 6px}
+  .imp-stage p{color:var(--steel);font-size:13.5px;margin:0;line-height:1.5}
+  .imp-bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:18px 0 8px}
+  .imp-bar i{display:block;height:100%;background:var(--hivis);width:0;transition:width .25s}
+  .imp-done .ring{display:none}
+  .dropzone{
+    border:2px dashed var(--line);border-radius:14px;padding:30px 18px;text-align:center;background:var(--card);transition:border-color .15s,background .15s;
+  }
+  .dropzone.drag{border-color:var(--hivis);background:#fff7f2}
+  .dropzone .dz-ico{font-size:40px;margin-bottom:10px}
+  .dropzone h4{font-family:'Barlow Condensed';font-weight:700;font-size:18px;letter-spacing:.03em;text-transform:uppercase;margin:0 0 5px}
+  .dropzone p{color:var(--steel);font-size:13px;margin:0 0 16px;line-height:1.5}
+  .dz-btn{display:inline-block;background:var(--ink);color:#fff;border-radius:11px;padding:12px 22px;font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.05em;text-transform:uppercase}
+
+  /* toast */
+  .toast{
+    position:fixed;left:50%;bottom:calc(28px + var(--safe-bottom));transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:500;
+    box-shadow:0 8px 28px rgba(0,0,0,.3);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+    max-width:90vw;text-align:center;display:flex;align-items:center;gap:9px;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.ok{border-left:4px solid var(--green)}
+  .toast.err{border-left:4px solid var(--hivis)}
+
+  @media (max-width:380px){
+    .card-tab{width:54px}
+    .admin-actions{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar-row">
+    <div class="brand">
+      <div class="brand-mark">AM</div>
+      <div class="brand-text">
+        <h1>Equipment Received</h1>
+        <div class="sub">Arctic Mechanical · Receiving</div>
+      </div>
+    </div>
+    <div class="sync-dot" id="syncDot"><i></i><span id="syncTxt">Connecting</span></div>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-view="feed">Feed <span class="pill" id="pillFeed">0</span></button>
+    <button class="tab" data-view="jobs">My Jobs <span class="pill" id="pillJobs">0</span></button>
+    <button class="tab" data-view="admin">Admin</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ FEED ============ -->
+  <section class="view active" id="view-feed">
+    <div class="searchwrap">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input id="feedSearch" type="search" placeholder="Search job #, description, supplier…" autocomplete="off">
+        <button class="clr" id="feedClr" style="display:none">Clear</button>
+      </div>
+    </div>
+    <div class="meta-row"><span id="feedMeta">Loading arrivals…</span><span id="feedSort">Newest first</span></div>
+    <div id="feedList" class="feed">
+      <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>
+    </div>
+  </section>
+
+  <!-- ============ MY JOBS ============ -->
+  <section class="view" id="view-jobs">
+    <div class="mj-head">
+      <h2>My Jobs</h2>
+      <p>Save a job number to your phone. New arrivals on those jobs land here automatically. Saved jobs stay on this device only.</p>
+    </div>
+    <div class="addjob">
+      <input id="jobSearch" type="search" placeholder="Search or type a job # (e.g. 25-0205)" autocomplete="off">
+      <button class="btn-add" id="jobAddBtn">Save</button>
+    </div>
+    <div class="suggest" id="jobSuggest"></div>
+    <div id="foldersList"></div>
+  </section>
+
+  <!-- ============ ADMIN ============ -->
+  <section class="view" id="view-admin">
+    <div id="adminLocked">
+      <div class="admin-lock">
+        <div class="lockico">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        </div>
+        <h2>Admin Access</h2>
+        <p>Enter your 4-digit PIN to log arrivals and import records.</p>
+        <input id="pinInput" class="pin-input" type="tel" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
+        <div class="pin-msg" id="pinMsg"></div>
+      </div>
+    </div>
+
+    <div id="adminUnlocked" style="display:none">
+      <div class="welcome">
+        <div class="welcome-card">
+          <div class="eyebrow">Logged in</div>
+          <h2>Welcome Bobby Dunckel</h2>
+          <div class="role">Receiving Admin · full access</div>
+        </div>
+      </div>
+      <div class="admin-stats">
+        <div class="stat"><div class="num" id="statTotal">0</div><div class="lab">Total logged</div></div>
+        <div class="stat"><div class="num" id="statToday">0</div><div class="lab">Today</div></div>
+        <div class="stat"><div class="num" id="statJobs">0</div><div class="lab">Active jobs</div></div>
+      </div>
+      <div class="admin-actions">
+        <button class="act log" id="btnLog">
+          <div class="a-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div>
+          <div class="a-title">Log Arrival</div>
+          <div class="a-sub">Record new equipment that just came in.</div>
+        </button>
+        <button class="act imp" id="btnImport">
+          <div class="a-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+          <div class="a-title">Import Excel</div>
+          <div class="a-sub">Upload the master sheet to load all past logs.</div>
+        </button>
+      </div>
+      <div class="admin-foot">
+        <button class="lock-again" id="btnLock">Lock admin</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ LOG MODAL ============ -->
+<div class="modal-back" id="logModal">
+  <div class="modal">
+    <div class="modal-grip"></div>
+    <div class="modal-head"><h3>Log Arrival</h3><button class="x" data-close="logModal">✕</button></div>
+    <div class="modal-body">
+      <div class="field-2">
+        <div class="field"><label>Date received <span class="req">*</span></label><input id="f_date" type="date"></div>
+        <div class="field"><label>P.O.</label><input id="f_po" type="text" inputmode="text" placeholder="e.g. 112736" autocomplete="off"></div>
+      </div>
+      <div class="field-2">
+        <div class="field"><label>Job # <span class="req">*</span></label><input id="f_job" type="text" placeholder="e.g. 25-0205" autocomplete="off"></div>
+        <div class="field"><label>Requested by</label><input id="f_req" type="text" placeholder="e.g. Pete M" autocomplete="off"></div>
+      </div>
+      <div class="field"><label>Job name</label><input id="f_jobname" type="text" placeholder="e.g. OHSU HRC & OHS Peds" autocomplete="off"><div class="hint" id="jobnameHint"></div></div>
+      <div class="field"><label>Description <span class="req">*</span></label><textarea id="f_desc" placeholder="What arrived — qty, item, size…"></textarea></div>
+      <div class="field-2">
+        <div class="field"><label>Supplier</label><input id="f_supplier" type="text" placeholder="e.g. ACI" autocomplete="off"></div>
+        <div class="field"><label>Delivery date</label><input id="f_deliv" type="date"></div>
+      </div>
+      <button class="submit" id="logSubmit">Save arrival</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ IMPORT MODAL ============ -->
+<div class="modal-back" id="importModal">
+  <div class="modal">
+    <div class="modal-grip"></div>
+    <div class="modal-head"><h3>Import Excel</h3><button class="x" data-close="importModal">✕</button></div>
+    <div class="modal-body" id="importBody">
+      <div class="dropzone" id="dropzone">
+        <div class="dz-ico">📄</div>
+        <h4>Upload master sheet</h4>
+        <p>Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it from your device. Re-importing is safe — duplicates are skipped.</p>
+        <label class="dz-btn">Choose file<input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden></label>
+      </div>
+      <div class="field" style="margin-top:18px">
+        <div class="hint">Reads every monthly tab. Columns: Date Received · P.O. · Job# · Job name · Description · Supplier · Delivery Date · Requested By. The Equipment Rentals tab is skipped.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getFirestore, collection, onSnapshot, doc, setDoc, writeBatch,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",
+  authDomain: "equipment-received.firebaseapp.com",
+  projectId: "equipment-received",
+  storageBucket: "equipment-received.firebasestorage.app",
+  messagingSenderId: "164676400073",
+  appId: "1:164676400073:web:552cc0e3dcc8e06951ae18"
+};
+
+let db = null, fbReady = false;
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  fbReady = true;
+} catch (e) {
+  console.error("Firebase init failed", e);
+}
+
+/* ---------------- State ---------------- */
+let ARRIVALS = [];                 // all docs, sorted newest first
+let MY_JOBS = loadMyJobs();        // array of saved job numbers (local)
+const ADMIN_PIN = "1977";
+let adminUnlocked = sessionStorage.getItem("er_admin") === "1";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------------- Local storage helpers ---------------- */
+function loadMyJobs(){
+  try { return JSON.parse(localStorage.getItem("er_myjobs") || "[]"); }
+  catch(e){ return []; }
+}
+function saveMyJobs(){
+  try { localStorage.setItem("er_myjobs", JSON.stringify(MY_JOBS)); } catch(e){}
+}
+
+/* ---------------- Utilities ---------------- */
+function normJob(j){ return String(j==null?"":j).trim().toUpperCase(); }
+function isRealJob(j){
+  const n = normJob(j);
+  return n && n !== "NA" && n !== "N/A" && n !== "-";
+}
+// deterministic id so re-imports don't duplicate
+function makeId(rec){
+  const key = [rec.dateReceived, rec.po, normJob(rec.jobNumber), (rec.description||"").slice(0,80)].join("|").toLowerCase();
+  let h = 5381;
+  for (let i=0;i<key.length;i++){ h = ((h<<5)+h) ^ key.charCodeAt(i); }
+  return "a"+(h>>>0).toString(36)+key.length.toString(36);
+}
+function fmtDateKey(d){ // -> YYYY-MM-DD
+  if(!d) return "";
+  if(d instanceof Date && !isNaN(d)){
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  const s = String(d).trim();
+  // already iso-ish
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0");
+  // M/D/YYYY
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if(m){ let y=m[3]; if(y.length===2) y="20"+y; return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0"); }
+  // last resort: long formats like "Monday, June 01, 2026"
+  const p = new Date(s);
+  if(!isNaN(p)) return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0");
+  return "";
+}
+function prettyDate(iso){
+  if(!iso) return "No date";
+  const [y,mo,da] = iso.split("-").map(Number);
+  const d = new Date(y, mo-1, da);
+  if(isNaN(d)) return iso;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((today - d)/86400000);
+  const base = d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  if(diff===0) return "Today · "+base;
+  if(diff===1) return "Yesterday · "+base;
+  return base;
+}
+function todayIso(){ return fmtDateKey(new Date()); }
+
+/* ---------------- Toast ---------------- */
+let toastT;
+function toast(msg, type="ok"){
+  const t = $("toast");
+  t.className = "toast "+type;
+  t.innerHTML = (type==="ok"?"✓ ":type==="err"?"⚠ ":"")+esc(msg);
+  void t.offsetWidth;
+  t.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>t.classList.remove("show"), 2800);
+}
+
+/* ---------------- Sync status ---------------- */
+function setSync(state){
+  const dot = $("syncDot"), txt=$("syncTxt");
+  dot.className = "sync-dot "+(state==="live"?"live":state==="err"?"err":"");
+  txt.textContent = state==="live"?"Live":state==="err"?"Offline":"Connecting";
+}
+
+/* ---------------- Firestore live feed ---------------- */
+function startSync(){
+  if(!fbReady){ setSync("err"); showFeedError(); return; }
+  try{
+    onSnapshot(collection(db,"arrivals"), snap=>{
+      const list = [];
+      snap.forEach(d=>{
+        const v = d.data();
+        list.push({
+          id: d.id,
+          dateReceived: v.dateReceived||"",
+          po: v.po||"",
+          jobNumber: v.jobNumber||"",
+          jobName: v.jobName||"",
+          description: v.description||"",
+          supplier: v.supplier||"",
+          deliveryDate: v.deliveryDate||"",
+          requestedBy: v.requestedBy||"",
+          seq: v.seq||0
+        });
+      });
+      // newest first: by date desc, then seq desc
+      list.sort((a,b)=>{
+        if(a.dateReceived !== b.dateReceived) return a.dateReceived < b.dateReceived ? 1 : -1;
+        return (b.seq||0)-(a.seq||0);
+      });
+      ARRIVALS = list;
+      setSync("live");
+      renderAll();
+    }, err=>{
+      console.error("snapshot err", err);
+      setSync("err");
+      showFeedError(err.code);
+    });
+  }catch(e){
+    setSync("err"); showFeedError();
+  }
+}
+function showFeedError(code){
+  $("feedList").innerHTML = `<div class="empty">
+    <div class="ico">📡</div><h3>Can't reach Firebase</h3>
+    <p>The live feed couldn't load${code?` (${esc(code)})`:""}. Check your connection and Firestore rules, then reload.</p></div>`;
+  $("feedMeta").textContent = "Offline";
+}
+
+/* ---------------- Render: Feed ---------------- */
+function cardHTML(r, opts={}){
+  const job = normJob(r.jobNumber);
+  const showStar = opts.star !== false;
+  const saved = MY_JOBS.includes(job);
+  const tabClass = isRealJob(job) ? "" : "na";
+  const tabInner = isRealJob(job)
+    ? `<div class="joblabel">Job</div><div class="jobnum">${esc(job)}</div>`
+    : `<div class="joblabel">Job</div><div class="card-tab-x">—</div>`;
+  return `<div class="card">
+    <div class="card-tab ${tabClass}">${tabInner}</div>
+    <div class="card-body">
+      ${r.jobName ? `<div class="card-jobname">${esc(r.jobName)}</div>`:""}
+      <p class="card-desc">${esc(r.description)||"<span style='color:var(--steel-light)'>No description</span>"}</p>
+      <dl class="card-grid">
+        ${r.po ? `<dt>P.O.</dt><dd class="mono">${esc(r.po)}</dd>`:""}
+      </dl>
+      <div class="card-foot">
+        ${r.supplier ? `<span class="chip supplier">${esc(r.supplier)}</span>`:""}
+        ${r.requestedBy ? `<span class="chip who">${esc(r.requestedBy)}</span>`:""}
+        ${r.deliveryDate ? `<span class="chip deliv">Deliv ${esc(prettyShort(r.deliveryDate))}</span>`:""}
+        ${(showStar && isRealJob(job)) ? `<button class="star-btn ${saved?'saved':''}" data-savejob="${esc(job)}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="${saved?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg>
+          ${saved?'Saved':'Save job'}</button>`:""}
+      </div>
+    </div>
+  </div>`;
+}
+function prettyShort(iso){
+  if(!iso) return "";
+  const [y,mo,da] = iso.split("-").map(Number);
+  if(!mo) return iso;
+  return new Date(y,mo-1,da).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+
+function renderFeed(){
+  const q = $("feedSearch").value.trim().toLowerCase();
+  $("feedClr").style.display = q ? "block" : "none";
+  let rows = ARRIVALS;
+  if(q){
+    rows = rows.filter(r =>
+      (r.jobNumber||"").toLowerCase().includes(q) ||
+      (r.jobName||"").toLowerCase().includes(q) ||
+      (r.description||"").toLowerCase().includes(q) ||
+      (r.supplier||"").toLowerCase().includes(q) ||
+      (r.po||"").toLowerCase().includes(q) ||
+      (r.requestedBy||"").toLowerCase().includes(q)
+    );
+  }
+  const list = $("feedList");
+  if(!ARRIVALS.length){
+    list.innerHTML = `<div class="empty"><div class="ico">📦</div><h3>No arrivals yet</h3>
+      <p>Once Bobby logs equipment or imports the master sheet, it shows up here — newest first.</p></div>`;
+    $("feedMeta").textContent = "0 arrivals";
+    return;
+  }
+  if(!rows.length){
+    list.innerHTML = `<div class="empty"><div class="ico">🔍</div><h3>No matches</h3>
+      <p>Nothing found for "${esc(q)}". Try a job number, supplier, or item.</p></div>`;
+    $("feedMeta").textContent = "0 of "+ARRIVALS.length;
+    return;
+  }
+  $("feedMeta").textContent = q ? `${rows.length} of ${ARRIVALS.length} arrivals` : `${ARRIVALS.length.toLocaleString()} arrivals`;
+
+  // group by date
+  let html = "", curDate = null, buf = [], groupCount = 0;
+  const flush = ()=>{
+    if(buf.length){
+      html += `<div class="daterow"><span class="d-main">${esc(prettyDate(curDate))}</span><span class="d-line"></span><span class="d-count">${groupCount}</span></div>`;
+      html += buf.join("");
+    }
+    buf = []; groupCount = 0;
+  };
+  // cap render for performance, with a "load more" note
+  const LIMIT = 400;
+  const slice = rows.slice(0, LIMIT);
+  for(const r of slice){
+    if(r.dateReceived !== curDate){ flush(); curDate = r.dateReceived; }
+    buf.push(cardHTML(r)); groupCount++;
+  }
+  flush();
+  if(rows.length > LIMIT){
+    html += `<div class="empty" style="padding:30px 20px"><p>Showing the ${LIMIT} most recent of ${rows.length.toLocaleString()}. Search to find older arrivals.</p></div>`;
+  }
+  list.innerHTML = html;
+}
+
+/* ---------------- Render: My Jobs ---------------- */
+function distinctJobs(){
+  const map = new Map(); // job -> {jobName, count, lastDate}
+  for(const r of ARRIVALS){
+    const j = normJob(r.jobNumber);
+    if(!isRealJob(j)) continue;
+    if(!map.has(j)) map.set(j, {jobNumber:j, jobName:r.jobName||"", count:0, last:""});
+    const o = map.get(j);
+    o.count++;
+    if(r.jobName && !o.jobName) o.jobName = r.jobName;
+    if(r.dateReceived > o.last) o.last = r.dateReceived;
+  }
+  return map;
+}
+function renderJobs(){
+  const jobsMap = distinctJobs();
+  $("pillJobs").textContent = MY_JOBS.length;
+
+  // suggestions
+  const sq = $("jobSearch").value.trim().toLowerCase();
+  const sugWrap = $("jobSuggest");
+  if(sq){
+    const matches = [...jobsMap.values()]
+      .filter(o => o.jobNumber.toLowerCase().includes(sq) || (o.jobName||"").toLowerCase().includes(sq))
+      .filter(o => !MY_JOBS.includes(o.jobNumber))
+      .sort((a,b)=> b.last < a.last ? -1 : 1)
+      .slice(0,8);
+    sugWrap.innerHTML = matches.length
+      ? matches.map(o=>`<div class="s-item">
+          <span class="sj">${esc(o.jobNumber)}</span>
+          <span class="sn">${esc(o.jobName||"—")}</span>
+          <button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join("")
+      : `<div class="s-item" style="justify-content:center;color:var(--steel)">No matching job — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`;
+  } else {
+    sugWrap.innerHTML = "";
+  }
+
+  // folders
+  const wrap = $("foldersList");
+  if(!MY_JOBS.length){
+    wrap.innerHTML = `<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3>
+      <p>Search a job number above and tap Save. New arrivals on it will collect here automatically.</p></div>`;
+    return;
+  }
+  // sort saved jobs by most recent arrival
+  const sorted = [...MY_JOBS].sort((a,b)=>{
+    const la = jobsMap.get(a)?.last || ""; const lb = jobsMap.get(b)?.last || "";
+    return lb < la ? -1 : 1;
+  });
+  wrap.innerHTML = sorted.map(job=>{
+    const info = jobsMap.get(job);
+    const items = ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
+    const name = info?.jobName || (items[0]?.jobName) || "Unknown job name";
+    const cards = items.length
+      ? items.map(r=>cardHTML(r,{star:false})).join("")
+      : `<div class="empty" style="padding:24px 16px"><p>No arrivals on this job yet. We'll add them here as they come in.</p></div>`;
+    return `<div class="folder" data-folder="${esc(job)}">
+      <div class="folder-head" data-toggle="${esc(job)}">
+        <span class="folder-tag">${esc(job)}</span>
+        <div class="folder-info">
+          <div class="fn">${esc(name)}</div>
+          <div class="fc"><b>${items.length}</b> arrival${items.length===1?"":"s"}${info?.last?` · last ${esc(prettyShort(info.last))}`:""}</div>
+        </div>
+        <div class="folder-actions">
+          <button class="icon-btn" data-removejob="${esc(job)}" title="Remove">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>
+          </button>
+          <span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
+        </div>
+      </div>
+      <div class="folder-body">${cards}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ---------------- Render: Admin stats ---------------- */
+function renderAdminStats(){
+  $("statTotal").textContent = ARRIVALS.length.toLocaleString();
+  const t = todayIso();
+  $("statToday").textContent = ARRIVALS.filter(r=>r.dateReceived===t).length;
+  $("statJobs").textContent = distinctJobs().size;
+}
+
+/* ---------------- Master render ---------------- */
+function renderAll(){
+  $("pillFeed").textContent = ARRIVALS.length > 999 ? (Math.floor(ARRIVALS.length/100)/10)+"k" : ARRIVALS.length;
+  renderFeed();
+  renderJobs();
+  renderAdminStats();
+}
+
+/* ---------------- Save / remove job ---------------- */
+function addJob(job){
+  const j = normJob(job);
+  if(!isRealJob(j)){ toast("Enter a valid job number", "err"); return; }
+  if(MY_JOBS.includes(j)){ toast(j+" is already saved"); return; }
+  MY_JOBS.push(j); saveMyJobs();
+  $("jobSearch").value = "";
+  renderJobs();
+  toast("Saved "+j+" to My Jobs");
+}
+function removeJob(job){
+  MY_JOBS = MY_JOBS.filter(j=>j!==job); saveMyJobs();
+  renderJobs();
+  toast("Removed "+job);
+}
+
+/* ---------------- Tabs ---------------- */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    $("view-"+t.dataset.view).classList.add("active");
+    window.scrollTo(0,0);
+    if(t.dataset.view==="admin") syncAdminView();
+  });
+});
+
+/* ---------------- Feed search ---------------- */
+$("feedSearch").addEventListener("input", renderFeed);
+$("feedClr").addEventListener("click", ()=>{ $("feedSearch").value=""; renderFeed(); });
+
+/* ---------------- Delegated clicks (save-job stars, folders) ---------------- */
+document.addEventListener("click", e=>{
+  const save = e.target.closest("[data-savejob]");
+  if(save){ const j = save.dataset.savejob; MY_JOBS.includes(j)?removeJob(j):addJob(j); renderFeed(); return; }
+  const addb = e.target.closest("[data-addjob]");
+  if(addb){ addJob(addb.dataset.addjob); return; }
+  const rem = e.target.closest("[data-removejob]");
+  if(rem){ e.stopPropagation(); removeJob(rem.dataset.removejob); return; }
+  const tog = e.target.closest("[data-toggle]");
+  if(tog){ tog.closest(".folder").classList.toggle("open"); return; }
+});
+
+/* ---------------- My Jobs add ---------------- */
+$("jobSearch").addEventListener("input", renderJobs);
+$("jobAddBtn").addEventListener("click", ()=>{
+  const v = $("jobSearch").value.trim();
+  if(v) addJob(v); else toast("Type a job number first","err");
+});
+$("jobSearch").addEventListener("keydown", e=>{ if(e.key==="Enter"){ const v=$("jobSearch").value.trim(); if(v) addJob(v);} });
+
+/* ---------------- Admin PIN ---------------- */
+const pin = $("pinInput");
+function syncAdminView(){
+  $("adminLocked").style.display = adminUnlocked ? "none":"block";
+  $("adminUnlocked").style.display = adminUnlocked ? "block":"none";
+  if(adminUnlocked){ renderAdminStats(); }
+  else { pin.value=""; $("pinMsg").textContent=""; pin.classList.remove("bad"); }
+}
+pin.addEventListener("input", ()=>{
+  pin.value = pin.value.replace(/\D/g,"").slice(0,4);
+  $("pinMsg").className = "pin-msg";
+  $("pinMsg").textContent = "";
+  pin.classList.remove("bad");
+  if(pin.value.length===4){
+    if(pin.value===ADMIN_PIN){
+      adminUnlocked = true;
+      sessionStorage.setItem("er_admin","1");
+      syncAdminView();
+      toast("Welcome back, Bobby");
+    } else {
+      pin.classList.add("bad");
+      $("pinMsg").className = "pin-msg bad";
+      $("pinMsg").textContent = "Incorrect PIN — try again";
+      setTimeout(()=>{ pin.value=""; pin.classList.remove("bad"); pin.focus(); }, 600);
+    }
+  }
+});
+$("btnLock").addEventListener("click", ()=>{
+  adminUnlocked = false; sessionStorage.removeItem("er_admin");
+  syncAdminView(); toast("Admin locked");
+});
+
+/* ---------------- Modals ---------------- */
+function openModal(id){ $(id).classList.add("show"); document.body.style.overflow="hidden"; }
+function closeModal(id){ $(id).classList.remove("show"); document.body.style.overflow=""; }
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click", ()=>closeModal(b.dataset.close)));
+document.querySelectorAll(".modal-back").forEach(m=>m.addEventListener("click", e=>{ if(e.target===m) closeModal(m.id); }));
+
+/* ---------------- Log arrival ---------------- */
+$("btnLog").addEventListener("click", ()=>{
+  $("f_date").value = todayIso();
+  ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_deliv"].forEach(i=>$(i).value="");
+  $("jobnameHint").textContent="";
+  openModal("logModal");
+  setTimeout(()=>$("f_job").focus(), 300);
+});
+// auto-fill job name from known jobs
+$("f_job").addEventListener("input", ()=>{
+  const j = normJob($("f_job").value);
+  const hint = $("jobnameHint");
+  if(!isRealJob(j)){ hint.textContent=""; return; }
+  const found = distinctJobs().get(j);
+  if(found && found.jobName){
+    hint.textContent = `Known job: ${found.jobName}`;
+    if(!$("f_jobname").value) $("f_jobname").value = found.jobName;
+  } else hint.textContent = "";
+});
+$("logSubmit").addEventListener("click", saveArrival);
+async function saveArrival(){
+  const rec = {
+    dateReceived: $("f_date").value || todayIso(),
+    po: $("f_po").value.trim(),
+    jobNumber: $("f_job").value.trim(),
+    jobName: $("f_jobname").value.trim(),
+    description: $("f_desc").value.trim(),
+    supplier: $("f_supplier").value.trim(),
+    deliveryDate: $("f_deliv").value || "",
+    requestedBy: $("f_req").value.trim()
+  };
+  if(!rec.jobNumber){ toast("Job # is required","err"); $("f_job").focus(); return; }
+  if(!rec.description){ toast("Description is required","err"); $("f_desc").focus(); return; }
+  if(!fbReady){ toast("No Firebase connection","err"); return; }
+  const btn = $("logSubmit"); btn.disabled=true; btn.textContent="Saving…";
+  try{
+    const id = makeId(rec) + "-" + Date.now().toString(36);
+    await setDoc(doc(db,"arrivals",id), {...rec, seq: Date.now(), createdAt: serverTimestamp(), source:"manual"});
+    closeModal("logModal");
+    toast("Arrival logged");
+  }catch(e){
+    console.error(e);
+    toast("Save failed: "+(e.code||e.message), "err");
+  }finally{
+    btn.disabled=false; btn.textContent="Save arrival";
+  }
+}
+
+/* ---------------- Import Excel ---------------- */
+$("btnImport").addEventListener("click", ()=>{
+  $("importBody").innerHTML = importDropHTML();
+  wireDropzone();
+  openModal("importModal");
+});
+function importDropHTML(){
+  return `<div class="dropzone" id="dropzone">
+      <div class="dz-ico">📄</div>
+      <h4>Upload master sheet</h4>
+      <p>Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it from your device. Re-importing is safe — duplicates are skipped.</p>
+      <label class="dz-btn">Choose file<input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls" hidden></label>
+    </div>
+    <div class="field" style="margin-top:18px">
+      <div class="hint">Reads every monthly tab. Columns: Date Received · P.O. · Job# · Job name · Description · Supplier · Delivery Date · Requested By. The Equipment Rentals tab is skipped.</div>
+    </div>`;
+}
+function wireDropzone(){
+  const dz = $("dropzone"), input = $("fileInput");
+  if(!dz) return;
+  input.addEventListener("change", ()=>{ if(input.files[0]) handleFile(input.files[0]); });
+  ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault();dz.classList.add("drag");}));
+  ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault();dz.classList.remove("drag");}));
+  dz.addEventListener("drop", e=>{ const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+}
+
+// Parse one monthly worksheet into arrival records
+function parseSheet(ws, sheetName){
+  if(/rental/i.test(sheetName)) return [];        // skip Equipment Rentals tab
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:"", cellDates:true});
+  if(!rows.length) return [];
+  // find header row (contains "Date Received" or "Job#")
+  let hIdx = -1;
+  for(let i=0;i<Math.min(rows.length,6);i++){
+    const joined = rows[i].map(c=>String(c).toLowerCase()).join("|");
+    if(joined.includes("date received") || (joined.includes("job") && joined.includes("description"))){ hIdx=i; break; }
+  }
+  if(hIdx<0) hIdx = 1; // fallback: row 2
+  const header = rows[hIdx].map(c=>String(c).toLowerCase());
+  const col = (...keys)=>{
+    for(const k of keys){ const idx = header.findIndex(h=>h.includes(k)); if(idx>=0) return idx; }
+    return -1;
+  };
+  const cDate=col("date received","received"), cPo=col("p.o","po","p o"),
+        cJob=col("job#","job #","job num"), cName=col("job name"),
+        cDesc=col("description"), cSup=col("supplier"),
+        cDeliv=col("delivery"), cReq=col("requested");
+
+  const out=[];
+  for(let i=hIdx+1;i<rows.length;i++){
+    const row = rows[i];
+    const get = idx => idx>=0 ? row[idx] : "";
+    const desc = String(get(cDesc)||"").trim();
+    const rawDate = get(cDate);
+    const dateKey = fmtDateKey(rawDate);
+    // skip blank / title rows
+    if(!desc && !dateKey) continue;
+    if(!desc && !String(get(cJob)||"").trim()) continue;
+    out.push({
+      dateReceived: dateKey,
+      po: String(get(cPo)||"").trim(),
+      jobNumber: String(get(cJob)||"").trim(),
+      jobName: String(get(cName)||"").trim(),
+      description: desc,
+      supplier: String(get(cSup)||"").trim(),
+      deliveryDate: fmtDateKey(get(cDeliv)),
+      requestedBy: String(get(cReq)||"").trim()
+    });
+  }
+  return out;
+}
+
+async function handleFile(file){
+  const body = $("importBody");
+  body.innerHTML = `<div class="imp-stage"><div class="ring"></div><h4>Reading file…</h4><p>${esc(file.name)}</p></div>`;
+  if(!fbReady){ body.innerHTML = stageErr("No Firebase connection. Can't import."); return; }
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {cellDates:true});
+    let records = [];
+    for(const name of wb.SheetNames){
+      records = records.concat(parseSheet(wb.Sheets[name], name));
+    }
+    if(!records.length){ body.innerHTML = stageErr("No arrival rows found. Make sure this is the Equipment Received master sheet."); return; }
+
+    // dedupe within file by deterministic id (re-importing merges, never duplicates)
+    const byId = new Map();
+    for(const r of records){ byId.set(makeId(r), r); }
+    const all = [...byId.entries()];
+    const total = all.length;
+
+    body.innerHTML = `<div class="imp-stage"><div class="ring"></div>
+      <h4>Importing ${total.toLocaleString()} records…</h4>
+      <p id="impCount">Syncing to Firebase</p>
+      <div class="imp-bar"><i id="impBar"></i></div></div>`;
+
+    let done = 0, baseSeq = Date.now() - total;
+    const CHUNK = 400;
+    for(let i=0;i<all.length;i+=CHUNK){
+      const batch = writeBatch(db);
+      const slice = all.slice(i, i+CHUNK);
+      slice.forEach(([id, r], k)=>{
+        batch.set(doc(db,"arrivals",id), {...r, seq: baseSeq + i + k, source:"import"}, {merge:true});
+      });
+      await batch.commit();
+      done += slice.length;
+      const pct = Math.round(done/total*100);
+      const bar = $("impBar"); if(bar) bar.style.width = pct+"%";
+      const cnt = $("impCount"); if(cnt) cnt.textContent = `${done.toLocaleString()} of ${total.toLocaleString()}`;
+    }
+    body.innerHTML = `<div class="imp-stage imp-done">
+      <div style="font-size:46px;margin-bottom:10px">✅</div>
+      <h4>Import complete</h4>
+      <p><b>${total.toLocaleString()}</b> records synced. Duplicates were merged, not duplicated.</p>
+      <button class="submit" style="margin-top:20px" id="impClose">Done</button></div>`;
+    $("impClose").addEventListener("click", ()=>closeModal("importModal"));
+    toast(total.toLocaleString()+" records imported");
+  }catch(e){
+    console.error(e);
+    body.innerHTML = stageErr("Import failed: "+(e.code||e.message));
+  }
+}
+function stageErr(msg){
+  return `<div class="imp-stage"><div style="font-size:42px;margin-bottom:10px">⚠️</div>
+    <h4>Couldn't import</h4><p>${esc(msg)}</p>
+    <button class="submit" style="margin-top:20px" onclick="document.getElementById('importBody').innerHTML='';location.hash='';">Close</button></div>`;
+}
+
+/* ---------------- Init ---------------- */
+syncAdminView();
+startSync();
+window.addEventListener("pageshow", ()=>{ if($("view-admin").classList.contains("active")) syncAdminView(); });
+</script>
+</body>
+</html>
