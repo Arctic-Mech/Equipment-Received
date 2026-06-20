@@ -22,7 +22,8 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
   body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:var(--surface);color:var(--ink);-webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
-  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;touch-action:manipulation}
+  input,select,textarea,label,a,.tab,.acard-head,.folder-head,.tcard-head,.role-card,.act,.dropzone,.seg button{touch-action:manipulation}
   input,textarea,select{font-family:inherit;font-size:16px}
 
   .appbar{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);padding:calc(var(--safe-top) + 12px) 18px 0}
@@ -649,6 +650,9 @@ const EXPANDED_ARR=new Set();       // arrival cards currently expanded
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* Reliable tap: fire on touchend (so a tap registers on the first try even while the
+   keyboard is up) and on click for mouse, de-duplicated so it never double-fires. */
+function onActivate(el,fn){ if(!el)return; let t=0; el.addEventListener("touchend",e=>{ e.preventDefault(); t=Date.now(); fn(e); },{passive:false}); el.addEventListener("click",e=>{ if(Date.now()-t<700)return; fn(e); }); }
 
 /* ---------- Local storage ---------- */
 function loadMyJobs(){ try{return JSON.parse(localStorage.getItem("er_myjobs")||"[]");}catch(e){return[];} }
@@ -981,9 +985,9 @@ function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(jo
 /* ---------- Name prompt (permanent) ---------- */
 function openName(){ $("n_first").value=USER_NAME?.first||""; $("n_last").value=USER_NAME?.last||""; $("nameCancel").style.display=USER_NAME?"block":"none"; openModal("nameModal"); setTimeout(()=>$("n_first").focus(),300); }
 function closeName(){ closeModal("nameModal"); }
-$("nameCancel").addEventListener("click",closeName);
+onActivate($("nameCancel"),closeName);
 document.querySelectorAll("[data-changename]").forEach(b=>b.addEventListener("click",openName));
-$("nameSubmit").addEventListener("click",()=>{
+onActivate($("nameSubmit"),()=>{
   const f=$("n_first").value.trim(),l=$("n_last").value.trim();
   if(!f||!l){toast("Enter first and last name");return;}
   const isChange=!!USER_NAME;
@@ -1004,8 +1008,8 @@ async function saveDeliv(clear){
   catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
   finally{ btn.disabled=false; btn.textContent="Save delivery date"; delivTarget=clear?null:delivTarget; }
 }
-$("delivSubmit").addEventListener("click",()=>saveDeliv(false));
-$("delivClear").addEventListener("click",()=>saveDeliv(true));
+onActivate($("delivSubmit"),()=>saveDeliv(false));
+onActivate($("delivClear"),()=>saveDeliv(true));
 
 /* ---------- Admin PIN + roles ---------- */
 const pin=$("pinInput");
@@ -1038,14 +1042,14 @@ $("camInput").addEventListener("change",async()=>{ const f=$("camInput").files[0
 async function openPhotoViewer(id){ camTarget=id; const view=$("photoView"); view.innerHTML=`<div class="sub-empty">Loading…</div>`; $("photoRemove").style.display=adminUnlocked?"block":"none"; openModal("photoModal");
   try{ const snap=await getDoc(doc(db,"arrivalPhotos",id)); if(snap.exists()){ const d=snap.data(); view.innerHTML=`<img src="${d.photo}"><div class="pv-by">Added by <b>${esc(d.addedBy||"—")}</b></div>`; } else view.innerHTML=`<div class="sub-empty">Photo not found.</div>`; }
   catch(e){ view.innerHTML=`<div class="sub-empty">Couldn't load photo.</div>`; } }
-$("photoReplace").addEventListener("click",()=>{ if(camTarget)startCapture(camTarget); });
-$("photoRemove").addEventListener("click",async()=>{ if(!camTarget||!adminUnlocked)return; const id=camTarget; if(!confirm("Remove this photo?"))return; try{ await deleteDoc(doc(db,"arrivalPhotos",id)); await setDoc(doc(db,"arrivals",id),{photoBy:"",updatedAt:serverTimestamp()},{merge:true}); closeModal("photoModal"); toast("Photo removed"); }catch(e){ toast("Remove failed: "+(e.code||e.message)); } });
+onActivate($("photoReplace"),()=>{ if(camTarget)startCapture(camTarget); });
+onActivate($("photoRemove"),async()=>{ if(!camTarget||!adminUnlocked)return; const id=camTarget; if(!confirm("Remove this photo?"))return; try{ await deleteDoc(doc(db,"arrivalPhotos",id)); await setDoc(doc(db,"arrivals",id),{photoBy:"",updatedAt:serverTimestamp()},{merge:true}); closeModal("photoModal"); toast("Photo removed"); }catch(e){ toast("Remove failed: "+(e.code||e.message)); } });
 
 /* ---------- Arrival new/edit ---------- */
 $("btnLog").addEventListener("click",()=>{ editing=null; $("logTitle").textContent="Log Arrival"; $("logSubmit").textContent="Save arrival"; $("logDelete").style.display="none"; $("f_date").value=todayIso(); ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_location","f_deliv"].forEach(i=>$(i).value=""); $("jobnameHint").textContent=""; openModal("logModal"); setTimeout(()=>$("f_job").focus(),300); });
 $("f_job").addEventListener("input",()=>{ const j=normJob($("f_job").value),h=$("jobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){h.textContent="Known job: "+f.jobName; if(!$("f_jobname").value)$("f_jobname").value=f.jobName;} else h.textContent=""; });
-$("logSubmit").addEventListener("click",saveArrival);
-$("logDelete").addEventListener("click",()=>{ if(editing&&editing.type==="arrival")doDelete("arrival",editing.id,true); });
+onActivate($("logSubmit"),saveArrival);
+onActivate($("logDelete"),()=>{ if(editing&&editing.type==="arrival")doDelete("arrival",editing.id,true); });
 async function saveArrival(){
   const rec={dateReceived:$("f_date").value||todayIso(),po:$("f_po").value.trim(),jobNumber:$("f_job").value.trim(),jobName:$("f_jobname").value.trim(),description:$("f_desc").value.trim(),supplier:$("f_supplier").value.trim(),storageLocation:$("f_location").value.trim(),deliveryDate:$("f_deliv").value||"",requestedBy:$("f_req").value.trim()};
   if(!rec.jobNumber){toast("Job # is required");$("f_job").focus();return;}
@@ -1065,8 +1069,8 @@ async function saveArrival(){
 /* ---------- Rental new/edit ---------- */
 $("btnRental").addEventListener("click",()=>{ editing=null; $("rentTitle").textContent="Log Rental"; $("rentSubmit").textContent="Save rental"; $("rentDelete").style.display="none"; $("r_date").value=todayIso(); ["r_id","r_job","r_by","r_jobname","r_equip","r_rate","r_vendor","r_po","r_returned"].forEach(i=>$(i).value=""); $("r_status").value="Renting"; $("rJobnameHint").textContent=""; openModal("rentalModal"); setTimeout(()=>$("r_job").focus(),300); });
 $("r_job").addEventListener("input",()=>{ const j=normJob($("r_job").value),h=$("rJobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){h.textContent="Known job: "+f.jobName; if(!$("r_jobname").value)$("r_jobname").value=f.jobName;} else h.textContent=""; });
-$("rentSubmit").addEventListener("click",saveRental);
-$("rentDelete").addEventListener("click",()=>{ if(editing&&editing.type==="rental")doDelete("rental",editing.id,true); });
+onActivate($("rentSubmit"),saveRental);
+onActivate($("rentDelete"),()=>{ if(editing&&editing.type==="rental")doDelete("rental",editing.id,true); });
 async function saveRental(){
   const rec={dateRented:$("r_date").value||todayIso(),rentalId:$("r_id").value.trim(),jobNumber:$("r_job").value.trim(),orderedBy:$("r_by").value.trim(),jobName:$("r_jobname").value.trim(),equipment:$("r_equip").value.trim(),rate:$("r_rate").value.trim(),vendor:$("r_vendor").value.trim(),status:$("r_status").value,dateReturned:$("r_returned").value||"",po:$("r_po").value.trim()};
   if(!rec.jobNumber){toast("Job # is required");$("r_job").focus();return;}
@@ -1081,8 +1085,8 @@ async function saveRental(){
 /* ---------- Tool rental new/edit ---------- */
 $("btnTool").addEventListener("click",()=>{ editing=null; $("toolTitle").textContent="Add Tool Rental"; $("toolSubmit").textContent="Save tool rental"; $("toolDelete").style.display="none"; $("t_start").value=todayIso(); ["t_job","t_jobname","t_type","t_id","t_end","t_days","t_daily","t_total","t_disc"].forEach(i=>$(i).value=""); $("t_closed").checked=false; $("tJobnameHint").textContent=""; openModal("toolModal"); setTimeout(()=>$("t_job").focus(),300); });
 $("t_job").addEventListener("input",()=>{ const j=normJob($("t_job").value),h=$("tJobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){h.textContent="Known job: "+f.jobName; if(!$("t_jobname").value)$("t_jobname").value=f.jobName;} else h.textContent=""; });
-$("toolSubmit").addEventListener("click",saveTool);
-$("toolDelete").addEventListener("click",()=>{ if(editing&&editing.type==="tool")doDelete("tool",editing.id,true); });
+onActivate($("toolSubmit"),saveTool);
+onActivate($("toolDelete"),()=>{ if(editing&&editing.type==="tool")doDelete("tool",editing.id,true); });
 async function saveTool(){
   const end=$("t_end").value||"";
   const rec={jobNumber:$("t_job").value.trim(),jobName:$("t_jobname").value.trim(),jobClosed:$("t_closed").checked,toolType:$("t_type").value.trim(),toolId:$("t_id").value.trim(),rentalStarted:$("t_start").value||todayIso(),rentalEnded:end,billingDays:Number($("t_days").value)||0,dailyRate:Number($("t_daily").value)||0,billingTotal:$("t_total").value.trim(),discountedRate:$("t_disc").value.trim(),status:end?"Returned":"Out"};
