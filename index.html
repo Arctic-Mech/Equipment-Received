@@ -355,6 +355,12 @@
   .tline .tl-meta span b{font-family:'JetBrains Mono';color:var(--ink-soft);font-weight:700}
   .tline .tl-act{grid-column:1/-1;display:flex;gap:3px;justify-content:flex-end;margin-top:4px}
   .tline .status{font-size:9.5px;padding:2px 7px}
+  /* Equipment rental job cards — blue variant of the tool card */
+  .rcard{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .rcard.open .tcard-body{display:block}
+  .rcard.open .tchev{transform:rotate(180deg)}
+  .rcard .ttag{background:var(--blue)}
+  .rcard .tc b,.rcard .tline .tid{color:var(--blue)}
 
   /* ---------- Reorder ---------- */
   .reorder-bar{display:flex;gap:8px;align-items:center;padding:2px 14px 8px}
@@ -646,6 +652,7 @@ let JOB_ORDER=loadOrder();          // custom My Jobs order (array of job#)
 let reorderMode=false, dragJob=null, dragEl=null, MJ_VIEW=[];
 let delivTarget=null;               // arrival id for quick delivery modal
 const EXPANDED_TOOLS=new Set();     // tool job cards currently open
+const EXPANDED_RENTALS=new Set();   // equipment rental job cards currently open
 const EXPANDED_ARR=new Set();       // arrival cards currently expanded
 
 const $=id=>document.getElementById(id);
@@ -820,7 +827,28 @@ function renderFeed(){
   list.innerHTML=html;
 }
 
-/* ---------- Render: Rentals ---------- */
+/* ---------- Render: Rentals (grouped by job, collapsible) ---------- */
+function rentalLine(r){
+  const ret=/return/i.test(r.status);
+  return `<div class="tline" data-type="rental" data-id="${esc(r.id)}">
+    <div class="tl-tool">${esc(r.equipment)||"Equipment"}${r.rentalId?` <span class="tid">${esc(r.rentalId)}</span>`:""}</div>
+    <div class="tl-status"><span class="status ${ret?'returned':'renting'}">${esc(r.status||"Renting")}</span></div>
+    <div class="tl-meta"><span>Rented <b>${esc(longDate(r.dateRented).split(",")[0])||"—"}</b></span><span>Returned <b>${ret&&r.dateReturned?esc(longDate(r.dateReturned).split(",")[0]):"—"}</b></span>${r.rate?`<span>Rate <b>${esc(r.rate)}</b></span>`:""}${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}${r.po?`<span>PO <b>${esc(r.po)}</b></span>`:""}${r.orderedBy?`<span>By <b>${esc(r.orderedBy)}</b></span>`:""}</div>
+    ${adminUnlocked?`<div class="tl-act">${adminActs("rental",r.id)}</div>`:""}
+  </div>`;
+}
+function rentalJobCard(job,items){
+  const info=items[0]||{}; const name=info.jobName||"Unknown job name";
+  const out=items.filter(i=>!/return/i.test(i.status)).length; const open=EXPANDED_RENTALS.has(job);
+  return `<div class="rcard ${open?'open':''}" data-rcard="${esc(job)}">
+    <div class="tcard-head" data-rtoggle="${esc(job)}">
+      <span class="ttag">${esc(isRealJob(job)?job:"—")}</span>
+      <div class="tinfo"><div class="tn">${esc(name)}</div><div class="tc"><b>${items.length}</b> rentals · <b>${out}</b> out</div></div>
+      <span class="tchev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
+    </div>
+    <div class="tcard-body">${items.map(rentalLine).join("")}</div>
+  </div>`;
+}
 function renderRentals(){
   const q=$("rentSearch").value.trim().toLowerCase(),st=$("rentStatus").value;
   $("rentClr").style.display=q?"block":"none"; $("pillRent").textContent=RENTALS.length;
@@ -830,8 +858,10 @@ function renderRentals(){
   const list=$("rentList");
   if(!RENTALS.length){ list.innerHTML=`<div class="empty"><div class="ico">🚜</div><h3>No rentals yet</h3><p>Bobby can log a rental from Admin, or import the master sheet.</p></div>`; $("rentMeta").textContent="0 rentals"; return; }
   if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>No rentals match that filter.</p></div>`; $("rentMeta").textContent="0 shown"; return; }
-  $("rentMeta").innerHTML=`<b>${rows.filter(r=>!/return/i.test(r.status)).length}</b> out · ${rows.length} shown`;
-  list.innerHTML=rows.map(r=>rentalRow(r)).join("");
+  const groups=groupByJob(rows);
+  const entries=[...groups.entries()].sort((a,b)=>{ const la=a[1][0]?.dateRented||"",lb=b[1][0]?.dateRented||""; return lb<la?-1:1; });
+  $("rentMeta").innerHTML=`<b>${groups.size}</b> jobs · ${rows.length} rentals`;
+  list.innerHTML=entries.map(([job,items])=>rentalJobCard(job,items)).join("");
 }
 
 /* ---------- Render: Tool rentals ---------- */
@@ -919,7 +949,7 @@ function renderJobs(){
     const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||tls[0]?.jobName||"Unknown job name";
     let body="";
     if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:false,compact:true})).join("")}</div>`:`<div class="sub-empty">No arrivals${(kw||month)?" match the filter":" yet"}.</div>`;
-    else if(mjSeg==="rentals") body = rnt.length?`<div class="drows">${rnt.map(r=>rentalRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
+    else if(mjSeg==="rentals") body = rnt.length?`<div class="tlines">${rnt.map(rentalLine).join("")}</div>`:`<div class="sub-empty">No rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
     else body = tls.length?`<div class="tlines">${tls.map(toolLine).join("")}</div>`:`<div class="sub-empty">No tool rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
     const ctrl=reorderMode?`<span class="reorder-ctrl"><button class="ord-btn" data-moveup="${esc(job)}" ${idx===0?"disabled":""} title="Move up">▲</button><button class="ord-btn" data-movedown="${esc(job)}" ${idx===sorted.length-1?"disabled":""} title="Move down">▼</button></span>`:"";
     return `<div class="folder ${nNew?'has-new':''} ${reorderMode?'reorderable':''}" data-folder="${esc(job)}">
@@ -968,6 +998,7 @@ document.addEventListener("click",e=>{
   const dl=e.target.closest("[data-del]"); if(dl){ e.stopPropagation(); const i=dl.dataset.del.indexOf(":"); doDelete(dl.dataset.del.slice(0,i),dl.dataset.del.slice(i+1)); return; }
   const exp=e.target.closest("[data-expand]"); if(exp){ const id=exp.dataset.expand; if(EXPANDED_ARR.has(id))EXPANDED_ARR.delete(id); else EXPANDED_ARR.add(id); exp.closest(".acard").classList.toggle("open"); return; }
   const tt=e.target.closest("[data-ttoggle]"); if(tt){ const j=tt.dataset.ttoggle; if(EXPANDED_TOOLS.has(j))EXPANDED_TOOLS.delete(j); else EXPANDED_TOOLS.add(j); tt.closest(".tcard").classList.toggle("open"); return; }
+  const rtg=e.target.closest("[data-rtoggle]"); if(rtg){ const j=rtg.dataset.rtoggle; if(EXPANDED_RENTALS.has(j))EXPANDED_RENTALS.delete(j); else EXPANDED_RENTALS.add(j); rtg.closest(".rcard").classList.toggle("open"); return; }
   const tog=e.target.closest("[data-toggle]"); if(tog){ if(reorderMode)return; tog.closest(".folder").classList.toggle("open"); return; }
 });
 
