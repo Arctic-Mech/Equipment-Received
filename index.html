@@ -354,11 +354,15 @@
   .reorder-bar button{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12.5px;padding:8px 13px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--steel);box-shadow:var(--shadow)}
   .reorder-bar button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .reorder-bar .hint{font-size:11.5px;color:var(--steel-light)}
-  .folder.reorderable .folder-head{cursor:grab}
-  .folder.dragging{opacity:.6;box-shadow:0 8px 24px rgba(20,24,31,.18)}
-  .drag-handle{display:none;align-items:center;justify-content:center;color:var(--steel-light);width:30px;flex:none;touch-action:none;cursor:grab}
-  .folder.reorderable .drag-handle{display:flex}
+  .folder.reorderable .folder-head{cursor:default}
+  .reorder-ctrl{display:flex;flex-direction:column;gap:3px;flex:none;margin-right:2px}
+  .ord-btn{width:30px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:11px;line-height:1}
+  .ord-btn:active{background:var(--line-soft)}
+  .ord-btn:disabled{color:var(--line);background:var(--surface)}
   .folder.reorderable .icon-btn[data-removejob],.folder.reorderable .chev{display:none}
+  /* compact arrival card (My Jobs — job tag/name already shown by folder) */
+  .acard.compact .ac-job,.acard.compact .ac-name{display:none}
+  .acard.compact .acard-head{grid-template-columns:1fr auto;grid-template-areas:"desc icons" "foot foot"}
 
   /* ---------- PDF viewer ---------- */
   .pdf-modal .modal{max-width:760px;height:92vh}
@@ -632,7 +636,7 @@ let USER_NAME=loadName();           // {first,last} or null — PERMANENT once s
 let REMOVED_JOBS=loadRemoved();     // jobs the user manually removed (auto-link won't re-add)
 let SEEN=loadSeen();                // {init:bool, ids:[...]} acknowledged my-jobs item ids
 let JOB_ORDER=loadOrder();          // custom My Jobs order (array of job#)
-let reorderMode=false, dragJob=null, dragEl=null;
+let reorderMode=false, dragJob=null, dragEl=null, MJ_VIEW=[];
 let delivTarget=null;               // arrival id for quick delivery modal
 const EXPANDED_TOOLS=new Set();     // tool job cards currently open
 const EXPANDED_ARR=new Set();       // arrival cards currently expanded
@@ -735,7 +739,7 @@ function arrivalRow(r,opts={}){
       <div class="extra-chips">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">Req: ${esc(r.requestedBy)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}${!r.supplier&&!r.po&&!r.requestedBy?'<span class="m none">No extra details</span>':""}</div>
       <div class="act-row">${adminActs("arrival",r.id)}${opts.star!==false?starBtn(job):""}</div>
     </div>`;
-  return `<div class="acard ${open?'open':''}" data-type="arrival" data-id="${esc(r.id)}">
+  return `<div class="acard ${open?'open':''} ${opts.compact?'compact':''}" data-type="arrival" data-id="${esc(r.id)}">
     <div class="acard-head" data-expand="${esc(r.id)}">
       <div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
       <div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div>
@@ -883,7 +887,7 @@ function renderJobs(){
   const month=$("mjMonth").value;
   const wrap=$("foldersList");
   $("reorderToggle").classList.toggle("on",reorderMode);
-  $("reorderHint").textContent=reorderMode?"Drag the handle to rearrange":"";
+  $("reorderHint").textContent=reorderMode?"Use the ▲▼ arrows to reorder":"";
   $("orderReset").style.display=(JOB_ORDER.length&&!reorderMode)?"inline-block":"none";
   if(!MY_JOBS.length){ wrap.innerHTML=`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save${USER_NAME?", or your requested jobs link automatically":""}. Arrivals, rentals, and tool rentals on it collect here.</p></div>`; return; }
   const newCountFor=job=>{ let n=0; ARRIVALS.forEach(r=>{if(normJob(r.jobNumber)===job&&news.has("a:"+r.id))n++;}); RENTALS.forEach(r=>{if(normJob(r.jobNumber)===job&&news.has("r:"+r.id))n++;}); return n; };
@@ -891,7 +895,8 @@ function renderJobs(){
   let sorted;
   if(JOB_ORDER.length){ const known=JOB_ORDER.filter(j=>MY_JOBS.includes(j)); const extra=MY_JOBS.filter(j=>!JOB_ORDER.includes(j)).sort((a,b)=>lastOf(b)<lastOf(a)?-1:1); sorted=[...extra,...known]; }
   else sorted=[...MY_JOBS].sort((a,b)=>{ const na=newCountFor(a),nb=newCountFor(b); if((nb>0)!==(na>0))return nb>0?1:-1; return lastOf(b)<lastOf(a)?-1:1; });
-  wrap.innerHTML=sorted.map(job=>{
+  MJ_VIEW=sorted.slice();
+  wrap.innerHTML=sorted.map((job,idx)=>{
     const info=jobsMap.get(job);
     let arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
     let rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
@@ -902,12 +907,13 @@ function renderJobs(){
     if(kw){ arr=arr.filter(r=>[r.description,r.supplier,r.po,r.requestedBy,r.jobName,r.storageLocation].some(v=>(v||"").toLowerCase().includes(kw))); rnt=rnt.filter(r=>[r.equipment,r.vendor,r.rentalId,r.po,r.orderedBy].some(v=>(v||"").toLowerCase().includes(kw))); tls=tls.filter(r=>[r.toolType,r.toolId].some(v=>(v||"").toLowerCase().includes(kw))); }
     const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||tls[0]?.jobName||"Unknown job name";
     let body="";
-    if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No arrivals${(kw||month)?" match the filter":" yet"}.</div>`;
+    if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:false,compact:true})).join("")}</div>`:`<div class="sub-empty">No arrivals${(kw||month)?" match the filter":" yet"}.</div>`;
     else if(mjSeg==="rentals") body = rnt.length?`<div class="drows">${rnt.map(r=>rentalRow(r,{star:false})).join("")}</div>`:`<div class="sub-empty">No rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
     else body = tls.length?`<div class="tlines">${tls.map(toolLine).join("")}</div>`:`<div class="sub-empty">No tool rentals${(kw||month)?" match the filter":" on this job"}.</div>`;
+    const ctrl=reorderMode?`<span class="reorder-ctrl"><button class="ord-btn" data-moveup="${esc(job)}" ${idx===0?"disabled":""} title="Move up">▲</button><button class="ord-btn" data-movedown="${esc(job)}" ${idx===sorted.length-1?"disabled":""} title="Move down">▼</button></span>`:"";
     return `<div class="folder ${nNew?'has-new':''} ${reorderMode?'reorderable':''}" data-folder="${esc(job)}">
       <div class="folder-head" data-toggle="${esc(job)}">
-        <span class="drag-handle" data-handle><svg width="16" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
+        ${ctrl}
         <span class="folder-tag">${esc(job)}</span>
         <div class="folder-info"><div class="fn">${esc(name)}${totalTls>0?pdfLinkFor(job):""}${nNew?'<span class="new-dot"></span>':""}</div><div class="fc"><b>${totalArr}</b> arrivals · <b>${totalRnt}</b> rentals · <b>${totalTls}</b> tools${nNew?` · <b style="color:var(--hivis-dark)">${nNew} new</b>`:""}</div></div>
         <div class="folder-actions"><button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button><span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
@@ -940,7 +946,8 @@ document.querySelectorAll("#mjSeg button").forEach(b=>b.addEventListener("click"
 
 /* ---------- Delegated clicks ---------- */
 document.addEventListener("click",e=>{
-  if(e.target.closest("[data-handle]")) return;
+  const mu=e.target.closest("[data-moveup]"); if(mu){ e.stopPropagation(); moveJob(mu.dataset.moveup,-1); return; }
+  const md=e.target.closest("[data-movedown]"); if(md){ e.stopPropagation(); moveJob(md.dataset.movedown,1); return; }
   const save=e.target.closest("[data-savejob]"); if(save){ const j=save.dataset.savejob; MY_JOBS.includes(j)?removeJob(j):addJob(j); return; }
   const addb=e.target.closest("[data-addjob]"); if(addb){ addJob(addb.dataset.addjob); return; }
   const rem=e.target.closest("[data-removejob]"); if(rem){ e.stopPropagation(); removeJob(rem.dataset.removejob); return; }
@@ -960,16 +967,10 @@ $("jobAddBtn").addEventListener("click",()=>{ const v=$("jobSearch").value.trim(
 $("jobSearch").addEventListener("keydown",e=>{ if(e.key==="Enter"){const v=$("jobSearch").value.trim(); if(v)addJob(v);} });
 $("notifClear").addEventListener("click",clearNotif);
 
-/* ---------- Reorder My Jobs ---------- */
+/* ---------- Reorder My Jobs (up/down) ---------- */
 $("reorderToggle").addEventListener("click",()=>{ reorderMode=!reorderMode; renderJobs(); });
 $("orderReset").addEventListener("click",()=>{ JOB_ORDER=[]; saveOrder(); renderJobs(); toast("Back to newest-first"); });
-(function setupDrag(){
-  const list=$("foldersList");
-  list.addEventListener("pointerdown",e=>{ const h=e.target.closest("[data-handle]"); if(!h||!reorderMode)return; dragEl=h.closest(".folder"); dragJob=dragEl.dataset.folder; dragEl.classList.add("dragging"); try{h.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
-  list.addEventListener("pointermove",e=>{ if(!dragEl)return; e.preventDefault(); const y=e.clientY; const sibs=[...list.querySelectorAll(".folder:not(.dragging)")]; let placed=false; for(const s of sibs){ const r=s.getBoundingClientRect(); if(y<r.top+r.height/2){ list.insertBefore(dragEl,s); placed=true; break; } } if(!placed) list.appendChild(dragEl); });
-  const end=()=>{ if(!dragEl)return; dragEl.classList.remove("dragging"); JOB_ORDER=[...list.querySelectorAll(".folder")].map(f=>f.dataset.folder); saveOrder(); dragEl=null; dragJob=null; $("orderReset").style.display="inline-block"; toast("Order saved"); };
-  list.addEventListener("pointerup",end); list.addEventListener("pointercancel",end);
-})();
+function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(job); if(i<0)return; const j=i+dir; if(j<0||j>=order.length)return; const t=order[i]; order[i]=order[j]; order[j]=t; JOB_ORDER=order; saveOrder(); renderJobs(); }
 
 /* ---------- Name prompt (permanent) ---------- */
 function openName(){ $("n_first").value=USER_NAME?.first||""; $("n_last").value=USER_NAME?.last||""; $("nameCancel").style.display=USER_NAME?"block":"none"; openModal("nameModal"); setTimeout(()=>$("n_first").focus(),300); }
