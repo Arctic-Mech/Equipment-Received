@@ -355,10 +355,10 @@
   .reorder-bar button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .reorder-bar .hint{font-size:11.5px;color:var(--steel-light)}
   .folder.reorderable .folder-head{cursor:default}
-  .reorder-ctrl{display:flex;flex-direction:column;gap:3px;flex:none;margin-right:2px}
-  .ord-btn{width:30px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:11px;line-height:1}
+  .reorder-ctrl{display:flex;flex-direction:row;gap:12px;flex:none}
+  .ord-btn{width:46px;height:46px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);font-size:17px;line-height:1;box-shadow:var(--shadow)}
   .ord-btn:active{background:var(--line-soft)}
-  .ord-btn:disabled{color:var(--line);background:var(--surface)}
+  .ord-btn:disabled{color:var(--line);background:var(--surface);box-shadow:none}
   .folder.reorderable .icon-btn[data-removejob],.folder.reorderable .chev{display:none}
   /* compact arrival card (My Jobs — job tag/name already shown by folder) */
   .acard.compact .ac-job,.acard.compact .ac-name{display:none}
@@ -393,7 +393,7 @@
   </div>
   <nav class="tabs">
     <button class="tab active" data-view="feed">Arrivals <span class="pill" id="pillFeed">0</span></button>
-    <button class="tab" data-view="rentals">Rentals <span class="pill" id="pillRent">0</span></button>
+    <button class="tab" data-view="rentals">Equipment Rentals <span class="pill" id="pillRent">0</span></button>
     <button class="tab" data-view="tools">Tool Rentals <span class="pill" id="pillTool">0</span></button>
     <button class="tab" data-view="jobs">My Jobs <span class="pill" id="pillJobs">0</span><span class="notif" id="jobsNotif">0</span></button>
     <button class="tab" data-view="admin">Admin</button>
@@ -445,7 +445,7 @@
     <div class="controls" style="position:static;padding-top:0">
       <div class="seg" id="mjSeg">
         <button data-seg="arrivals" class="on">Arrivals</button>
-        <button data-seg="rentals">Rentals</button>
+        <button data-seg="rentals">Equipment Rentals</button>
         <button data-seg="tools">Tool Rentals</button>
       </div>
     </div>
@@ -913,10 +913,9 @@ function renderJobs(){
     const ctrl=reorderMode?`<span class="reorder-ctrl"><button class="ord-btn" data-moveup="${esc(job)}" ${idx===0?"disabled":""} title="Move up">▲</button><button class="ord-btn" data-movedown="${esc(job)}" ${idx===sorted.length-1?"disabled":""} title="Move down">▼</button></span>`:"";
     return `<div class="folder ${nNew?'has-new':''} ${reorderMode?'reorderable':''}" data-folder="${esc(job)}">
       <div class="folder-head" data-toggle="${esc(job)}">
-        ${ctrl}
         <span class="folder-tag">${esc(job)}</span>
         <div class="folder-info"><div class="fn">${esc(name)}${totalTls>0?pdfLinkFor(job):""}${nNew?'<span class="new-dot"></span>':""}</div><div class="fc"><b>${totalArr}</b> arrivals · <b>${totalRnt}</b> rentals · <b>${totalTls}</b> tools${nNew?` · <b style="color:var(--hivis-dark)">${nNew} new</b>`:""}</div></div>
-        <div class="folder-actions"><button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button><span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+        <div class="folder-actions">${ctrl}<button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button><span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
       </div>
       <div class="folder-body">${body}</div>
     </div>`;
