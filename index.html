@@ -298,6 +298,8 @@
   .mini-btn.deliv-btn.set{color:var(--teal)}
   /* identity + notif banner */
   .identity{display:flex;align-items:center;gap:11px;margin:0 14px 4px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow)}
+  .identity.viewing{background:#f1f1f1;border-style:dashed}
+  .identity.viewing .iav{background:var(--steel)}
   .identity .iav{width:38px;height:38px;border-radius:50%;background:var(--hivis);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed';font-weight:700;font-size:16px;flex:none}
   .identity .iname{flex:1;min-width:0}
   .identity .iname b{font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);display:block;line-height:1.1}
@@ -414,8 +416,8 @@
   .share-link-copy{flex:none;background:var(--blue);color:#fff;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:13px;padding:0 16px;border-radius:10px;white-space:nowrap}
   .share-link-copy:active{background:#19198a}
   .share-link-copy.copied{background:var(--teal)}
-  @keyframes flashHighlight{0%{box-shadow:0 0 0 3px var(--hivis), var(--shadow);}100%{box-shadow:var(--shadow);}}
-  .acard.flash{animation:flashHighlight 1.8s ease-out 1;}
+  @keyframes flashHighlight{0%,100%{box-shadow:0 0 0 3px var(--hivis), var(--shadow);}50%{box-shadow:0 0 0 0px var(--hivis), var(--shadow);}}
+  .acard.flash{animation:flashHighlight 1.3s ease-in-out infinite;}
   .check-row{display:flex;align-items:center;gap:11px;padding:13px 4px;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer}
   .check-row input{width:22px;height:22px;accent-color:var(--teal);flex:none}
   .share-btn{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12.5px;color:var(--blue);background:var(--blue-soft);border:1px solid #d6d6f5;padding:7px 13px;border-radius:9px;margin-right:auto}
@@ -1016,6 +1018,8 @@ function distinctJobs(){
 }
 function renderIdentity(){
   const card=$("identityCard"); if(!card)return;
+  if(VIEW_AS){ card.style.display="flex"; card.classList.add("viewing"); $("idAv").textContent=((VIEW_AS.first[0]||"")+(VIEW_AS.last[0]||"")).toUpperCase(); $("idName").textContent=VIEW_AS.first+" "+VIEW_AS.last; $("idSub").textContent="You're viewing this person's saved jobs"; return; }
+  card.classList.remove("viewing");
   if(USER){ card.style.display="flex"; $("idAv").textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); $("idName").textContent=USER.first+" "+USER.last; const n=new Set(ARRIVALS.filter(r=>nameMatches(r.requestedBy,USER.first,USER.last)).map(r=>normJob(r.jobNumber)).filter(isRealJob)).size; $("idSub").textContent=n?`${n} job${n===1?"":"s"} auto-linked from "Requested by"`:`Your requested jobs link automatically`; }
   else card.style.display="none";
 }
@@ -1136,7 +1140,7 @@ function focusPendingArrival(){
   renderFeed();
   setTimeout(()=>{
     const el=[...document.querySelectorAll("#feedList .acard")].find(c=>c.dataset.id===id);
-    if(el){ el.scrollIntoView({behavior:"smooth",block:"center"}); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),2000); }
+    if(el){ el.scrollIntoView({behavior:"smooth",block:"center"}); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),10000); }
   },80);
 }
 function setView(name,fromHash){
