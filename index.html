@@ -299,6 +299,8 @@
   /* identity + notif banner */
   .identity{display:flex;align-items:center;gap:11px;margin:0 14px 4px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow)}
   .identity.viewing{background:#f1f1f1;border-style:dashed}
+  .icon-btn.fstar{color:var(--steel-light)}
+  .icon-btn.fstar.saved{color:#e0a400}
   .identity.viewing .iav{background:var(--steel)}
   .identity .iav{width:38px;height:38px;border-radius:50%;background:var(--hivis);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed';font-weight:700;font-size:16px;flex:none}
   .identity .iname{flex:1;min-width:0}
@@ -723,6 +725,7 @@ let shareJob=null, shareArrivalId=null;
 let VIEW_AS=null;                   // {id,first,last} — viewing someone else's My Jobs page read-only (null = viewing your own)
 let PENDING_ARRIVAL=null;           // arrival id to scroll to + expand once the Arrivals tab is showing
 let REMOVED_JOBS=new Set();         // jobs the user manually removed (auto-link won't re-add) — Firebase-synced
+let userRecordLoaded=false;         // true once this user's people/{id} doc has been read at least once
 let SEEN=loadSeen();                // {init:bool, ids:[...]} acknowledged arrival ids — per device
 let JOB_ORDER=[];                   // custom My Jobs order — Firebase-synced
 let reorderMode=false, dragJob=null, dragEl=null, MJ_VIEW=[];
@@ -768,6 +771,7 @@ function nameMatches(rb,first,last){
 }
 function autoLinkJobs(){
   if(!USER)return false;
+  if(!userRecordLoaded)return false;   // wait until removedJobs has loaded from Firebase, or we'd re-add deleted jobs
   const{first,last}=USER; let added=false;
   for(const r of ARRIVALS){ const job=normJob(r.jobNumber); if(!isRealJob(job))continue; if(MY_JOBS.includes(job)||REMOVED_JOBS.has(job))continue; if(nameMatches(r.requestedBy,first,last)){ MY_JOBS.push(job); added=true; } }
   if(added){ syncUserJobs(); }
@@ -834,6 +838,8 @@ function onPeople(){
   const sj=Array.isArray(me.savedJobs)?me.savedJobs:[]; if(JSON.stringify(sj)!==JSON.stringify(MY_JOBS)){ MY_JOBS=sj.slice(); changed=true; }
   const rj=Array.isArray(me.removedJobs)?me.removedJobs:[]; if(JSON.stringify(rj)!==JSON.stringify([...REMOVED_JOBS])){ REMOVED_JOBS=new Set(rj); changed=true; }
   const jo=Array.isArray(me.jobOrder)?me.jobOrder:[]; if(JSON.stringify(jo)!==JSON.stringify(JOB_ORDER)){ JOB_ORDER=jo.slice(); changed=true; }
+  const firstLoad=!userRecordLoaded; userRecordLoaded=true;
+  if(firstLoad){ if(autoLinkJobs())changed=true; }   // now that removedJobs is known, it's safe to auto-link
   if(changed) renderJobs();
 }
 function syncUserJobs(){ lastJobEdit=Date.now(); if(!USER||!fbReady)return; try{ setDoc(doc(db,"people",USER.id),{savedJobs:MY_JOBS,removedJobs:[...REMOVED_JOBS],jobOrder:JOB_ORDER,updatedAt:serverTimestamp()},{merge:true}); }catch(e){console.error("syncjobs",e);} }
@@ -1040,8 +1046,8 @@ function renderJobs(){
   const vp=viewingOther?PEOPLE.find(p=>p.id===VIEW_AS.id):null;
   const viewName=viewingOther?((VIEW_AS.first||"")+" "+(VIEW_AS.last||"")).trim():"";
   const banner=$("viewAsBanner");
-  if(viewingOther){ banner.classList.add("show"); $("vabName").textContent=viewName||"this person"; $("notifBanner").classList.remove("show"); }
-  else { banner.classList.remove("show"); }
+  if(viewingOther){ banner.style.display="flex"; $("vabName").textContent=viewName||"this person"; $("notifBanner").classList.remove("show"); }
+  else { banner.style.display="none"; }
   const jobsList=viewingOther?(vp&&Array.isArray(vp.savedJobs)?vp.savedJobs:[]):MY_JOBS;
   const ordList=viewingOther?(vp&&Array.isArray(vp.jobOrder)?vp.jobOrder:[]):JOB_ORDER;
 
@@ -1083,11 +1089,11 @@ function renderJobs(){
     }
     shown++;
     let body="";
-    if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:false,compact:true,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`:`<div class="sub-empty">No arrivals${sq?" match your search":month?" this month":" yet"}.</div>`;
+    if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:true,compact:true,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`:`<div class="sub-empty">No arrivals${sq?" match your search":month?" this month":" yet"}.</div>`;
     else if(mjSeg==="rentals") body = rnt.length?`<div class="tlines">${rnt.map(rentalLine).join("")}</div>`:`<div class="sub-empty">No rentals${sq?" match your search":month?" this month":" on this job"}.</div>`;
     else body = tls.length?`<div class="tlines">${tls.map(toolLine).join("")}</div>`:`<div class="sub-empty">No tool rentals${sq?" match your search":month?" this month":" on this job"}.</div>`;
     const ctrl=(reorderMode&&!viewingOther)?`<span class="reorder-ctrl"><button class="ord-btn" data-moveup="${esc(job)}" ${idx===0?"disabled":""} title="Move up">▲</button><button class="ord-btn" data-movedown="${esc(job)}" ${idx===sorted.length-1?"disabled":""} title="Move down">▼</button></span>`:"";
-    const removeBtn=viewingOther?"":`<button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>`;
+    const removeBtn=viewingOther?`<button class="icon-btn fstar ${MY_JOBS.includes(job)?'saved':''}" data-savejob="${esc(job)}" title="${MY_JOBS.includes(job)?'Saved to your jobs':'Save to your jobs'}"><svg width="18" height="18" viewBox="0 0 24 24" fill="${MY_JOBS.includes(job)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg></button>`:`<button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>`;
     return `<div class="folder ${nNew?'has-new':''} ${(reorderMode&&!viewingOther)?'reorderable':''} ${isOpen?'open':''}" data-folder="${esc(job)}">
       <div class="folder-head" data-toggle="${esc(job)}">
         <span class="folder-tag">${esc(job)}</span>
@@ -1228,7 +1234,7 @@ onActivate($("nameSubmit"),async()=>{
   USER={first:f,last:l,email:em,id}; saveUser();
   // My Jobs is solely Firebase-synced to the account — always REPLACE local state, never merge
   // with whatever the previous identity on this device had.
-  MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; EXPANDED_FOLDERS.clear();
+  MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; EXPANDED_FOLDERS.clear(); userRecordLoaded=false;
   if(fbReady){
     try{
       await setDoc(doc(db,"people",id),{first:f,last:l,nameNorm:nameNorm(f,l),email:em,updatedAt:serverTimestamp()},{merge:true});
@@ -1238,6 +1244,7 @@ onActivate($("nameSubmit"),async()=>{
         REMOVED_JOBS=new Set(Array.isArray(me.removedJobs)?me.removedJobs:[]);
         JOB_ORDER=Array.isArray(me.jobOrder)?me.jobOrder.slice():[];
       }
+      userRecordLoaded=true;   // we've now read this account's removedJobs — safe to auto-link
     }catch(e){console.error(e); toast("Signed in, but couldn't load your saved jobs");}
   } else { toast("No connection — your saved jobs can't load right now"); }
   const added=autoLinkJobs(); syncUserJobs();
