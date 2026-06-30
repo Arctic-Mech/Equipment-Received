@@ -32,13 +32,13 @@
   .brand img{height:30px;width:auto;display:block}
   .brand .divider{width:1px;height:24px;background:var(--line);flex:none}
   .brand .appname{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;font-size:18px;line-height:1.05;text-transform:uppercase;color:var(--ink);min-width:0}
-  .sync-dot{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--steel);letter-spacing:.05em;white-space:nowrap;font-weight:500}
-  .appbar-right{display:flex;align-items:center;gap:10px;flex:none}
-  .who-chip{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 11px 4px 4px}
+  .sync-dot{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--steel);letter-spacing:.05em;white-space:nowrap;font-weight:500}
+  .appbar-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+  .who-chip{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 3px}
   .who-chip:active{background:var(--line-soft)}
-  .who-av{width:26px;height:26px;border-radius:50%;background:var(--hivis);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed';font-weight:700;font-size:12px;flex:none}
-  .who-name{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:13px;color:var(--ink);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .export-btn{display:flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:13px;color:#1a6b32;background:#e7f5ec;border:1px solid #b9e2c7;padding:8px 12px;border-radius:9px;white-space:nowrap}
+  .who-av{width:22px;height:22px;border-radius:50%;background:var(--hivis);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed';font-weight:700;font-size:11px;flex:none}
+  .who-name{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:12px;color:var(--ink);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .export-btn{display:flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:12px;color:#1a6b32;background:#e7f5ec;border:1px solid #b9e2c7;padding:6px 10px;border-radius:9px;white-space:nowrap}
   .export-btn:active{background:#d3edda}
   .export-btn:disabled{opacity:.6}
   .sync-dot i{width:8px;height:8px;border-radius:50%;background:var(--steel-light);display:block}
@@ -399,6 +399,9 @@
   .m.deliv{background:var(--teal-soft);color:var(--teal)}
   .m.reqd{background:#fff3d6;color:#9a6b00}
   .m.partial{background:#ffe3e3;color:#c0341a;font-weight:700}
+  .m.new-tag{background:var(--hivis);color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:5px;padding-right:5px}
+  .newx{width:17px;height:17px;border-radius:50%;background:rgba(255,255,255,.3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1}
+  .newx:active{background:rgba(255,255,255,.5)}
   .check-row{display:flex;align-items:center;gap:11px;padding:13px 4px;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer}
   .check-row input{width:22px;height:22px;accent-color:var(--teal);flex:none}
   .share-btn{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12.5px;color:var(--blue);background:var(--blue-soft);border:1px solid #d6d6f5;padding:7px 13px;border-radius:9px;margin-right:auto}
@@ -444,8 +447,8 @@
     <button class="tab active" data-view="feed">Arrivals <span class="pill" id="pillFeed">0</span></button>
     <button class="tab" data-view="rentals">Equipment Rentals <span class="pill" id="pillRent">0</span></button>
     <button class="tab" data-view="tools">Tool Rentals <span class="pill" id="pillTool">0</span></button>
-    <button class="tab" data-view="deliveries">Deliveries</button>
     <button class="tab" data-view="jobs">My Jobs <span class="notif" id="jobsNotif">0</span></button>
+    <button class="tab" data-view="deliveries">Deliveries</button>
     <button class="tab" data-view="admin">Admin</button>
   </nav>
 </header>
@@ -497,7 +500,7 @@
     <div class="identity" id="identityCard" style="display:none"><div class="iav" id="idAv">?</div><div class="iname"><b id="idName">—</b><span id="idSub">Your requested jobs link automatically</span></div></div>
     <div class="notif-banner" id="notifBanner"><span class="nb-ico">🔔</span><span class="nb-txt" id="notifTxt"></span><button class="nb-clear" id="notifClear">Clear all</button></div>
     <div id="sharePrompts"></div>
-    <div class="addjob"><input id="jobSearch" type="search" placeholder="Search or type a job # (e.g. 25-0205)" autocomplete="off"><button class="btn-add" id="jobAddBtn">Save</button></div>
+    <div class="addjob"><input id="jobSearch" type="search" placeholder="Search job #, job name, or item details…" autocomplete="off"><button class="btn-add" id="jobAddBtn">Save</button></div>
     <div class="suggest" id="jobSuggest"></div>
     <div class="controls" style="position:static">
       <div class="selwrap" style="flex:1"><select class="filter" id="mjMonth"><option value="">All months</option></select></div>
@@ -525,7 +528,7 @@
     </div>
 
     <div id="adminPanel" style="display:none">
-      <div class="welcome"><div class="welcome-card bobby"><div class="eyebrow">Admin unlocked</div><h2>Logging &amp; Admin</h2><div class="role">Arrivals · Equipment Rentals · Tool Rentals</div></div></div>
+      <div class="welcome"><div class="welcome-card bobby"><div class="eyebrow">Logged in</div><h2>Welcome Bobby Dunckel</h2><div class="role">Arrivals · Equipment Rentals · Tool Rentals</div></div></div>
       <div class="admin-stats">
         <div class="stat"><div class="num" id="statTotal">0</div><div class="lab">Arrivals</div></div>
         <div class="stat"><div class="num" id="statRent">0</div><div class="lab">Rentals out</div></div>
@@ -620,7 +623,8 @@
   <div class="modal-head"><h3 id="nameTitle">Who are you?</h3><button class="x" id="nameX" style="display:none">✕</button></div>
   <div class="modal-body">
     <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 16px">Your name links jobs you request and lets others share with you. Saved to your account, so it carries to any device you sign in on.</p>
-    <div class="field-2"><div class="field"><label>First name <span class="req">*</span></label><input id="n_first" type="text" placeholder="e.g. Pete" autocomplete="given-name"></div><div class="field"><label>Last name <span class="req">*</span></label><input id="n_last" type="text" placeholder="e.g. Martin" autocomplete="family-name"></div></div>
+    <div class="field-2"><div class="field"><label>First name <span class="req">*</span></label><input id="n_first" type="text" placeholder="e.g. Pete" autocomplete="off"></div><div class="field"><label>Last name <span class="req">*</span></label><input id="n_last" type="text" placeholder="e.g. Martin" autocomplete="off"></div></div>
+    <div class="people-sug" id="nameSug"></div>
     <div class="field"><label>Email <span class="req">*</span></label><input id="n_email" type="email" placeholder="e.g. [email protected]" autocomplete="email"><div class="hint" id="n_emailHint"></div></div>
     <button class="submit" id="nameSubmit">Save</button>
     <button class="del-link" id="nameCancel" style="display:none;color:var(--steel)">Cancel</button>
@@ -679,7 +683,7 @@ try{ db=getFirestore(initializeApp(firebaseConfig)); fbReady=true; }catch(e){ co
 
 /* ---------- State ---------- */
 let ARRIVALS=[],RENTALS=[],TOOLS=[];
-let MY_JOBS=loadMyJobs();
+let MY_JOBS=[];                     // solely Firebase-synced via people/{id} — never cached locally
 const ADMIN_PIN="1977";
 let adminUnlocked=sessionStorage.getItem("er_admin")==="1";
 let editing=null;
@@ -691,9 +695,9 @@ let USER=loadUser();                // {first,last,email,id} or null — editabl
 let PEOPLE=[];                      // people directory {id,first,last,nameNorm,email}
 let SHARES=[];                      // pending shares addressed to me
 let shareJob=null, shareArrivalId=null;
-let REMOVED_JOBS=loadRemoved();     // jobs the user manually removed (auto-link won't re-add)
-let SEEN=loadSeen();                // {init:bool, ids:[...]} acknowledged arrival ids
-let JOB_ORDER=loadOrder();          // custom My Jobs order (array of job#)
+let REMOVED_JOBS=new Set();         // jobs the user manually removed (auto-link won't re-add) — Firebase-synced
+let SEEN=loadSeen();                // {init:bool, ids:[...]} acknowledged arrival ids — per device
+let JOB_ORDER=[];                   // custom My Jobs order — Firebase-synced
 let reorderMode=false, dragJob=null, dragEl=null, MJ_VIEW=[];
 let delivTarget=null;               // arrival id for the delivery modal
 const EXPANDED_TOOLS=new Set();     // tool job cards currently open
@@ -706,20 +710,24 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 /* Reliable tap: fire on touchend (so a tap registers on the first try even while the
    keyboard is up) and on click for mouse, de-duplicated so it never double-fires. */
 function onActivate(el,fn){ if(!el)return; let t=0; el.addEventListener("touchend",e=>{ e.preventDefault(); t=Date.now(); fn(e); },{passive:false}); el.addEventListener("click",e=>{ if(Date.now()-t<700)return; fn(e); }); }
+/* Calendar-click-only date inputs: block manual typing, force the native picker open on tap/focus. */
+function lockDateInputs(){
+  document.querySelectorAll('input[type="date"]').forEach(el=>{
+    if(el.dataset.dateLocked)return; el.dataset.dateLocked="1";
+    el.setAttribute("inputmode","none");
+    el.addEventListener("keydown",e=>{ if(e.key==="Tab"||e.key==="Escape")return; e.preventDefault(); });
+    el.addEventListener("click",()=>{ try{ el.showPicker && el.showPicker(); }catch(err){} });
+    el.addEventListener("focus",()=>{ try{ el.showPicker && el.showPicker(); }catch(err){} });
+  });
+}
 
-/* ---------- Local storage ---------- */
-function loadMyJobs(){ try{return JSON.parse(localStorage.getItem("er_myjobs")||"[]");}catch(e){return[];} }
-function saveMyJobs(){ try{localStorage.setItem("er_myjobs",JSON.stringify(MY_JOBS));}catch(e){} }
+/* ---------- Local storage (identity + notification read-state only — job lists are Firebase-only) ---------- */
 function loadUser(){ try{const n=JSON.parse(localStorage.getItem("er_user")||localStorage.getItem("er_name")||"null"); return (n&&n.first)?n:null;}catch(e){return null;} }
 function saveUser(){ try{localStorage.setItem("er_user",JSON.stringify(USER));}catch(e){} }
 function nameNorm(first,last){ return (String(first||"")+" "+String(last||"")).toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim(); }
 function personId(first,last){ const s=nameNorm(first,last).replace(/ /g,"-"); return "p-"+(s||Math.random().toString(36).slice(2)); }
-function loadRemoved(){ try{return new Set(JSON.parse(localStorage.getItem("er_removed")||"[]"));}catch(e){return new Set();} }
-function saveRemoved(){ try{localStorage.setItem("er_removed",JSON.stringify([...REMOVED_JOBS]));}catch(e){} }
 function loadSeen(){ try{const s=JSON.parse(localStorage.getItem("er_seen")||"null"); return (s&&Array.isArray(s.ids))?{init:!!s.init,ids:new Set(s.ids)}:{init:false,ids:new Set()};}catch(e){return{init:false,ids:new Set()};} }
 function saveSeen(){ try{localStorage.setItem("er_seen",JSON.stringify({init:SEEN.init,ids:[...SEEN.ids]}));}catch(e){} }
-function loadOrder(){ try{return JSON.parse(localStorage.getItem("er_joborder")||"[]");}catch(e){return[];} }
-function saveOrder(){ try{localStorage.setItem("er_joborder",JSON.stringify(JOB_ORDER));}catch(e){} }
 
 /* ---------- Name matching + auto-link ---------- */
 function nameMatches(rb,first,last){
@@ -735,7 +743,7 @@ function autoLinkJobs(){
   if(!USER)return false;
   const{first,last}=USER; let added=false;
   for(const r of ARRIVALS){ const job=normJob(r.jobNumber); if(!isRealJob(job))continue; if(MY_JOBS.includes(job)||REMOVED_JOBS.has(job))continue; if(nameMatches(r.requestedBy,first,last)){ MY_JOBS.push(job); added=true; } }
-  if(added){ saveMyJobs(); syncUserJobs(); }
+  if(added){ syncUserJobs(); }
   return added;
 }
 
@@ -744,6 +752,7 @@ function myJobItemIds(){ const ids=[]; const set=new Set(MY_JOBS); ARRIVALS.forE
 function newItemIds(){ if(!SEEN.init)return []; return myJobItemIds().filter(id=>!SEEN.ids.has(id)); }
 function markSeenForJob(job){ ARRIVALS.forEach(r=>{if(normJob(r.jobNumber)===job)SEEN.ids.add("a:"+r.id);}); SEEN.init=true; saveSeen(); }
 function clearJobNotif(job){ markSeenForJob(job); updateNotif(); renderJobs(); }
+function clearOneNotif(id){ SEEN.ids.add("a:"+id); SEEN.init=true; saveSeen(); updateNotif(); renderJobs(); }
 function updateNotif(){
   if(!SEEN.init && ARRIVALS.length){ SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); }
   const news=new Set(newItemIds());
@@ -793,11 +802,11 @@ let lastJobEdit=0;
 function onPeople(){
   if(!USER)return; const me=PEOPLE.find(p=>p.id===USER.id); if(!me)return;
   if(me.email && me.email!==USER.email){ USER.email=me.email; saveUser(); }
-  if(Date.now()-lastJobEdit < 1800) return;   // don't clobber a fresh local edit
+  if(Date.now()-lastJobEdit < 1800) return;   // don't clobber a fresh local edit before it round-trips
   let changed=false;
-  if(Array.isArray(me.savedJobs) && JSON.stringify(me.savedJobs)!==JSON.stringify(MY_JOBS)){ MY_JOBS=me.savedJobs.slice(); saveMyJobs(); changed=true; }
-  if(Array.isArray(me.removedJobs) && JSON.stringify(me.removedJobs)!==JSON.stringify([...REMOVED_JOBS])){ REMOVED_JOBS=new Set(me.removedJobs); saveRemoved(); changed=true; }
-  if(Array.isArray(me.jobOrder) && JSON.stringify(me.jobOrder)!==JSON.stringify(JOB_ORDER)){ JOB_ORDER=me.jobOrder.slice(); saveOrder(); changed=true; }
+  const sj=Array.isArray(me.savedJobs)?me.savedJobs:[]; if(JSON.stringify(sj)!==JSON.stringify(MY_JOBS)){ MY_JOBS=sj.slice(); changed=true; }
+  const rj=Array.isArray(me.removedJobs)?me.removedJobs:[]; if(JSON.stringify(rj)!==JSON.stringify([...REMOVED_JOBS])){ REMOVED_JOBS=new Set(rj); changed=true; }
+  const jo=Array.isArray(me.jobOrder)?me.jobOrder:[]; if(JSON.stringify(jo)!==JSON.stringify(JOB_ORDER)){ JOB_ORDER=jo.slice(); changed=true; }
   if(changed) renderJobs();
 }
 function syncUserJobs(){ lastJobEdit=Date.now(); if(!USER||!fbReady)return; try{ setDoc(doc(db,"people",USER.id),{savedJobs:MY_JOBS,removedJobs:[...REMOVED_JOBS],jobOrder:JOB_ORDER,updatedAt:serverTimestamp()},{merge:true}); }catch(e){console.error("syncjobs",e);} }
@@ -818,6 +827,7 @@ function arrivalRow(r,opts={}){
     : r.storageLocation ? `<span class="m loc">📍 ${esc(r.storageLocation)}</span>`
     : `<span class="m none">—</span>`;
   const partial = r.partial?'<span class="m partial">⚠ Partial</span>':"";
+  const newTag = opts.isNew?`<span class="m new-tag">NEW<button class="newx" data-clearone="${esc(r.id)}" title="Clear this alert">✕</button></span>`:"";
   const extra=`<div class="acard-extra">
       <div class="extra-chips">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">Req: ${esc(r.requestedBy)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}${!r.supplier&&!r.po&&!r.requestedBy?'<span class="m none">No extra details</span>':""}</div>
       <div class="act-row"><button class="share-btn" data-share="${esc(r.id)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"></line></svg> Share</button>${adminActs("arrival",r.id)}</div>
@@ -828,7 +838,7 @@ function arrivalRow(r,opts={}){
       <div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div>
       <div class="ac-icons">${opts.star!==false?starMini(job):""}${cam}${deliv}<span class="ac-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
       <div class="ac-desc">${esc(r.description)||"<span style='color:var(--steel-light)'>No description</span>"}</div>
-      <div class="ac-foot"><span class="ac-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></span>${place}${partial}</div>
+      <div class="ac-foot"><span class="ac-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></span>${place}${partial}${newTag}</div>
     </div>
     ${extra}
   </div>`;
@@ -989,6 +999,10 @@ function renderSharePrompts(){
   const mine=USER?SHARES.filter(s=>s.toId===USER.id&&s.status==="pending"):[];
   wrap.innerHTML=mine.map(s=>`<div class="share-prompt"><span class="sp-ico">📨</span><span class="sp-txt"><b>${esc(s.fromName||"Someone")}</b> shared job <b>${esc(s.jobNumber)}</b>${s.jobName?` (${esc(s.jobName)})`:""}. Add it to My Jobs?</span><button class="sp-add" data-shareadd="${esc(s.id)}">Add</button><button class="sp-no" data-shareno="${esc(s.id)}">Dismiss</button></div>`).join("");
 }
+const ARR_TAG_FIELDS=["description","supplier","po","requestedBy","jobName","storageLocation"];
+const RENT_TAG_FIELDS=["equipment","vendor","rentalId","po","orderedBy"];
+const TOOL_TAG_FIELDS=["toolType","toolId"];
+function tagMatch(r,fields,sq){ return fields.some(f=>(r[f]||"").toLowerCase().includes(sq)); }
 function renderJobs(){
   if(dragEl) return;
   const news=updateNotif(); renderIdentity(); renderSharePrompts();
@@ -1008,7 +1022,9 @@ function renderJobs(){
   if(JOB_ORDER.length){ const known=JOB_ORDER.filter(j=>MY_JOBS.includes(j)); const extra=MY_JOBS.filter(j=>!JOB_ORDER.includes(j)).sort((a,b)=>lastOf(b)<lastOf(a)?-1:1); sorted=[...extra,...known]; }
   else sorted=[...MY_JOBS].sort((a,b)=>{ const na=newCountFor(a),nb=newCountFor(b); if((nb>0)!==(na>0))return nb>0?1:-1; return lastOf(b)<lastOf(a)?-1:1; });
   MJ_VIEW=sorted.slice();
-  wrap.innerHTML=sorted.map((job,idx)=>{
+  let shown=0;
+  const html=sorted.map(job=>{
+    const idx=sorted.indexOf(job);
     const info=jobsMap.get(job);
     let arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
     let rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
@@ -1017,10 +1033,19 @@ function renderJobs(){
     const nNew=newCountFor(job); const isOpen=EXPANDED_FOLDERS.has(job);
     if(month){ arr=arr.filter(r=>monthKey(r.dateReceived)===month); rnt=rnt.filter(r=>monthKey(r.dateRented)===month); tls=tls.filter(r=>monthKey(r.rentalStarted)===month); }
     const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||tls[0]?.jobName||"Unknown job name";
+    const jobNameNumMatch = sq && (job.toLowerCase().includes(sq) || name.toLowerCase().includes(sq));
+    if(sq && !jobNameNumMatch){
+      // narrow this job's items down to ones whose tag info matches — only within saved jobs
+      arr=arr.filter(r=>tagMatch(r,ARR_TAG_FIELDS,sq));
+      rnt=rnt.filter(r=>tagMatch(r,RENT_TAG_FIELDS,sq));
+      tls=tls.filter(r=>tagMatch(r,TOOL_TAG_FIELDS,sq));
+      if(!arr.length && !rnt.length && !tls.length) return "";  // nothing in this job matches the search
+    }
+    shown++;
     let body="";
-    if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:false,compact:true})).join("")}</div>`:`<div class="sub-empty">No arrivals${month?" this month":" yet"}.</div>`;
-    else if(mjSeg==="rentals") body = rnt.length?`<div class="tlines">${rnt.map(rentalLine).join("")}</div>`:`<div class="sub-empty">No rentals${month?" this month":" on this job"}.</div>`;
-    else body = tls.length?`<div class="tlines">${tls.map(toolLine).join("")}</div>`:`<div class="sub-empty">No tool rentals${month?" this month":" on this job"}.</div>`;
+    if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:false,compact:true,isNew:news.has("a:"+r.id)})).join("")}</div>`:`<div class="sub-empty">No arrivals${sq?" match your search":month?" this month":" yet"}.</div>`;
+    else if(mjSeg==="rentals") body = rnt.length?`<div class="tlines">${rnt.map(rentalLine).join("")}</div>`:`<div class="sub-empty">No rentals${sq?" match your search":month?" this month":" on this job"}.</div>`;
+    else body = tls.length?`<div class="tlines">${tls.map(toolLine).join("")}</div>`:`<div class="sub-empty">No tool rentals${sq?" match your search":month?" this month":" on this job"}.</div>`;
     const ctrl=reorderMode?`<span class="reorder-ctrl"><button class="ord-btn" data-moveup="${esc(job)}" ${idx===0?"disabled":""} title="Move up">▲</button><button class="ord-btn" data-movedown="${esc(job)}" ${idx===sorted.length-1?"disabled":""} title="Move down">▼</button></span>`:"";
     return `<div class="folder ${nNew?'has-new':''} ${reorderMode?'reorderable':''} ${isOpen?'open':''}" data-folder="${esc(job)}">
       <div class="folder-head" data-toggle="${esc(job)}">
@@ -1031,6 +1056,8 @@ function renderJobs(){
       <div class="folder-body">${body}</div>
     </div>`;
   }).join("");
+  if(sq && !shown){ wrap.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches in My Jobs</h3><p>Nothing saved matches "${esc($("jobSearch").value.trim())}". Check the suggestions above to add a new job.</p></div>`; return; }
+  wrap.innerHTML=html;
 }
 
 /* ---------- Stats ---------- */
@@ -1041,11 +1068,14 @@ function renderEricStats(){ renderAdminStats(); }
 function renderAll(){ $("pillFeed").textContent=ARRIVALS.length>999?(Math.floor(ARRIVALS.length/100)/10)+"k":ARRIVALS.length; refreshMonths(); renderWho(); renderFeed(); renderRentals(); renderTools(); renderDeliveries(); renderJobs(); renderAdminStats(); }
 
 /* ---------- Save/remove job ---------- */
-function addJob(job){ const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); REMOVED_JOBS.delete(j); saveMyJobs(); saveRemoved(); markSeenForJob(j); syncUserJobs(); $("jobSearch").value=""; renderAll(); toast("Saved "+j+" to My Jobs"); }
-function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); REMOVED_JOBS.add(job); saveMyJobs(); saveRemoved(); syncUserJobs(); renderAll(); toast("Removed "+job); }
+function addJob(job){ if(!USER){toast("Sign in to save jobs"); openName(); return;} const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); REMOVED_JOBS.delete(j); markSeenForJob(j); syncUserJobs(); $("jobSearch").value=""; renderAll(); toast("Saved "+j+" to My Jobs"); }
+function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); REMOVED_JOBS.add(job); syncUserJobs(); renderAll(); toast("Removed "+job); }
 
 /* ---------- Tabs ---------- */
 const VALID_VIEWS=["feed","rentals","tools","deliveries","jobs","admin"];
+function personalHash(){ const n=USER?(USER.first+USER.last).replace(/[^A-Za-z0-9]/g,""):""; return n||"myjobs"; }
+function hashForView(name){ if(name==="feed")return "arrivals"; if(name==="jobs")return personalHash(); return name; }
+function viewForHash(h){ if(!h)return null; if(h==="arrivals")return "feed"; if(h==="jobs"||h==="myjobs"||h===personalHash())return "jobs"; return VALID_VIEWS.includes(h)?h:null; }
 function setView(name,fromHash){
   if(!VALID_VIEWS.includes(name))name="feed";
   document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.view===name));
@@ -1053,10 +1083,10 @@ function setView(name,fromHash){
   $("view-"+name).classList.add("active");
   window.scrollTo(0,0);
   if(name==="admin")syncAdminView();
-  if(!fromHash){ const h="#"+name; if(location.hash!==h) history.replaceState(null,"",h); }
+  if(!fromHash){ const h="#"+hashForView(name); if(location.hash!==h) history.replaceState(null,"",h); }
 }
 document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>setView(t.dataset.view)));
-window.addEventListener("hashchange",()=>{ const v=location.hash.replace("#",""); if(VALID_VIEWS.includes(v))setView(v,true); });
+window.addEventListener("hashchange",()=>{ const v=viewForHash(location.hash.replace("#","")); if(v)setView(v,true); });
 
 /* ---------- Filters ---------- */
 $("feedSearch").addEventListener("input",renderFeed); $("feedClr").addEventListener("click",()=>{$("feedSearch").value="";renderFeed();}); $("monthSel").addEventListener("change",renderFeed);
@@ -1081,10 +1111,11 @@ document.addEventListener("click",e=>{
   const shN=e.target.closest("[data-shareno]"); if(shN){ dismissShare(shN.dataset.shareno); return; }
   const shr=e.target.closest("[data-share]"); if(shr){ e.stopPropagation(); openShare(shr.dataset.share); return; }
   const cj=e.target.closest("[data-clearjob]"); if(cj){ e.stopPropagation(); clearJobNotif(cj.dataset.clearjob); return; }
+  const co=e.target.closest("[data-clearone]"); if(co){ e.stopPropagation(); clearOneNotif(co.dataset.clearone); return; }
   const exp=e.target.closest("[data-expand]"); if(exp){ const id=exp.dataset.expand; if(EXPANDED_ARR.has(id))EXPANDED_ARR.delete(id); else EXPANDED_ARR.add(id); exp.closest(".acard").classList.toggle("open"); return; }
   const tt=e.target.closest("[data-ttoggle]"); if(tt){ const j=tt.dataset.ttoggle; if(EXPANDED_TOOLS.has(j))EXPANDED_TOOLS.delete(j); else EXPANDED_TOOLS.add(j); tt.closest(".tcard").classList.toggle("open"); return; }
   const rtg=e.target.closest("[data-rtoggle]"); if(rtg){ const j=rtg.dataset.rtoggle; if(EXPANDED_RENTALS.has(j))EXPANDED_RENTALS.delete(j); else EXPANDED_RENTALS.add(j); rtg.closest(".rcard").classList.toggle("open"); return; }
-  const tog=e.target.closest("[data-toggle]"); if(tog){ if(reorderMode)return; const job=tog.dataset.toggle; const f=tog.closest(".folder"); if(EXPANDED_FOLDERS.has(job)){EXPANDED_FOLDERS.delete(job);f.classList.remove("open");} else {EXPANDED_FOLDERS.add(job);f.classList.add("open");} return; }
+  const tog=e.target.closest("[data-toggle]"); if(tog){ if(reorderMode)return; const job=tog.dataset.toggle; const wasOpen=EXPANDED_FOLDERS.has(job); EXPANDED_FOLDERS.clear(); document.querySelectorAll("#foldersList .folder.open").forEach(f=>f.classList.remove("open")); if(!wasOpen){ EXPANDED_FOLDERS.add(job); tog.closest(".folder").classList.add("open"); } return; }
 });
 
 /* ---------- My Jobs add ---------- */
@@ -1095,16 +1126,25 @@ $("notifClear").addEventListener("click",clearNotif);
 
 /* ---------- Reorder My Jobs (up/down) ---------- */
 $("reorderToggle").addEventListener("click",()=>{ reorderMode=!reorderMode; renderJobs(); });
-$("orderReset").addEventListener("click",()=>{ JOB_ORDER=[]; saveOrder(); syncUserJobs(); renderJobs(); toast("Back to newest-first"); });
-function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(job); if(i<0)return; const j=i+dir; if(j<0||j>=order.length)return; const t=order[i]; order[i]=order[j]; order[j]=t; JOB_ORDER=order; saveOrder(); syncUserJobs(); renderJobs(); }
+$("orderReset").addEventListener("click",()=>{ JOB_ORDER=[]; syncUserJobs(); renderJobs(); toast("Back to newest-first"); });
+function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(job); if(i<0)return; const j=i+dir; if(j<0||j>=order.length)return; const t=order[i]; order[i]=order[j]; order[j]=t; JOB_ORDER=order; syncUserJobs(); renderJobs(); }
 
 /* ---------- Identity (name + email, synced) ---------- */
 function renderWho(){ const av=$("whoAv"),nm=$("whoName"); if(!av)return; if(USER){ av.textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); nm.textContent=USER.first; } else { av.textContent="?"; nm.textContent="Sign in"; } }
 function findPersonByName(f,l){ const nn=nameNorm(f,l); return PEOPLE.find(p=>p.nameNorm===nn); }
-function openName(){ $("n_first").value=USER?.first||""; $("n_last").value=USER?.last||""; $("n_email").value=USER?.email||""; $("n_emailHint").textContent=""; $("nameTitle").textContent=USER?"Your account":"Who are you?"; $("nameCancel").style.display=USER?"block":"none"; $("nameX").style.display=USER?"block":"none"; openModal("nameModal"); setTimeout(()=>$("n_first").focus(),300); }
+function openName(){ $("n_first").value=USER?.first||""; $("n_last").value=USER?.last||""; $("n_email").value=USER?.email||""; $("n_emailHint").textContent=""; $("nameSug").className="people-sug"; $("nameSug").innerHTML=""; $("nameTitle").textContent=USER?"Your account":"Who are you?"; $("nameCancel").style.display=USER?"block":"none"; $("nameX").style.display=USER?"block":"none"; openModal("nameModal"); setTimeout(()=>$("n_first").focus(),300); }
 function closeName(){ closeModal("nameModal"); }
-function nameLookup(){ const f=$("n_first").value.trim(),l=$("n_last").value.trim(); if(!f||!l)return; const p=findPersonByName(f,l); if(p&&p.email&&!$("n_email").value){ $("n_email").value=p.email; $("n_emailHint").textContent="Welcome back — we filled in your saved email."; } }
-$("n_first").addEventListener("blur",nameLookup); $("n_last").addEventListener("blur",nameLookup);
+function pickPerson(p){ $("n_first").value=p.first; $("n_last").value=p.last; $("n_email").value=p.email||""; $("n_emailHint").textContent=p.email?"Welcome back — we filled in your saved info.":"Welcome back — add your email to finish."; $("nameSug").className="people-sug"; $("nameSug").innerHTML=""; if(!p.email)$("n_email").focus(); }
+function renderNameSug(){
+  const sug=$("nameSug"); const f=$("n_first").value.trim().toLowerCase(),l=$("n_last").value.trim().toLowerCase();
+  if(!f && !l){ sug.className="people-sug"; sug.innerHTML=""; return; }
+  const list=PEOPLE.filter(p=>(p.first||"").toLowerCase().startsWith(f) || (f+" "+l).trim() && (p.first+" "+p.last).toLowerCase().includes((f+" "+l).trim())).slice(0,6);
+  if(!list.length){ sug.className="people-sug"; sug.innerHTML=""; return; }
+  sug.innerHTML=list.map(p=>`<div class="ps-item" data-namepick="${esc(p.id)}"><span class="ps-av">${esc(((p.first[0]||"")+(p.last[0]||"")).toUpperCase())}</span><div><div class="ps-name">${esc(p.first+" "+p.last)}</div><div class="ps-email">${esc(p.email||"No email on file")}</div></div></div>`).join("");
+  sug.className="people-sug show";
+}
+$("n_first").addEventListener("input",renderNameSug); $("n_last").addEventListener("input",renderNameSug);
+document.addEventListener("click",e=>{ const np=e.target.closest("[data-namepick]"); if(np){ const p=PEOPLE.find(x=>x.id===np.dataset.namepick); if(p)pickPerson(p); } });
 onActivate($("nameCancel"),closeName); onActivate($("nameX"),closeName);
 document.querySelectorAll("[data-changename]").forEach(b=>b.addEventListener("click",openName));
 onActivate($("whoChip"),openName);
@@ -1114,17 +1154,23 @@ onActivate($("nameSubmit"),async()=>{
   if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");$("n_email").focus();return;}
   const existing=findPersonByName(f,l); const id=existing?existing.id:personId(f,l);
   USER={first:f,last:l,email:em,id}; saveUser();
-  if(fbReady){ try{ await setDoc(doc(db,"people",id),{first:f,last:l,nameNorm:nameNorm(f,l),email:em,updatedAt:serverTimestamp()},{merge:true});
-    // adopt this account's saved jobs across devices
-    const snap=await getDoc(doc(db,"people",id)); if(snap.exists()){ const me=snap.data();
-      if(Array.isArray(me.savedJobs)) MY_JOBS=Array.from(new Set([...MY_JOBS,...me.savedJobs]));
-      if(Array.isArray(me.removedJobs)) me.removedJobs.forEach(j=>REMOVED_JOBS.add(j));
-      if(Array.isArray(me.jobOrder)&&me.jobOrder.length&&!JOB_ORDER.length) JOB_ORDER=me.jobOrder.slice();
-      saveMyJobs(); saveRemoved(); saveOrder();
-    }
-  }catch(e){console.error(e);} }
+  // My Jobs is solely Firebase-synced to the account — always REPLACE local state, never merge
+  // with whatever the previous identity on this device had.
+  MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; EXPANDED_FOLDERS.clear();
+  if(fbReady){
+    try{
+      await setDoc(doc(db,"people",id),{first:f,last:l,nameNorm:nameNorm(f,l),email:em,updatedAt:serverTimestamp()},{merge:true});
+      const snap=await getDoc(doc(db,"people",id));
+      if(snap.exists()){ const me=snap.data();
+        MY_JOBS=Array.isArray(me.savedJobs)?me.savedJobs.slice():[];
+        REMOVED_JOBS=new Set(Array.isArray(me.removedJobs)?me.removedJobs:[]);
+        JOB_ORDER=Array.isArray(me.jobOrder)?me.jobOrder.slice():[];
+      }
+    }catch(e){console.error(e); toast("Signed in, but couldn't load your saved jobs");}
+  } else { toast("No connection — your saved jobs can't load right now"); }
   const added=autoLinkJobs(); syncUserJobs();
   closeName(); renderWho(); renderAll();
+  if($("view-jobs").classList.contains("active")) setView("jobs");
   toast(added?"Signed in — matching jobs linked":"Signed in");
 });
 
@@ -1437,7 +1483,8 @@ $("btnExport").addEventListener("click",exportExcel);
 
 /* ---------- Init ---------- */
 renderWho(); renderFeed(); renderJobs(); renderDeliveries();
-const initHash=location.hash.replace("#",""); if(VALID_VIEWS.includes(initHash))setView(initHash,true);
+lockDateInputs();
+const initView=viewForHash(location.hash.replace("#","")); if(initView)setView(initView,true);
 syncAdminView(); startSync();
 if(!USER){ setTimeout(()=>{ if(!USER) openName(); },600); }
 window.addEventListener("pageshow",()=>{ if($("view-admin").classList.contains("active"))syncAdminView(); });
