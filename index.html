@@ -1121,7 +1121,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="2.9";
+const APP_VERSION="3.0";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2356,16 +2356,21 @@ $("wd_method").addEventListener("change",()=>{ $("wd_bodyWrap").style.display=/P
 onActivate($("wd_tokenClear"),()=>{ WD_TOKEN=""; sessionStorage.removeItem("wd_token"); wdRenderToken(); $("wd_tokenHint").textContent="Token cleared."; });
 
 // Distinguish a network/CORS failure from a real HTTP response.
-async function wdFetch(method,url,{headers={},body=null}={}){
+async function wdFetch(method,url,{headers={},body=null,timeout=20000}={}){
   const t0=performance.now();
   let res;
+  // Abort a request that takes too long, so a single hung call can't freeze the whole sync.
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(), timeout);
   try{
-    res=await fetch(url,{method,headers,body,mode:"cors",credentials:"omit"});
+    res=await fetch(url,{method,headers,body,mode:"cors",credentials:"omit",signal:ctrl.signal});
   }catch(err){
-    // fetch() rejects (vs resolves) ONLY for network-level failures:
-    // CORS block, DNS failure, connection refused, mixed-content, offline.
-    return {ok:false,threw:true,error:err,ms:Math.round(performance.now()-t0)};
+    clearTimeout(timer);
+    // fetch() rejects for network-level failures (CORS, DNS, offline) OR an abort (timeout).
+    const timedOut=(err&&err.name==="AbortError");
+    return {ok:false,threw:true,error:err,timedOut,ms:Math.round(performance.now()-t0)};
   }
+  clearTimeout(timer);
   const ms=Math.round(performance.now()-t0);
   const ct=res.headers.get("content-type")||"";
   const isBinary=/pdf|octet-stream|zip|image|excel|spreadsheet|word|msword/i.test(ct);
@@ -2842,7 +2847,8 @@ function wdMatchArrival(job, itemText){
 
 // Fire the whole sync. Called from signInAs after a successful token, and from the manual button.
 async function wdAutoSync(opts={}){
-  if(wdSyncing) return;
+  // A manual refresh can break a stuck lock from a prior run; auto-syncs still yield if one's active.
+  if(wdSyncing){ if(!opts.manual) return; wdSyncing=false; }
   // Mint a FRESH token right now (from stored company creds), so we never use a stale saved token.
   wdSyncStatus("Signing in to Webduct…");
   let tok="";
@@ -2850,28 +2856,31 @@ async function wdAutoSync(opts={}){
   else { tok=WD_TOKEN; }   // personal fallback (Deliveries)
   if(!tok){ if(opts.manual)toast("Connect Webduct in Admin first"); wdSyncStatus("No Webduct connection — set it up in Admin", true); return; }
   wdSyncing=true; wdSyncStatus("Pulling orders…");
+  // Absolute safety net: no matter what happens below, never leave the sync "stuck" forever.
+  const watchdog=setTimeout(()=>{ if(wdSyncing){ wdSyncing=false; wdSyncStatus("Sync timed out — tap Refresh to try again", true); } }, 180000);
   try{
-    // Pull the order list. Try a few scope params so a company login sees EVERYONE's orders,
-    // not just the caller's. The first that returns more rows wins.
     const H={"Accept":"application/json", "Bearer":tok};
     async function tryList(qs){ const r=await wdFetch("GET",WD_BASE+"/orders"+qs,{headers:H}); const arr=(r.json&&Array.isArray(r.json.data))?r.json.data:null; return {r,arr}; }
+    // First, the plain list.
     let best=await tryList("");
-    for(const qs of ["?all=true","?scope=company","?scope=all","?filter=all","?everyone=true"]){
-      if(best.arr && best.arr.length>=200) break;               // already plenty; stop probing
-      const t=await tryList(qs);
-      if(t.arr && (!best.arr || t.arr.length>best.arr.length)) best=t;
+    if(best.r.threw){ clearTimeout(watchdog); wdSyncStatus(best.r.timedOut?"Webduct didn't respond in time — tap Refresh":"Couldn't reach Webduct (network/CORS)", true); wdSyncing=false; return; }
+    if(!best.r.ok){ clearTimeout(watchdog); wdSyncStatus("Webduct rejected the request ("+(best.r.status||"?")+") — check the company login", true); wdSyncing=false; return; }
+    // Only probe scope params if the plain list looks small / user-limited.
+    if(!best.arr || best.arr.length<50){
+      for(const qs of ["?all=true","?scope=company","?scope=all"]){
+        const t=await tryList(qs);
+        if(t.arr && (!best.arr || t.arr.length>best.arr.length)) best=t;
+        if(best.arr && best.arr.length>=50) break;
+      }
     }
-    if(best.r.threw || !best.r.ok){ wdSyncStatus("Couldn't reach Webduct orders — login may be invalid", true); wdSyncing=false; return; }
     let orders=best.arr||[];
-    // How many distinct people show up in the raw list, before any per-order detail call.
-    // If the list itself only shows one person, that's a scope problem upstream, not a detail-fetch problem.
     const listPeople=new Set(orders.map(o=>{ const nm=(o.orderedBy?.name||o.orderedFor?.name||{}); return (o.orderedBy?.email||o.orderedFor?.email||((nm.first||"")+" "+(nm.last||""))).toLowerCase(); }).filter(Boolean));
     // Keep only orders whose relevant date is within the last 2 months (for the calendar).
     const cutoff=Date.now()-1000*60*60*24*62;
     const orderDate=o=>{ const d=new Date(o.requested||o.delivery?.date||o.ordered||0).getTime(); return isNaN(d)?0:d; };
     orders=orders.filter(o=>orderDate(o)>=cutoff);
     orders.sort((a,b)=> orderDate(b)-orderDate(a));   // newest first
-    const cap=Math.min(orders.length, 120);
+    const cap=Math.min(orders.length, 60);   // keep the run bounded so mobile doesn't choke
     let processed=0, equipCount=0, detailOk=0, detailFail=0;
     const failCodes={};
     const seenOrderDocs=new Set();
@@ -2940,10 +2949,11 @@ async function wdAutoSync(opts={}){
     }
     // Prune calendar orders that fell out of the 2-month window.
     await wdPruneOrders(seenOrderDocs, cutoff);
+    clearTimeout(watchdog);
     const codeStr=Object.keys(failCodes).length?(" (detail blocked: "+Object.entries(failCodes).map(([c,n])=>c+"×"+n).join(", ")+")"):"";
     wdSyncStatus(`Synced ${processed} orders from ${listPeople.size} people · ${detailOk} full detail, ${detailFail} header-only${codeStr} · ${equipCount} equipment items`, false, true);
     if(opts.manual) toast(`Synced ${processed} orders from ${listPeople.size} people`);
-  }catch(e){ console.error("wdAutoSync",e); wdSyncStatus("Sync error — see console", true); }
+  }catch(e){ console.error("wdAutoSync",e); clearTimeout(watchdog); wdSyncStatus("Sync error: "+(e&&e.message?e.message:"see console"), true); }
   wdSyncing=false;
 }
 // Extract fitting dimensions as a readable string (e.g. "W 12 × H 8 × L 48").
