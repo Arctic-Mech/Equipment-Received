@@ -475,6 +475,16 @@
   .wd-kv .k{flex:none;width:120px;color:var(--steel);font-weight:600}
   .wd-kv .v{flex:1;min-width:0;color:var(--ink);word-break:break-word}
   .wd-more{font-size:12px;color:var(--steel);padding:8px 2px 2px}
+  .wd-param-note{font-size:12.5px;color:#8a4b00;background:#fff4e5;border:1px solid #ffd9a8;border-radius:8px;padding:8px 10px;margin:2px 0 10px}
+  .wd-fetch{margin-left:auto;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:12px;background:var(--blue);color:#fff;padding:6px 11px;border-radius:8px;white-space:nowrap}
+  .wd-fetch:active{background:#19198a}
+  .wd-fetch:disabled{opacity:.6}
+  .wd-items-h{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:12px;color:var(--steel);margin:10px 0 4px}
+  .wd-items{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .wd-item{display:flex;gap:10px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line-soft);font-size:13px}
+  .wd-item:last-child{border-bottom:none}
+  .wd-item-desc{flex:1;min-width:0;color:var(--ink)}
+  .wd-item-qty{flex:none;font-family:'JetBrains Mono';font-size:12px;color:var(--steel);font-weight:600}
   #wd_presetSel,#wd_method{font-family:inherit}
   .wd-preset{font-family:'JetBrains Mono';font-size:11.5px;background:var(--surface);border:1px solid var(--line);color:var(--steel);padding:5px 9px;border-radius:7px}
   .wd-preset:active{background:var(--line-soft)}
@@ -643,6 +653,7 @@
       </div>
       <div class="field"><label>Quick pick</label><select id="wd_presetSel"></select></div>
       <div class="hint" id="wd_presetHint" style="margin:-6px 0 8px"></div>
+      <div id="wd_params"></div>
       <div class="field" id="wd_bodyWrap" style="display:none"><label>Request body (JSON)</label><textarea id="wd_body" rows="4" spellcheck="false" placeholder='{ }'></textarea></div>
       <button class="submit" id="wd_send" style="background:var(--blue)">Send request</button>
       <div class="hint" style="margin-top:8px">Requests run straight from your browser — exactly how the real app will call it.</div>
@@ -1845,12 +1856,28 @@ function wdRenderPresetSel(){
   sel.innerHTML=html;
 }
 wdRenderPresetSel(); wdRenderToken();
+// Scan the current path for {placeholders} and render a labeled input for each.
+function wdRenderParams(){
+  const path=$("wd_path").value; const names=[...path.matchAll(/\{([^}]+)\}/g)].map(m=>m[1]);
+  const box=$("wd_params");
+  if(!names.length){ box.innerHTML=""; return; }
+  const prev={}; box.querySelectorAll("[data-wdparam]").forEach(inp=>prev[inp.dataset.wdparam]=inp.value);
+  box.innerHTML=`<div class="wd-param-note">This endpoint needs a specific value — fill it in:</div>`+names.map(n=>`<div class="field"><label>${esc(n)}</label><input data-wdparam="${esc(n)}" type="text" value="${esc(prev[n]||"")}" autocomplete="off" spellcheck="false" placeholder="e.g. ${esc(n==="orderNumber"?"263308":n==="id"?"a record id":"value")}"></div>`).join("");
+}
+function wdResolvePath(){
+  let path=$("wd_path").value.trim(); if(!/^\//.test(path)) path="/"+path;
+  const inputs=$("wd_params").querySelectorAll("[data-wdparam]");
+  for(const inp of inputs){ const v=inp.value.trim(); if(v) path=path.replace("{"+inp.dataset.wdparam+"}", encodeURIComponent(v)); }
+  return path;
+}
 $("wd_presetSel").addEventListener("change",()=>{
   const i=$("wd_presetSel").value; if(i==="")return; const e=WD_ENDPOINTS[+i]; if(!e||e.group)return;
   $("wd_method").value=e.m; $("wd_path").value=e.p;
   $("wd_bodyWrap").style.display=e.b?"block":"none";
-  $("wd_presetHint").innerHTML = /\{/.test(e.p) ? "This path has a <code>{placeholder}</code> — replace it with a real id/number before sending." : (e.note?esc(e.note):"");
+  $("wd_presetHint").innerHTML = e.note?esc(e.note):"";
+  wdRenderParams();
 });
+$("wd_path").addEventListener("input",wdRenderParams);
 $("wd_method").addEventListener("change",()=>{ $("wd_bodyWrap").style.display=/POST|PUT/.test($("wd_method").value)?"block":"none"; });
 onActivate($("wd_tokenClear"),()=>{ WD_TOKEN=""; sessionStorage.removeItem("wd_token"); wdRenderToken(); $("wd_tokenHint").textContent="Token cleared."; });
 
@@ -1940,8 +1967,7 @@ function wdShowView(which){
 onActivate($("wd_tabReadable"),()=>wdShowView("readable"));
 onActivate($("wd_tabRaw"),()=>wdShowView("raw"));
 
-function wdEsc(x){ return esc(x==null?"":String(x)); }
-function wdDate(s){ if(!s)return""; const d=new Date(s); if(isNaN(d))return String(s); return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
+function wdEsc(x){ return esc(x==null?"":String(x)); }function wdDate(s){ if(!s)return""; const d=new Date(s); if(isNaN(d))return String(s); return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
 function wdRow(k,v){ if(v==null||v==="")return ""; return `<div class="wd-kv"><span class="k">${wdEsc(k)}</span><span class="v">${v}</span></div>`; }
 function wdBadge(txt,tone){ return `<span class="wd-rec-badge ${tone||""}">${wdEsc(txt)}</span>`; }
 
@@ -1986,6 +2012,7 @@ function wdRenderRecord(rec, kind){
       <div class="wd-rec-head">
         <span class="wd-rec-title">Order ${wdEsc(rec.number||rec.index||"")}</span>
         ${st?wdBadge(st,wdTone(st)):""}
+        ${rec.number?`<button class="wd-fetch" data-wdorder="${wdEsc(rec.number)}">View full order →</button>`:""}
       </div>
       <div class="wd-rec-body">
         ${wdRow("Job", rec.job?`${wdEsc(rec.job.number||"")} · ${wdEsc(rec.job.name||"")}`:"")}
@@ -1996,9 +2023,10 @@ function wdRenderRecord(rec, kind){
         ${wdRow("Delivery", del?wdBadge(del,wdTone(del)):"")}
         ${wdRow("Production", prod?wdBadge(prod,wdTone(prod)):"")}
         ${wdRow("Ship to", wdEsc(ship))}
-        ${wdRow("Items", rec.numItems!=null?wdEsc(rec.numItems):"")}
+        ${wdRow("Items", rec.numItems!=null?wdEsc(rec.numItems)+(rec.numItems===0?" (list view shows no line items — tap “View full order” to check)":""):"")}
         ${wdRow("PO #", wdEsc(rec.poNumber))}
         ${wdRow("Instructions", (rec.specialInstructions&&rec.specialInstructions!=="n/a")?wdEsc(rec.specialInstructions):"")}
+        ${wdRenderItems(rec.items)}
       </div>
     </div>`;
   }
@@ -2025,6 +2053,31 @@ function wdRenderRecord(rec, kind){
   const objCount = Object.keys(rec).filter(k=>rec[k]&&typeof rec[k]==="object").length;
   return `<div class="wd-rec"><div class="wd-rec-head"><span class="wd-rec-title">${wdEsc(title)}</span></div><div class="wd-rec-body">${rows}${objCount?`<div class="wd-more">+ ${objCount} nested field${objCount===1?"":"s"} — see Raw JSON</div>`:""}</div></div>`;
 }
+
+// Render an order's line items (materials) when present.
+function wdRenderItems(items){
+  if(!Array.isArray(items)||!items.length) return "";
+  const rows=items.slice(0,100).map(it=>{
+    const desc=it.description||it.name||it.label||it.product?.name||it.part||"Item";
+    const qty=it.quantity??it.qty??it.count;
+    const unit=it.unit||it.uom||"";
+    const size=it.size||it.dimensions||"";
+    return `<div class="wd-item"><span class="wd-item-desc">${wdEsc(desc)}${size?" · "+wdEsc(size):""}</span>${qty!=null?`<span class="wd-item-qty">${wdEsc(qty)}${unit?" "+wdEsc(unit):""}</span>`:""}</div>`;
+  }).join("");
+  return `<div class="wd-items-h">Line items (${items.length})</div><div class="wd-items">${rows}</div>`;
+}
+
+// Tap "View full order" → fill the path with the single-order endpoint and fire it.
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-wdorder]"); if(!b)return;
+  const num=b.dataset.wdorder;
+  $("wd_method").value="GET"; $("wd_path").value="/orders/"+num; $("wd_params").innerHTML=""; $("wd_bodyWrap").style.display="none";
+  const url=wdBase()+"/orders/"+encodeURIComponent(num);
+  b.disabled=true; b.textContent="Loading…";
+  const r=await wdFetch("GET",url,{headers:{"Accept":"application/json", ...wdAuthHeaders()}});
+  wdShowResult("GET /orders/"+num, r);
+  $("view-webduct").querySelector("#wd_resultCard").scrollIntoView({behavior:"smooth",block:"start"});
+});
 
 function wdLog(path,kind,status){
   const box=$("wd_log"); if(box.querySelector(".sub-empty"))box.innerHTML="";
@@ -2060,9 +2113,9 @@ onActivate($("wd_login"),async()=>{
 
 // --- Fire an arbitrary endpoint ---
 onActivate($("wd_send"),async()=>{
-  const base=wdBase(), method=$("wd_method").value; let path=$("wd_path").value.trim();
+  const base=wdBase(), method=$("wd_method").value; const path=wdResolvePath();
   if(!path){ toast("Enter a path like /jobs"); return; }
-  if(!/^\//.test(path)) path="/"+path;
+  if(/\{[^}]+\}/.test(path)){ toast("Fill in the highlighted value first"); const f=$("wd_params").querySelector("[data-wdparam]"); if(f)f.focus(); return; }
   const url=base+path;
   const headers={"Accept":"application/json", ...wdAuthHeaders()};
   let body=null;
