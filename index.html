@@ -462,7 +462,34 @@
   .cal-num{font-family:'Barlow Condensed';font-weight:600;font-size:15px;color:var(--ink);line-height:1}
   .cal-dots{display:flex;gap:2px;margin-top:auto;margin-bottom:2px;flex-wrap:wrap;justify-content:center}
   .cal-dot{width:6px;height:6px;border-radius:50%}
-  .cal-dot.req{background:var(--hivis)} .cal-dot.done{background:var(--teal)} .cal-dot.wd{background:#5b3fd6}
+  .cal-dot.req{background:var(--hivis)} .cal-dot.done{background:var(--teal)} .cal-dot.wd{background:#5b3fd6} .cal-dot.blue{background:#1f6fe0}
+  .lg-dot.blue{background:#1f6fe0}
+  .dl-fallback{margin:18px 14px 0}
+  .dl-fb-toggle{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-size:13px;color:var(--steel);cursor:pointer}
+  .wo-card{background:var(--card);border:1px solid var(--line);border-radius:11px;margin:0 0 8px;box-shadow:var(--shadow);overflow:hidden}
+  .wo-head{display:flex;align-items:center;gap:7px;padding:10px 12px 4px;cursor:pointer}
+  .wo-chev{flex:none;color:var(--steel);font-size:12px}
+  .wo-job{font-family:'Barlow Condensed';font-weight:700;font-size:14px;background:var(--hivis);color:#fff;padding:2px 9px;border-radius:6px}
+  .wo-num{font-family:'JetBrains Mono';font-size:11.5px;color:var(--steel)}
+  .wo-tag.equip{font-family:'Barlow Condensed';font-weight:700;font-size:10px;letter-spacing:.04em;background:#fdecd8;color:#8a4b00;padding:2px 7px;border-radius:5px}
+  .wo-star{margin-left:auto;font-size:20px;color:var(--hivis);line-height:1;padding:0 2px;background:none}
+  .wo-star.on{color:var(--hivis)}
+  .wo-sub{padding:0 12px 10px 30px;font-size:12.5px;color:var(--steel)}
+  .wo-body{padding:2px 12px 12px;border-top:1px solid var(--line-soft)}
+  .wo-row{font-size:13px;color:var(--ink);padding:3px 0;line-height:1.4}
+  .wo-row b{color:var(--steel);font-weight:600;margin-right:5px}
+  .wo-equip-head{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:12.5px;color:#8a4b00;margin:10px 0 6px}
+  .wo-item{background:var(--surface);border:1px solid var(--line-soft);border-radius:8px;padding:8px 10px;margin-bottom:6px}
+  .wo-item-top{display:flex;justify-content:space-between;gap:8px}
+  .wo-item-name{font-weight:600;font-size:13px;color:var(--ink)}
+  .wo-item-qty{font-family:'JetBrains Mono';font-size:12px;color:var(--steel)}
+  .wo-item-notes{font-size:12px;color:var(--steel);margin-top:3px;line-height:1.4;white-space:pre-wrap}
+  .wo-item-build{font-size:11.5px;color:var(--blue);margin-top:4px;font-family:'JetBrains Mono';line-height:1.35}
+  .wo-item-ship{display:inline-block;margin-top:4px;font-size:10.5px;color:var(--steel-light);text-transform:uppercase;letter-spacing:.03em}
+  .wo-cats-toggle{margin-top:10px;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12.5px;color:var(--steel);cursor:pointer;display:flex;align-items:center;gap:6px}
+  .wo-cats-chev{font-size:11px}
+  .wo-cat{margin-top:8px}
+  .wo-cat-name{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:var(--ink);margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--line-soft)}
   .cal-cnt{position:absolute;top:3px;right:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel-light)}
   .cal-cell.sel .cal-cnt{color:#fff}
   .cal-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px;font-size:11.5px;color:var(--steel)}
@@ -476,6 +503,18 @@
   .dl-chev{transition:transform .2s;font-size:14px}
   .dl-chev.open{transform:rotate(180deg)}
   .wd-admin-toggle{display:flex;align-items:center;justify-content:space-between;margin:16px 0 0;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:11px;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13.5px;color:var(--ink);cursor:pointer}
+  .wd-keybox{margin:16px 0 0;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+  .wd-keybox-title{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:15px;color:var(--ink);margin-bottom:8px}
+  .wd-key-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);font-weight:600}
+  .wd-key-dot{width:11px;height:11px;border-radius:50%;background:var(--steel-light);flex:none}
+  .wd-key-dot.on{background:#18a558;box-shadow:0 0 0 3px rgba(24,165,88,.18)}
+  .wd-key-dot.off{background:#c0341a;box-shadow:0 0 0 3px rgba(192,52,26,.15)}
+  .wd-key-actions{display:flex;gap:8px;margin-top:10px}
+  .wd-key-reveal{margin-top:8px;padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;word-break:break-all}
+  .wd-key-reveal code{font-family:'JetBrains Mono';font-size:11px;color:var(--steel)}
+  .wd-hdr-light{display:inline-flex;align-items:center;gap:5px;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:10.5px;color:var(--steel);margin-top:4px}
+  .wd-hdr-dot{width:8px;height:8px;border-radius:50%;background:var(--steel-light)}
+  .wd-hdr-dot.on{background:#18a558} .wd-hdr-dot.off{background:#c0341a}
   .del-section h3{font-family:'Barlow Condensed';font-weight:700;font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--steel);margin:0 2px 9px;display:flex;align-items:center;gap:8px}
   .del-section h3 .cnt{font-family:'JetBrains Mono';font-size:12px;color:#fff;background:var(--steel);padding:1px 8px;border-radius:8px}
   .as-of{margin:12px 14px 0;font-size:12px;color:var(--steel);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 12px}
@@ -621,7 +660,7 @@
       <span class="divider"></span>
       <span class="appname">Equipment<br>Received &amp; Rentals</span>
     </div>
-    <div class="appbar-right"><button class="who-chip" id="whoChip" title="Your account"><span class="who-av" id="whoAv">?</span><span class="who-name" id="whoName">Sign in</span></button><button class="export-btn" id="btnExport" title="Export everything to Excel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Excel</button><div class="sync-dot" id="syncDot"><i></i><span id="syncTxt">Connecting</span></div></div>
+    <div class="appbar-right"><button class="who-chip" id="whoChip" title="Your account"><span class="who-av" id="whoAv">?</span><span class="who-name" id="whoName">Sign in</span></button><button class="export-btn" id="btnExport" title="Export everything to Excel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Excel</button><div class="sync-dot" id="syncDot"><i></i><span id="syncTxt">Connecting</span></div><div class="wd-hdr-light" id="wdHdrLight" title="Webduct connection"><span class="wd-hdr-dot" id="wdHdrDot"></span><span id="wdHdrTxt">Webduct</span></div></div>
   </div>
   <nav class="tabs">
     <button class="tab active" data-view="feed">Arrivals <span class="pill" id="pillFeed">0</span></button>
@@ -675,9 +714,9 @@
     <div class="mj-head"><h2>Deliveries</h2><p>Days with a requested delivery are marked. Tap a day to see what's wanted, add photos, share, or mark it delivered.</p></div>
     <div class="cal-wrap">
       <div class="cal-nav"><button class="cal-arrow" id="calPrev">‹</button><div class="cal-title" id="calTitle">—</div><button class="cal-arrow" id="calNext">›</button></div>
-      <button class="cal-today" id="calToday">Today</button>
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:10px"><button class="cal-today" id="calToday" style="margin:0">Today</button><div class="seg" id="calSeg" style="box-shadow:none"><button data-calseg="all" class="on">Everyone</button><button data-calseg="mine">Just mine</button></div></div>
       <div class="cal-grid" id="calGrid"></div>
-      <div class="cal-legend"><span><i class="lg-dot req"></i> Delivery wanted</span><span><i class="lg-dot done"></i> All delivered</span></div>
+      <div class="cal-legend"><span><i class="lg-dot blue"></i> Order delivery</span><span><i class="lg-dot req"></i> Includes equipment</span><span><i class="lg-dot done"></i> Delivered</span></div>
     </div>
     <div id="dayDetail" class="day-detail" style="display:none"></div>
     <div class="dl-toggle" id="dlToggle"><span>List view — everything requested &amp; delivered</span><span class="dl-chev" id="dlChev">▾</span></div>
@@ -687,6 +726,15 @@
         <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="delSearch" type="search" placeholder="Search job #, item…" autocomplete="off"><button class="clr" id="delClr" style="display:none">Clear</button></div>
       </div>
       <div id="delList"></div>
+    </div>
+    <div class="dl-fallback">
+      <div class="dl-fb-toggle" id="delFbToggle"><span id="delFbLabel">⚙ Webduct not loading? Sign in yourself</span><span class="dl-chev" id="delFbChev">▾</span></div>
+      <div id="delFbWrap" style="display:none">
+        <p style="font-size:12.5px;color:var(--steel);line-height:1.45;margin:8px 0 10px">Normally the company connection (set up in Admin) pulls orders for everyone. If that's down, sign in with your own Webduct login as a temporary fallback.</p>
+        <div class="field-2"><div class="field"><label>Webduct email</label><input id="delFbEmail" type="email" autocomplete="off" spellcheck="false"></div><div class="field"><label>Password</label><input id="delFbPass" type="password" autocomplete="off"></div></div>
+        <button class="submit" id="delFbLogin" style="background:var(--blue)">Sign in &amp; pull my orders</button>
+        <div class="hint" id="delFbHint" style="margin-top:8px"></div>
+      </div>
     </div>
   </section>
 
@@ -739,6 +787,16 @@
         <button class="act tool" id="btnTool"><div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></div><div class="a-title">Add Tool Rental</div><div class="a-sub">Manually add or fix one line.</div></button>
         <button class="act imp" id="btnImport"><div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div><div class="a-title">Import Excel</div><div class="a-sub">Load past arrivals + rentals.</div></button>
         <button class="act" id="btnPeople"><div class="a-ico" style="background:var(--steel)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div><div class="a-title">Manage People</div><div class="a-sub">Add names and edit emails.</div></button>
+      </div>
+      <div class="wd-keybox">
+        <div class="wd-keybox-title">🔑 Webduct Company Connection</div>
+        <div class="wd-key-status" id="wdKeyStatus"><span class="wd-key-dot" id="wdKeyDot"></span><span id="wdKeyStatusTxt">Checking…</span></div>
+        <p style="font-size:12.5px;color:var(--steel);line-height:1.45;margin:8px 0 10px">Sign in with a Webduct company login. The API key is saved for the whole team, so everyone's app pulls live orders — no one else needs to log in to Webduct.</p>
+        <div class="field-2"><div class="field"><label>Webduct email</label><input id="wdKeyEmail" type="email" autocomplete="off" spellcheck="false"></div><div class="field"><label>Password</label><input id="wdKeyPass" type="password" autocomplete="off"></div></div>
+        <button class="submit" id="wdKeyLogin">Connect &amp; save key</button>
+        <div class="hint" id="wdKeyHint" style="margin-top:8px"></div>
+        <div class="wd-key-actions" id="wdKeyActions" style="display:none"><button class="wd-mini" id="wdKeyReveal">Show key</button><button class="wd-mini" id="wdKeyClear">Disconnect</button></div>
+        <div class="wd-key-reveal" id="wdKeyRevealBox" style="display:none"><code id="wdKeyValue"></code></div>
       </div>
       <div class="wd-admin-toggle" id="wdTestToggle"><span>🔧 Webduct API Tester</span><span class="dl-chev" id="wdTestChev">▾</span></div>
       <div id="wdTestWrap" style="display:none">
@@ -871,27 +929,21 @@
 
 <!-- NAME MODAL -->
 <div class="modal-back" id="nameModal"><div class="modal"><div class="modal-grip"></div>
-  <div class="modal-head"><h3 id="nameTitle">Sign in</h3><button class="x" id="nameX" style="display:none">✕</button></div>
+  <div class="modal-head"><h3 id="nameTitle">Who are you?</h3><button class="x" id="nameX" style="display:none">✕</button></div>
   <div class="modal-body">
-    <!-- STEP 1: Webduct login -->
     <div id="signStep1">
-      <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 16px">Sign in with your Webduct login. This connects you to live orders and identifies you across the app.</p>
-      <div class="field"><label>Email <span class="req">*</span></label><input id="si_email" type="email" placeholder="[email protected]" autocomplete="username" spellcheck="false"></div>
-      <div class="field"><label>Password <span class="req">*</span></label><input id="si_pass" type="password" placeholder="Webduct password" autocomplete="current-password"></div>
-      <button class="submit" id="si_login">Sign in with Webduct</button>
-      <div class="hint" id="si_hint" style="margin-top:10px"></div>
-      <button class="del-link" id="si_noWd" style="display:block;margin-top:14px;color:var(--steel)">Can't sign in to Webduct? Continue without it →</button>
-      <button class="del-link" id="nameCancel" style="display:none;color:var(--steel)">Cancel</button>
-    </div>
-    <!-- STEP 2: name (only when we don't have a name for this email) -->
-    <div id="signStep2" style="display:none">
-      <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 8px">First time here — what's your name? We'll remember it for <b id="si_forEmail"></b> next time.</p>
+      <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 16px">Your name links the jobs you request and lets others share with you. Saved to your account so it carries across devices.</p>
       <div class="field-2"><div class="field"><label>First name <span class="req">*</span></label><input id="n_first" type="text" placeholder="e.g. Pete" autocomplete="off"></div><div class="field"><label>Last name <span class="req">*</span></label><input id="n_last" type="text" placeholder="e.g. Martin" autocomplete="off"></div></div>
       <div class="people-sug" id="nameSug"></div>
+      <div class="field"><label>Email <span class="req">*</span></label><input id="si_email" type="email" placeholder="[email protected]" autocomplete="email" spellcheck="false"><div class="hint" id="n_emailHint"></div></div>
       <button class="submit" id="nameSubmit">Save &amp; continue</button>
+      <button class="del-link" id="nameCancel" style="display:none;color:var(--steel)">Cancel</button>
     </div>
   </div>
 </div></div>
+
+<!-- hidden legacy fields kept for code compatibility -->
+<div style="display:none"><input id="si_pass"><button id="si_login"></button><button id="si_noWd"></button><span id="si_hint"></span><span id="si_forEmail"></span><div id="signStep2"></div></div>
 
 <!-- SHARE MODAL -->
 <div class="modal-back" id="shareModal"><div class="modal"><div class="modal-grip"></div>
@@ -965,6 +1017,8 @@ let USER=loadUser();                // {first,last,email,id} or null — editabl
 let PEOPLE=[];                      // people directory {id,first,last,nameNorm,email}
 let SHARES=[];                      // pending shares addressed to me
 let WD_EQUIP=[];                    // Webduct shop-equipment order items (synced) {docId, order#, job, dates, status, notes, label, arrivalId, matchState}
+let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
+let calShowMine=false;             // calendar: false = everyone's orders, true = just mine
 let shareJob=null, shareArrivalId=null;
 let VIEW_AS=null;                   // {id,first,last} — viewing someone else's My Jobs page read-only (null = viewing your own)
 let PENDING_ARRIVAL=null;           // arrival id to scroll to + expand once the Arrivals tab is showing
@@ -1063,7 +1117,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="2.5";
+const APP_VERSION="2.6";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1074,6 +1128,8 @@ function startSync(){
   onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null});}); PEOPLE=l; onPeople(); resolvePendingHash(); }, e=>console.error("people",e));
   onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>console.error("shares",e));
   onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>console.error("webductEquip",e));
+  onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; renderDeliveries(); }, e=>console.error("webductOrders",e));
+  wdWatchAdminKey();
 }
 let lastJobEdit=0;
 function onPeople(){
@@ -1463,15 +1519,14 @@ function findPersonByName(f,l){ const nn=nameNorm(f,l); return PEOPLE.find(p=>p.
 function findPersonByEmail(em){ const e=(em||"").trim().toLowerCase(); if(!e)return null; return PEOPLE.find(p=>(p.email||"").trim().toLowerCase()===e); }
 let signPendingEmail="";   // email captured from a successful (or skipped) login, awaiting a name
 
-function showSignStep(n){ $("signStep1").style.display=n===1?"block":"none"; $("signStep2").style.display=n===2?"block":"none"; }
+function showSignStep(n){ const s2=$("signStep2"); $("signStep1").style.display="block"; if(s2)s2.style.display="none"; }
 function openName(){
-  // If already signed in, this is the "account" view — show step 1 prefilled with a sign-out-ish affordance.
-  showSignStep(1);
-  $("si_email").value=USER?.email||""; $("si_pass").value=""; $("si_hint").textContent="";
-  $("nameTitle").textContent=USER?"Your account":"Sign in";
+  $("n_first").value=USER?.first||""; $("n_last").value=USER?.last||"";
+  $("si_email").value=USER?.email||""; $("n_emailHint").textContent="";
+  $("nameSug").className="people-sug"; $("nameSug").innerHTML="";
+  $("nameTitle").textContent=USER?"Your account":"Who are you?";
   $("nameCancel").style.display=USER?"block":"none"; $("nameX").style.display=USER?"block":"none";
-  $("si_noWd").style.display="block";
-  openModal("nameModal"); setTimeout(()=>$("si_email").focus(),300);
+  openModal("nameModal"); setTimeout(()=>$("n_first").focus(),300);
 }
 function closeName(){ closeModal("nameModal"); }
 
@@ -1498,38 +1553,14 @@ async function signInAs(first,last,email,token){
   closeName(); renderWho(); renderAll();
   if($("view-jobs").classList.contains("active")) setView("jobs");
   toast(added?"Signed in — matching jobs linked":"Signed in");
-  // Kick off the Webduct order sync in the background if we have a token.
-  if(token && typeof wdAutoSync==="function") wdAutoSync();
+  // Every login triggers an order pull using the shared admin key (loaded from Firebase).
+  if(typeof wdAutoSync==="function") setTimeout(()=>wdAutoSync(), 1500);
 }
 
-// Webduct login button (step 1).
-onActivate($("si_login"),async()=>{
-  const em=$("si_email").value.trim(), pw=$("si_pass").value;
-  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");$("si_email").focus();return;}
-  if(!pw){toast("Enter your Webduct password");$("si_pass").focus();return;}
-  const btn=$("si_login"); btn.disabled=true; btn.textContent="Signing in…"; $("si_hint").textContent="Contacting Webduct…";
-  const r=await wdFetch("POST",WD_BASE+"/oauth/authorize/password",{headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},body:new URLSearchParams({username:em,password:pw}).toString()});
-  btn.disabled=false; btn.textContent="Sign in with Webduct";
-  let tok="";
-  if(r.json){ const d=r.json.data||{}; tok=d.accessToken||d.access_token||d.token||r.json.accessToken||r.json.token||""; }
-  if(r.threw){ $("si_hint").innerHTML="<span style='color:#c0341a'>Couldn't reach Webduct (network/CORS). You can still continue without it.</span>"; return; }
-  if(!tok){ $("si_hint").innerHTML="<span style='color:#c0341a'>Login failed — check your email/password, or continue without Webduct.</span>"; return; }
-  // Token good. Do we already have a name for this email?
-  const person=findPersonByEmail(em);
-  if(person && person.first){ await signInAs(person.first, person.last, em, tok); }
-  else { signPendingEmail=em; window._pendingToken=tok; $("si_forEmail").textContent=em; showSignStep(2); $("nameTitle").textContent="One more thing"; setTimeout(()=>$("n_first").focus(),200); }
-});
+// (Legacy Webduct-login handlers removed — sign-in is now name + email only.
+//  Webduct order pulls use the shared admin key, loaded from Firebase.)
 
-// "Continue without Webduct" — capture identity only, no token.
-onActivate($("si_noWd"),()=>{
-  const em=$("si_email").value.trim();
-  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter your email to continue");$("si_email").focus();return;}
-  const person=findPersonByEmail(em);
-  if(person && person.first){ signInAs(person.first, person.last, em, ""); }
-  else { signPendingEmail=em; window._pendingToken=""; $("si_forEmail").textContent=em; showSignStep(2); $("nameTitle").textContent="One more thing"; setTimeout(()=>$("n_first").focus(),200); }
-});
-
-function pickPerson(p){ $("n_first").value=p.first; $("n_last").value=p.last; $("nameSug").className="people-sug"; $("nameSug").innerHTML=""; }
+function pickPerson(p){ $("n_first").value=p.first; $("n_last").value=p.last; if(p.email && !$("si_email").value) $("si_email").value=p.email; $("nameSug").className="people-sug"; $("nameSug").innerHTML=""; }
 function renderNameSug(){
   const sug=$("nameSug"); const f=$("n_first").value.trim().toLowerCase(),l=$("n_last").value.trim().toLowerCase();
   if(!f && !l){ sug.className="people-sug"; sug.innerHTML=""; return; }
@@ -1545,13 +1576,12 @@ document.querySelectorAll("[data-changename]").forEach(b=>b.addEventListener("cl
 onActivate($("whoChip"),openName);
 onActivate($("vabBack"),()=>{ VIEW_AS=null; setView("jobs"); });
 
-// Name step (step 2) — save the name against the pending email, then sign in.
+// Single sign-in: name + email.
 onActivate($("nameSubmit"),async()=>{
-  const f=$("n_first").value.trim(),l=$("n_last").value.trim(),em=signPendingEmail;
+  const f=$("n_first").value.trim(),l=$("n_last").value.trim(),em=$("si_email").value.trim();
   if(!f||!l){toast("Enter first and last name");return;}
-  if(!em){toast("Something went wrong — start over");showSignStep(1);return;}
-  await signInAs(f,l,em, window._pendingToken||"");
-  window._pendingToken="";
+  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");$("si_email").focus();return;}
+  await signInAs(f,l,em,"");
 });
 
 /* ---------- Delivery ---------- */
@@ -1623,16 +1653,24 @@ function deliveryRow(r){ const job=normJob(r.jobNumber); return `<div class="aca
 let calYear, calMonth, calSelDay=null;   // selected day = "YYYY-MM-DD"
 function dateKeyLocal(iso){ if(!iso)return ""; const d=new Date(iso); if(isNaN(d))return ""; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 // Build a map of day-key → {req:[arrivals], done:[arrivals], wd:[equip]} for the visible month.
+// Is this order/job "mine"? (ordered by my email, or on a job I've starred.)
+function wdOrderIsMine(o){
+  const myEmail=(USER?.email||"").toLowerCase();
+  if(myEmail && o.orderedByEmail && o.orderedByEmail===myEmail) return true;
+  if(o.job && MY_JOBS.some(j=>normJob(j)===normJob(o.job))) return true;
+  return false;
+}
 function buildDeliveryMap(){
   const map={};
-  const put=(k,bucket,item)=>{ if(!k)return; (map[k]=map[k]||{req:[],done:[],wd:[]})[bucket].push(item); };
+  const put=(k,bucket,item)=>{ if(!k)return; (map[k]=map[k]||{req:[],done:[],wd:[],orders:[]})[bucket].push(item); };
   ARRIVALS.forEach(r=>{
     if(r.reqDeliv && !r.delivered) put(dateKeyLocal(r.reqDeliv),"req",r);
     if(r.delivered && r.deliveredDate) put(dateKeyLocal(r.deliveredDate),"done",r);
   });
-  // Webduct equipment: put on its requested/delivery date, unless dismissed/delivered-marked or already linked to a delivered arrival.
-  WD_EQUIP.filter(e=>e.matchState!=="rejected" && !e.dismissed && !e.deliveredMark).forEach(e=>{
-    const k=dateKeyLocal(e.requestedDate||e.deliveryDate); if(k) put(k,"wd",e);
+  // Webduct orders → calendar. Filtered to mine when the toggle says so.
+  WD_ORDERS.forEach(o=>{
+    if(calShowMine && !wdOrderIsMine(o)) return;
+    const k=dateKeyLocal(o.requestedDate||o.deliveryDate||o.orderedDate); if(k) put(k,"orders",o);
   });
   return map;
 }
@@ -1650,16 +1688,21 @@ function renderCalendar(){
   for(let i=0;i<startDow;i++) html+=`<div class="cal-cell blank"></div>`;
   for(let day=1;day<=daysIn;day++){
     const key=calYear+"-"+String(calMonth+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
-    const m=map[key]; const has=m&&(m.req.length||m.done.length||m.wd.length);
-    // One dot per day. Orange if anything is still outstanding; teal once everything that day is delivered.
-    const outstanding=m?(m.req.length+m.wd.length):0;
-    const delivered=m?m.done.length:0;
-    let dot=""; if(has){ dot=outstanding>0?'<span class="cal-dot req"></span>':'<span class="cal-dot done"></span>'; }
-    const cnt=outstanding;
+    const m=map[key];
+    const orders=m?m.orders:[];
+    const anyEquip=orders.some(o=>o.hasEquip);
+    const hasArrReq=m&&m.req.length, hasDone=m&&m.done.length;
+    const has=orders.length||hasArrReq||hasDone;
+    // Dots: orange if any order includes equipment (or an arrival delivery is wanted); blue for standard orders; teal if delivered activity.
+    const dots=[];
+    if(anyEquip||hasArrReq) dots.push('<span class="cal-dot req"></span>');
+    else if(orders.length) dots.push('<span class="cal-dot blue"></span>');
+    if(hasDone) dots.push('<span class="cal-dot done"></span>');
+    const cnt=orders.length+(hasArrReq||0);
     html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''} ${key===calSelDay?'sel':''}" ${has?`data-calday="${key}"`:""}>
       <span class="cal-num">${day}</span>
       ${cnt>0?`<span class="cal-cnt">${cnt}</span>`:""}
-      <span class="cal-dots">${dot}</span>
+      <span class="cal-dots">${dots.join("")}</span>
     </div>`;
   }
   grid.innerHTML=html;
@@ -1668,15 +1711,55 @@ function renderCalendar(){
 function renderDayDetail(){
   const box=$("dayDetail"); if(!box)return;
   if(!calSelDay){ box.style.display="none"; box.innerHTML=""; return; }
-  const map=buildDeliveryMap(); const m=map[calSelDay]||{req:[],done:[],wd:[]};
+  const map=buildDeliveryMap(); const m=map[calSelDay]||{req:[],done:[],wd:[],orders:[]};
   const d=new Date(calSelDay+"T12:00:00");
   const label=d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
   let html=`<div class="dd-head">${esc(label)}<button class="dd-close" id="ddClose">Close</button></div>`;
-  if(!m.req.length && !m.done.length && !m.wd.length){ html+=`<div class="dd-empty">Nothing scheduled this day.</div>`; }
-  if(m.req.length){ html+=`<div class="we-sec">🚚 Requested (${m.req.length})</div>`+m.req.map(deliveryRow).join(""); }
-  if(m.wd.length){ html+=`<div class="we-sec">🏭 Equipment from Webduct (${m.wd.length})</div>`+m.wd.map(wdEquipMiniCard).join(""); }
+  const orders=m.orders||[];
+  if(!orders.length && !m.req.length && !m.done.length){ html+=`<div class="dd-empty">Nothing scheduled this day.</div>`; }
+  // Orders that include equipment first, then the rest.
+  const equipOrders=orders.filter(o=>o.hasEquip), plainOrders=orders.filter(o=>!o.hasEquip);
+  if(equipOrders.length){ html+=`<div class="we-sec">🏭 Orders with equipment to deliver (${equipOrders.length})</div>`+equipOrders.map(wdOrderCard).join(""); }
+  if(plainOrders.length){ html+=`<div class="we-sec">📦 Other orders (${plainOrders.length})</div>`+plainOrders.map(wdOrderCard).join(""); }
+  if(m.req.length){ html+=`<div class="we-sec">🚚 Arrival deliveries wanted (${m.req.length})</div>`+m.req.map(deliveryRow).join(""); }
   if(m.done.length){ html+=`<div class="we-sec">✓ Delivered (${m.done.length})</div>`+m.done.map(deliveryRow).join(""); }
   box.innerHTML=html; box.style.display="block";
+}
+// Full order card for the calendar — collapsed by default, shows ordered-by / PO / all detail when expanded.
+function wdOrderCard(o){
+  const mine=wdOrderIsMine(o);
+  const starred=o.job && MY_JOBS.some(j=>normJob(j)===normJob(o.job));
+  const dateStr=wdDate(o.requestedDate||o.deliveryDate||o.orderedDate);
+  const equipItems=(o.items||[]).filter(it=>it.isEquip);
+  const groups={}; (o.items||[]).forEach(it=>{ (groups[it.group]=groups[it.group]||[]).push(it); });
+  const groupNames=Object.keys(groups);
+  const itemLine=it=>`<div class="wo-item"><div class="wo-item-top"><span class="wo-item-name">${wdEsc(it.label||"Item")}</span>${it.quantity!=null?`<span class="wo-item-qty">×${wdEsc(it.quantity)}</span>`:""}</div>${it.notes?`<div class="wo-item-notes">${wdEsc(it.notes)}</div>`:""}${it.build?`<div class="wo-item-build">🔧 Laser/CAD: ${wdEsc(it.build)}</div>`:(it.dims?`<div class="wo-item-build">${wdEsc(it.dims)}</div>`:"")}${it.shipStatus?`<span class="wo-item-ship">${wdEsc(it.shipStatus)}</span>`:""}</div>`;
+  return `<div class="wo-card" data-wocard="${wdEsc(o.docId)}">
+    <div class="wo-head" data-wotoggle="${wdEsc(o.docId)}">
+      <span class="wo-chev" id="wo-chev-${wdEsc(o.docId)}">▸</span>
+      <span class="wo-job">${wdEsc(o.job||"—")}</span>
+      <span class="wo-num">#${wdEsc(o.number)}</span>
+      ${o.hasEquip?`<span class="wo-tag equip">EQUIP</span>`:""}
+      <button class="wo-star ${starred?'on':''}" data-wostar="${wdEsc(o.job||"")}" title="${starred?'In My Jobs':'Add to My Jobs'}">${starred?'★':'☆'}</button>
+    </div>
+    <div class="wo-sub">${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}</div>
+    <div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:none">
+      ${o.orderedBy?`<div class="wo-row"><b>Ordered by</b> ${wdEsc(String(o.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim())}</div>`:""}
+      ${o.orderedDate?`<div class="wo-row"><b>Ordered</b> ${wdEsc(wdDate(o.orderedDate))}</div>`:""}
+      ${o.requestedDate?`<div class="wo-row"><b>Field wants</b> ${wdEsc(wdDate(o.requestedDate))}</div>`:""}
+      ${o.po?`<div class="wo-row"><b>PO #</b> ${wdEsc(o.po)}</div>`:""}
+      ${o.shipLabel?`<div class="wo-row"><b>Ship</b> ${wdEsc(o.shipLabel)}</div>`:""}
+      ${o.shipStatus?`<div class="wo-row"><b>Delivery status</b> ${wdEsc(o.shipStatus)}</div>`:""}
+      ${o.orderStatus?`<div class="wo-row"><b>Order status</b> ${wdEsc(o.orderStatus)}</div>`:""}
+      ${o.instructions?`<div class="wo-row"><b>Instructions</b> ${wdEsc(o.instructions)}</div>`:""}
+      ${(typeof o.totalPrice==="number"&&o.totalPrice>0)?`<div class="wo-row"><b>Total</b> $${o.totalPrice.toFixed(2)}</div>`:""}
+      ${equipItems.length?`<div class="wo-equip-head">🏭 Equipment to deliver</div>`+equipItems.map(itemLine).join(""):""}
+      <div class="wo-cats-toggle" data-wocats="${wdEsc(o.docId)}"><span class="wo-cats-chev" id="wo-cats-chev-${wdEsc(o.docId)}">▸</span> All items by category (${(o.items||[]).length})</div>
+      <div class="wo-cats" id="wo-cats-${wdEsc(o.docId)}" style="display:none">
+        ${groupNames.map(g=>`<div class="wo-cat"><div class="wo-cat-name">${wdEsc(g)} (${groups[g].length})</div>${groups[g].map(itemLine).join("")}</div>`).join("")}
+      </div>
+    </div>
+  </div>`;
 }
 // Compact Webduct card for the day-detail (reuses equip data; no phone numbers shown).
 function wdEquipMiniCard(e){
@@ -1714,8 +1797,54 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#calToday")){ const n=new Date(); calYear=n.getFullYear(); calMonth=n.getMonth(); calSelDay=dateKeyLocal(n.toISOString()); renderCalendar(); return; }
   const cd=e.target.closest("[data-calday]"); if(cd){ calSelDay=(calSelDay===cd.dataset.calday)?null:cd.dataset.calday; renderCalendar(); return; }
   if(e.target.closest("#ddClose")){ calSelDay=null; renderCalendar(); return; }
+  const cseg=e.target.closest("[data-calseg]"); if(cseg){ calShowMine=cseg.dataset.calseg==="mine"; document.querySelectorAll("#calSeg button").forEach(b=>b.classList.toggle("on",b===cseg)); renderCalendar(); return; }
+  const wstar=e.target.closest("[data-wostar]"); if(wstar){ e.stopPropagation(); const job=wstar.dataset.wostar; if(job){ if(MY_JOBS.some(j=>normJob(j)===normJob(job))) removeJob(normJob(job)); else addJob(job); renderCalendar(); } return; }
+  const wtog=e.target.closest("[data-wotoggle]"); if(wtog){ const id=wtog.dataset.wotoggle; const b=$("wo-body-"+id),c=$("wo-chev-"+id); if(b){ const open=b.style.display==="none"; b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; } return; }
+  const wcat=e.target.closest("[data-wocats]"); if(wcat){ const id=wcat.dataset.wocats; const b=$("wo-cats-"+id),c=$("wo-cats-chev-"+id); if(b){ const open=b.style.display==="none"; b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; } return; }
   if(e.target.closest("#dlToggle")){ const w=$("dlListWrap"),c=$("dlChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
+  if(e.target.closest("#delFbToggle")){ const w=$("delFbWrap"),c=$("delFbChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
   if(e.target.closest("#wdTestToggle")){ const w=$("wdTestWrap"),c=$("wdTestChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
+  if(e.target.closest("#wdKeyReveal")){ const b=$("wdKeyRevealBox"); const show=b.style.display==="none"; b.style.display=show?"block":"none"; if(show)$("wdKeyValue").textContent=WD_ADMIN_KEY||"(none)"; $("wdKeyReveal").textContent=show?"Hide key":"Show key"; return; }
+});
+
+// Connect a Webduct company login → save the key to Firebase for everyone.
+onActivate($("wdKeyLogin"),async()=>{
+  const em=$("wdKeyEmail").value.trim(), pw=$("wdKeyPass").value;
+  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter the Webduct email");$("wdKeyEmail").focus();return;}
+  if(!pw){toast("Enter the password");$("wdKeyPass").focus();return;}
+  const btn=$("wdKeyLogin"); btn.disabled=true; btn.textContent="Connecting…"; $("wdKeyHint").textContent="Contacting Webduct…";
+  const r=await wdFetch("POST",WD_BASE+"/oauth/authorize/password",{headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},body:new URLSearchParams({username:em,password:pw}).toString()});
+  btn.disabled=false; btn.textContent="Connect & save key";
+  let tok="";
+  if(r.json){ const d=r.json.data||{}; tok=d.accessToken||d.access_token||d.token||r.json.accessToken||r.json.token||""; }
+  if(r.threw){ $("wdKeyHint").innerHTML="<span style='color:#c0341a'>Couldn't reach Webduct (network/CORS).</span>"; return; }
+  if(!tok){ $("wdKeyHint").innerHTML="<span style='color:#c0341a'>Login failed — check the email/password.</span>"; return; }
+  if(!fbReady){ $("wdKeyHint").innerHTML="<span style='color:#c0341a'>No Firebase connection — can't save the key.</span>"; return; }
+  try{
+    await setDoc(doc(db,"config","webductKey"),{token:tok, email:em, savedBy:(USER?USER.first+" "+USER.last:""), savedAt:serverTimestamp()},{merge:true});
+    $("wdKeyPass").value=""; $("wdKeyHint").innerHTML="<span style='color:#0d7a73'>✓ Connected. The whole team's app now pulls live orders.</span>";
+    toast("Webduct connected for everyone");
+    setTimeout(()=>wdAutoSync({manual:true}),400);
+  }catch(err){ console.error(err); $("wdKeyHint").innerHTML="<span style='color:#c0341a'>Couldn't save the key to Firebase.</span>"; }
+});
+onActivate($("wdKeyClear"),async()=>{
+  if(!fbReady)return; if(!confirm("Disconnect Webduct for the whole team? Everyone's live order sync will stop until someone reconnects."))return;
+  try{ await setDoc(doc(db,"config","webductKey"),{token:"",clearedBy:(USER?USER.first+" "+USER.last:""),clearedAt:serverTimestamp()},{merge:true}); toast("Webduct disconnected"); $("wdKeyRevealBox").style.display="none"; $("wdKeyReveal").textContent="Show key"; }catch(err){ console.error(err); }
+});
+// Deliveries personal-login fallback: sets WD_TOKEN (personal) and pulls orders using it.
+onActivate($("delFbLogin"),async()=>{
+  const em=$("delFbEmail").value.trim(), pw=$("delFbPass").value;
+  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter your Webduct email");$("delFbEmail").focus();return;}
+  if(!pw){toast("Enter your password");$("delFbPass").focus();return;}
+  const btn=$("delFbLogin"); btn.disabled=true; btn.textContent="Signing in…"; $("delFbHint").textContent="Contacting Webduct…";
+  const r=await wdFetch("POST",WD_BASE+"/oauth/authorize/password",{headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},body:new URLSearchParams({username:em,password:pw}).toString()});
+  btn.disabled=false; btn.textContent="Sign in & pull my orders";
+  let tok=""; if(r.json){ const d=r.json.data||{}; tok=d.accessToken||d.access_token||d.token||r.json.accessToken||r.json.token||""; }
+  if(r.threw){ $("delFbHint").innerHTML="<span style='color:#c0341a'>Couldn't reach Webduct.</span>"; return; }
+  if(!tok){ $("delFbHint").innerHTML="<span style='color:#c0341a'>Login failed — check email/password.</span>"; return; }
+  WD_TOKEN=tok; sessionStorage.setItem("wd_token",tok);
+  $("delFbPass").value=""; $("delFbHint").innerHTML="<span style='color:#0d7a73'>✓ Signed in — pulling your orders…</span>";
+  wdAutoSync({manual:true});
 });
 
 /* ---------- Admin PIN + roles ---------- */
@@ -1985,8 +2114,34 @@ $("btnExport").addEventListener("click",exportExcel);
    certainty, whether GitHub Pages → api.webduct.com is possible,
    and if not, exactly why (CORS vs auth vs 404 vs network/DNS).
    ============================================================ */
-let WD_TOKEN=sessionStorage.getItem("wd_token")||"";
+let WD_TOKEN=sessionStorage.getItem("wd_token")||"";   // personal token (Deliveries fallback only)
+let WD_ADMIN_KEY="";                                    // shared company key from Firebase (drives all syncing)
 const WD_BASE="https://api.webduct.com/public";
+
+// Active token priority: shared admin key first (that's the norm now), personal token only as fallback.
+function wdSyncToken(){ return WD_ADMIN_KEY || WD_TOKEN; }
+
+// Red/green light everywhere + the admin box status.
+function wdUpdateLights(){
+  const on=!!WD_ADMIN_KEY;
+  const hd=$("wdHdrDot"), ht=$("wdHdrTxt");
+  if(hd){ hd.className="wd-hdr-dot "+(on?"on":"off"); }
+  if(ht){ ht.textContent=on?"Webduct on":"Webduct off"; }
+  const kd=$("wdKeyDot"), ks=$("wdKeyStatusTxt"), ka=$("wdKeyActions");
+  if(kd){ kd.className="wd-key-dot "+(on?"on":"off"); }
+  if(ks){ ks.textContent=on?"Connected — key active for the whole team":"Not connected — no company key saved"; }
+  if(ka){ ka.style.display=on?"flex":"none"; }
+}
+// Listen for the shared key in Firebase (config/webductKey).
+function wdWatchAdminKey(){
+  if(!fbReady) return;
+  try{
+    onSnapshot(doc(db,"config","webductKey"), d=>{
+      WD_ADMIN_KEY = (d.exists() && d.data().token) ? d.data().token : "";
+      wdUpdateLights();
+    }, e=>console.error("adminKey",e));
+  }catch(e){ console.error(e); }
+}
 // Full endpoint catalog from the Webduct public API (Swagger). {group?, m, p, b?(has body), note?}
 const WD_ENDPOINTS=[
   {group:"— Most useful for this app —"},
@@ -2137,7 +2292,7 @@ const WD_ENDPOINTS=[
   {m:"PUT",p:"/timecards/statuses",b:1}
 ];
 function wdBase(){ return WD_BASE; }
-function wdActiveToken(){ return WD_TOKEN; }
+function wdActiveToken(){ return wdSyncToken(); }
 function wdAuthHeaders(){ const tok=wdActiveToken(); return tok?{"Bearer":tok}:{}; }   // API's apiKey header is literally named "Bearer"
 function wdRenderToken(){ const w=$("wd_tokenWrap"), t=wdActiveToken(); if(t){ w.style.display="flex"; $("wd_token").textContent=t; $("wd_connected").style.display="block"; } else { w.style.display="none"; $("wd_connected").style.display="none"; } }
 function wdRenderPresetSel(){
@@ -2303,9 +2458,17 @@ function wdReadable(r, label){
   if(!list.length) return `<div class="sub-empty">The call succeeded but the list is empty.</div>`;
 
   const kind = wdGuessKind(label, list[0]);
-  const shown = list.slice(0,50);
+  // Show most-recent data first. Find a date-ish field on the sample and sort descending by it.
+  const sorted = list.slice();
+  try{
+    const dateOf=rec=>{ if(!rec||typeof rec!=="object")return 0;
+      const cand=rec.ordered||rec.requested||rec.dateCreated||rec.dateModified||rec.created||rec.modified||rec.date||(rec.delivery&&rec.delivery.date)||"";
+      const t=new Date(cand).getTime(); return isNaN(t)?0:t; };
+    if(sorted.some(r=>dateOf(r)>0)) sorted.sort((a,b)=>dateOf(b)-dateOf(a));
+  }catch(_){}
+  const shown = sorted.slice(0,50);
   let html = shown.map(rec=>wdRenderRecord(rec, kind)).join("");
-  if(list.length>shown.length) html += `<div class="wd-more">Showing first ${shown.length} of ${list.length}. Use Raw JSON to see all, or filter the endpoint.</div>`;
+  if(sorted.length>shown.length) html += `<div class="wd-more">Showing the ${shown.length} most recent of ${sorted.length}. Use Raw JSON to see all, or filter the endpoint.</div>`;
   return html;
 }
 
@@ -2553,10 +2716,12 @@ onActivate($("wd_scan"),async()=>{
   const H=()=>({"Accept":"application/json", ...wdAuthHeaders()});
   const listCache={};
   const total=WD_SCAN_NOPARAM.length+WD_SCAN_BYID.length; let done=0;
+  // Cap huge list payloads so 50 endpoints don't exhaust mobile memory.
+  const trim=(r)=>{ try{ if(r&&r.json&&Array.isArray(r.json.data)&&r.json.data.length>300){ const full=r.json.data.length; r=Object.assign({},r,{json:Object.assign({},r.json,{data:r.json.data.slice(0,300)}), _trimmed:full, text:""}); } else if(r&&r.text&&r.text.length>200000){ r=Object.assign({},r,{text:r.text.slice(0,200000)}); } }catch(_){} return r; };
   for(const p of WD_SCAN_NOPARAM){
     done++; wdScanStatus(`Scanning ${done}/${total} — GET ${p}`);
-    const r=await wdFetch("GET", WD_BASE+p, {headers:H()});
-    listCache[p]=r; WD_SCAN_RESULTS.push({path:"GET "+p, r, cls:wdClassify(p,r)});
+    let r=await wdFetch("GET", WD_BASE+p, {headers:H()});
+    listCache[p]=r; r=trim(r); WD_SCAN_RESULTS.push({path:"GET "+p, r, cls:wdClassify(p,r)});
     wdRenderScan();
   }
   for(const spec of WD_SCAN_BYID){
@@ -2566,7 +2731,7 @@ onActivate($("wd_scan"),async()=>{
     if(id==null){ WD_SCAN_RESULTS.push({path:"GET "+spec.make("{id}"), r:{threw:false,ok:false,status:0,statusText:"skipped — no sample id"}, cls:{ok:false,tag:"skip",note:"no id to try"}}); wdScanStatus(`Scanning ${done}/${total} — skipped ${spec.make("{id}")}`); wdRenderScan(); continue; }
     const path=spec.make(encodeURIComponent(id));
     wdScanStatus(`Scanning ${done}/${total} — GET ${path}`);
-    const r=await wdFetch("GET", WD_BASE+path, {headers:H()});
+    let r=await wdFetch("GET", WD_BASE+path, {headers:H()}); r=trim(r);
     WD_SCAN_RESULTS.push({path:"GET "+path, r, cls:wdClassify(path,r)});
     wdRenderScan();
   }
@@ -2585,17 +2750,25 @@ function wdRenderScan(final){
   const sorted=WD_SCAN_RESULTS.slice().sort((a,b)=>rank(a)-rank(b));
   const badge=c=>{ const map={file:"green",tool:"green",data:"",err:"amber",blocked:"amber",skip:""}; const lbl={file:"FILE",tool:"TOOL DATA",data:"OK",err:"ERR",blocked:"BLOCKED",skip:"SKIP"}; return `<span class="wd-chip ${map[c.tag]||""}">${lbl[c.tag]||c.tag}</span>`; };
   $("wd_scanSummary").innerHTML=`<div class="wd-scan-sumhead">Summary (${WD_SCAN_RESULTS.length})${final?" — tap a row to jump":" — scanning…"}</div>`+sorted.map(x=>`<div class="wd-scan-sumrow" data-scanjump="${WD_SCAN_RESULTS.indexOf(x)}">${badge(x.cls)}<span class="wd-scan-path">${wdEsc(x.path)}</span><span class="wd-scan-note">${wdEsc(x.cls.note||"")}</span></div>`).join("");
-  if(!final){ return; }   // heavy detail only builds once, at the end
-  $("wd_scanDetail").innerHTML=`<div class="wd-scan-dethead">Details — tap any endpoint to expand</div>`+WD_SCAN_RESULTS.map((x,i)=>{
-    const body = x.r.status===0 ? `<div class="dd-empty">${wdEsc(x.r.statusText||"skipped")}</div>`
-      : `<div class="wd-viewtabs"><button class="wd-vtab active" data-scantab="rd" data-si="${i}">Readable</button><button class="wd-vtab" data-scantab="raw" data-si="${i}">Raw JSON</button></div>
-         <div class="wd-scan-rd" id="wd-scan-rd-${i}">${wdReadable(x.r, x.path)}</div>
-         <div class="wd-scan-raw" id="wd-scan-raw-${i}" style="display:none"><div class="wd-out-head"><span>Raw</span><button class="wd-mini" data-scancopy="${i}">Copy</button></div><pre class="wd-out">${wdEsc(wdScanRaw(x.r))}</pre></div>`;
-    return `<div class="wd-scan-block" id="wd-scan-${i}">
+  if(!final){ return; }
+  // Render ONLY the collapsed headers (tiny). Each body is built lazily on first expand,
+  // so we never construct megabytes of HTML in one write (that's what crashed Safari).
+  $("wd_scanDetail").innerHTML=`<div class="wd-scan-dethead">Details — tap any endpoint to expand</div>`+WD_SCAN_RESULTS.map((x,i)=>
+    `<div class="wd-scan-block" id="wd-scan-${i}">
       <div class="wd-scan-blockhead" data-scantoggle="${i}"><span class="wd-scan-chev" id="wd-scan-chev-${i}">▸</span>${badge(x.cls)} <span class="wd-scan-hpath">${wdEsc(x.path)}</span><span class="wd-scan-hnote">${wdEsc(x.cls.note||"")}</span></div>
-      <div class="wd-scan-bodywrap" id="wd-scan-body-${i}" style="display:none">${body}</div>
-    </div>`;
-  }).join("");
+      <div class="wd-scan-bodywrap" id="wd-scan-body-${i}" style="display:none" data-built="0"></div>
+    </div>`).join("");
+}
+// Build one endpoint's body HTML only when needed.
+function wdScanBuildBody(i){
+  const x=WD_SCAN_RESULTS[i]; if(!x) return "";
+  if(x.r.status===0) return `<div class="dd-empty">${wdEsc(x.r.statusText||"skipped")}</div>`;
+  let readable;
+  try{ readable=wdReadable(x.r, x.path); }catch(err){ readable=`<div class="dd-empty">Couldn't format this one — use Raw JSON below.</div>`; }
+  let raw=wdScanRaw(x.r); if(raw.length>60000) raw=raw.slice(0,60000)+"\n… (truncated — full data still copies)";
+  return `<div class="wd-viewtabs"><button class="wd-vtab active" data-scantab="rd" data-si="${i}">Readable</button><button class="wd-vtab" data-scantab="raw" data-si="${i}">Raw JSON</button></div>
+    <div class="wd-scan-rd" id="wd-scan-rd-${i}">${readable}</div>
+    <div class="wd-scan-raw" id="wd-scan-raw-${i}" style="display:none"><div class="wd-out-head"><span>Raw</span><button class="wd-mini" data-scancopy="${i}">Copy</button></div><pre class="wd-out">${wdEsc(raw)}</pre></div>`;
 }
 document.addEventListener("click",e=>{
   const j=e.target.closest("[data-scanjump]"); if(j){ const i=j.dataset.scanjump; wdScanExpand(i,true); const el=$("wd-scan-"+i); if(el)el.scrollIntoView({behavior:"smooth",block:"start"}); return; }
@@ -2604,8 +2777,9 @@ document.addEventListener("click",e=>{
   const cp=e.target.closest("[data-scancopy]"); if(cp){ const i=+cp.dataset.scancopy; navigator.clipboard.writeText(wdScanRaw(WD_SCAN_RESULTS[i].r)).then(()=>toast("Copied")).catch(()=>toast("Copy failed")); return; }
   if(e.target.closest("#wd_scanClear")){ WD_SCAN_RESULTS=[]; $("wd_scanResults").style.display="none"; $("wd_scanSummary").innerHTML=""; $("wd_scanDetail").innerHTML=""; wdScanStatus(""); return; }
 });
-function wdScanToggle(i){ const b=$("wd-scan-body-"+i),c=$("wd-scan-chev-"+i); if(!b)return; const open=b.style.display==="none"; b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; }
-function wdScanExpand(i,open){ const b=$("wd-scan-body-"+i),c=$("wd-scan-chev-"+i); if(!b)return; b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; }
+function wdScanEnsureBody(i){ const b=$("wd-scan-body-"+i); if(b && b.dataset.built==="0"){ b.innerHTML=wdScanBuildBody(i); b.dataset.built="1"; } }
+function wdScanToggle(i){ const b=$("wd-scan-body-"+i),c=$("wd-scan-chev-"+i); if(!b)return; const open=b.style.display==="none"; if(open) wdScanEnsureBody(i); b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; }
+function wdScanExpand(i,open){ const b=$("wd-scan-body-"+i),c=$("wd-scan-chev-"+i); if(!b)return; if(open) wdScanEnsureBody(i); b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; }
 
 /* ============================================================
    WEBDUCT AUTO-SYNC — shop-equipment orders → Deliveries
@@ -2639,51 +2813,115 @@ function wdMatchArrival(job, itemText){
 
 // Fire the whole sync. Called from signInAs after a successful token, and from the manual button.
 async function wdAutoSync(opts={}){
-  if(wdSyncing) return; if(!WD_TOKEN){ if(opts.manual)toast("Sign in to Webduct first"); return; }
+  if(wdSyncing) return;
+  const tok=wdSyncToken();
+  if(!tok){ if(opts.manual)toast("Connect Webduct in Admin first"); wdSyncStatus("No Webduct key — connect in Admin", true); return; }
   wdSyncing=true; wdSyncStatus("Pulling orders…");
   try{
-    const listR=await wdFetch("GET",WD_BASE+"/orders",{headers:{"Accept":"application/json", ...wdAuthHeaders()}});
-    if(listR.threw || !listR.ok){ wdSyncStatus("Couldn't reach Webduct orders", true); wdSyncing=false; return; }
-    const orders=(listR.json&&Array.isArray(listR.json.data))?listR.json.data:[];
-    // We must fetch each order's detail to see its line items (the list view has items:[]).
-    // Limit how many we pull per run to stay quick; newest first.
-    const sorted=orders.slice().sort((a,b)=> (b.ordered||"")<(a.ordered||"")?-1:1);
-    const cap=Math.min(sorted.length, opts.manual?60:40);
-    let found=0, processed=0;
+    // Pull the order list. Try a few scope params so a company login sees EVERYONE's orders,
+    // not just the caller's. The first that returns more rows wins.
+    const H={"Accept":"application/json", ...wdAuthHeaders()};
+    async function tryList(qs){ const r=await wdFetch("GET",WD_BASE+"/orders"+qs,{headers:H}); const arr=(r.json&&Array.isArray(r.json.data))?r.json.data:null; return {r,arr}; }
+    let best=await tryList("");
+    for(const qs of ["?all=true","?scope=company","?scope=all","?filter=all","?everyone=true"]){
+      if(best.arr && best.arr.length>=200) break;               // already plenty; stop probing
+      const t=await tryList(qs);
+      if(t.arr && (!best.arr || t.arr.length>best.arr.length)) best=t;
+    }
+    if(best.r.threw || !best.r.ok){ wdSyncStatus("Couldn't reach Webduct orders — key may be invalid", true); wdSyncing=false; return; }
+    let orders=best.arr||[];
+    // Keep only orders whose relevant date is within the last 2 months (for the calendar).
+    const cutoff=Date.now()-1000*60*60*24*62;
+    const orderDate=o=>{ const d=new Date(o.requested||o.delivery?.date||o.ordered||0).getTime(); return isNaN(d)?0:d; };
+    orders=orders.filter(o=>orderDate(o)>=cutoff);
+    orders.sort((a,b)=> orderDate(b)-orderDate(a));   // newest first
+    const cap=Math.min(orders.length, 120);
+    let processed=0, equipCount=0;
+    const seenOrderDocs=new Set();
     for(let i=0;i<cap;i++){
-      const o=sorted[i]; const num=o.number; if(!num) continue;
-      processed++; wdSyncStatus(`Scanning order ${processed}/${cap}…`);
-      const detR=await wdFetch("GET",WD_BASE+"/orders/"+encodeURIComponent(num),{headers:{"Accept":"application/json", ...wdAuthHeaders()}});
+      const o=orders[i]; const num=o.number; if(!num) continue;
+      processed++; wdSyncStatus(`Reading order ${processed}/${cap}…`);
+      const detR=await wdFetch("GET",WD_BASE+"/orders/"+encodeURIComponent(num),{headers:H});
       if(detR.threw||!detR.ok||!detR.json) continue;
       const ord=detR.json.data||{}; const items=Array.isArray(ord.items)?ord.items:[];
-      for(const it of items){
+      const ob=ord.orderedBy?.name||ord.orderedFor?.name||{};
+      const orderedByName=[ob.first, (ob.last||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim()].filter(Boolean).join(" ");
+      const orderedByEmail=(ord.orderedBy?.email||ord.orderedFor?.email||"").toLowerCase();
+      // Build a compact line-item list (all categories) for the calendar detail.
+      let hasEquip=false;
+      const liteItems=items.map(it=>{
         const io=it.order||{}; const pid=io.id||"";
-        if(!pid.startsWith(WD_EQUIP_PREFIX)) continue;   // only equipment-stored-at-shop items
-        found++;
-        const job=ord.job?.number||""; const itemText=(io.notes||io.label||"");
-        const m=wdMatchArrival(job, io.notes||"");        // match on the item NOTES vs arrival description
-        const ob=ord.orderedBy?.name||ord.orderedFor?.name||{};
-        const orderedByName=[ob.first, (ob.last||"").replace(/\s*\(.*\)/,"").trim()].filter(Boolean).join(" ");
-        // Stable doc id per order-item so re-syncs update rather than duplicate.
-        const docId="we-"+wdSlug(num)+"-"+wdSlug(io.ddoIndex||io.id||found);
+        const isEquip=pid.startsWith(WD_EQUIP_PREFIX); if(isEquip)hasEquip=true;
+        return {
+          label:io.label||"", notes:io.notes||"", quantity:io.quantity!=null?io.quantity:null,
+          sku:(io.sku&&io.sku!=="___")?io.sku:"", type:io.type||"", productId:pid,
+          group:io.fulfillmentGroup?.label||"Other", groupCode:io.fulfillmentGroup?.code||"",
+          shipStatus:io.shipping?.status?.label||"", isEquip,
+          dims:wdFittingDims(it), build:wdFittingBuild(it)
+        };
+      });
+      // Save the order for the calendar.
+      const oDocId="wo-"+wdSlug(num);
+      seenOrderDocs.add(oDocId);
+      await wdWriteOrder(oDocId, {
+        number:String(num), job:ord.job?.number||"", jobName:ord.job?.name||"", jobDesc:ord.job?.description||"",
+        orderedBy:orderedByName, orderedByEmail,
+        orderedDate:ord.ordered||"", requestedDate:ord.requested||"", deliveryDate:ord.delivery?.date||"",
+        shipLabel:ord.delivery?.shipping?.label||"", shipStatus:ord.delivery?.status?.label||"",
+        prodStatus:ord.production?.status?.label||"", orderStatus:ord.status?.label||"",
+        po:ord.poNumber||"", tag:ord.tag||"", instructions:(ord.specialInstructions&&ord.specialInstructions!=="n/a")?ord.specialInstructions:"",
+        totalPrice:ord.calculations?.totals?.current?.price?.value ?? null,
+        totalWeight:ord.calculations?.totals?.current?.weight?.value ?? null,
+        hasEquip, items:liteItems, itemCount:liteItems.length,
+        syncedAt:Date.now()
+      });
+      // Also maintain the equipment links (for Deliveries matching), as before.
+      for(const it of items){
+        const io=it.order||{}; const pid=io.id||""; if(!pid.startsWith(WD_EQUIP_PREFIX)) continue;
+        equipCount++;
+        const job=ord.job?.number||"";
+        const m=wdMatchArrival(job, io.notes||"");
+        const docId="we-"+wdSlug(num)+"-"+wdSlug(io.ddoIndex||io.id||equipCount);
         await wdWriteEquip(docId, {
-          orderNumber:String(num),
-          job, jobName:ord.job?.name||"",
-          label:io.label||"", notes:io.notes||"",
-          quantity:io.quantity!=null?io.quantity:null,
+          orderNumber:String(num), job, jobName:ord.job?.name||"",
+          label:io.label||"", notes:io.notes||"", quantity:io.quantity!=null?io.quantity:null,
           orderedBy:orderedByName,
           orderedDate:ord.ordered||"", requestedDate:ord.requested||"", deliveryDate:ord.delivery?.date||"",
-          shipStatus:io.shipping?.status?.label||ord.delivery?.status?.label||"",
-          orderStatus:ord.status?.label||"",
+          shipStatus:io.shipping?.status?.label||ord.delivery?.status?.label||"", orderStatus:ord.status?.label||"",
           arrivalId:m.arrivalId, matchState:m.state, matchScore:Math.round(m.score*100)/100,
           syncedAt:Date.now(), syncedBy:(USER?USER.first+" "+USER.last:"")
         });
       }
     }
-    wdSyncStatus(`Synced — ${found} shop-equipment item${found===1?"":"s"} from ${processed} orders`, false, true);
-    if(opts.manual) toast(`Webduct sync done — ${found} equipment item${found===1?"":"s"}`);
+    // Prune calendar orders that fell out of the 2-month window.
+    await wdPruneOrders(seenOrderDocs, cutoff);
+    wdSyncStatus(`Synced ${processed} orders (last 2 months) · ${equipCount} equipment items`, false, true);
+    if(opts.manual) toast(`Synced ${processed} orders`);
   }catch(e){ console.error("wdAutoSync",e); wdSyncStatus("Sync error — see console", true); }
   wdSyncing=false;
+}
+// Extract fitting dimensions as a readable string (e.g. "W 12 × H 8 × L 48").
+function wdFittingDims(it){
+  const dims=it.engine?.inputs?.user?.dimensions; if(!Array.isArray(dims)||!dims.length) return "";
+  return dims.map(d=>{ const lbl=d.label||d.id||d.key||""; const v=d.value; return (lbl&&v!=null&&v!=="")?`${lbl} ${v}`:""; }).filter(Boolean).join(" × ");
+}
+// Build a short "what to tell the laser/CAD" string from a fitting item.
+function wdFittingBuild(it){
+  if(it.engine?.type!=="hvac.fitting") return "";
+  const io=it.order||{}; const name=io.label||"Fitting"; const dims=wdFittingDims(it);
+  const gauge=it.engine?.output?.materials?.[0]?.label||"";
+  const parts=[name]; if(dims)parts.push(dims); if(gauge)parts.push(gauge);
+  return parts.join(" · ");
+}
+async function wdWriteOrder(docId, data){ if(!fbReady)return; try{ await setDoc(doc(db,"webductOrders",docId), data, {merge:true}); }catch(e){ console.error("wdWriteOrder",e); } }
+async function wdPruneOrders(keepSet, cutoff){
+  if(!fbReady) return;
+  // Delete any stored order not seen this sync AND older than cutoff (keeps writes minimal).
+  for(const o of WD_ORDERS){
+    if(keepSet.has(o.docId)) continue;
+    const d=new Date(o.requestedDate||o.deliveryDate||o.orderedDate||0).getTime();
+    if(isNaN(d) || d<cutoff){ try{ await deleteDoc(doc(db,"webductOrders",o.docId)); }catch(_){} }
+  }
 }
 function wdSlug(x){ return String(x).replace(/[^A-Za-z0-9]+/g,"").slice(0,40); }
 
@@ -2791,12 +3029,13 @@ async function wdMarkEquip(docId, patch){ if(!fbReady)return; try{ await setDoc(
 
 /* ---------- Init ---------- */
 renderWho(); renderFeed(); renderJobs(); renderDeliveries();
+if(typeof wdUpdateLights==="function") wdUpdateLights();
 lockDateInputs();
 const initView=viewForHash(location.hash.replace("#","")); if(initView)setView(initView,true);
 syncAdminView(); startSync();
 if(!USER){ setTimeout(()=>{ if(!USER) openName(); },600); }
 // Returning user whose Webduct token survived the session → refresh equipment in the background.
-if(USER && WD_TOKEN){ setTimeout(()=>{ if(typeof wdAutoSync==="function") wdAutoSync(); }, 2500); }
+if(USER){ setTimeout(()=>{ if(typeof wdAutoSync==="function") wdAutoSync(); }, 2500); }
 window.addEventListener("pageshow",()=>{ if($("view-admin").classList.contains("active"))syncAdminView(); });
 </script>
 </body>
