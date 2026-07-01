@@ -606,11 +606,20 @@
 
     <div class="wd-card">
       <div class="wd-card-title">1 · Connection</div>
-      <div class="field"><label>Base URL</label><input id="wd_base" type="text" value="https://api.webduct.com/public/v1" autocomplete="off" spellcheck="false"></div>
-      <div class="hint" style="margin:-6px 0 12px">If calls 404, the version segment may differ. Try with/without <code>/public</code> or <code>/v1</code>.</div>
+      <div class="field"><label>Base URL</label><input id="wd_base" type="text" value="https://api.webduct.com/public" autocomplete="off" spellcheck="false"></div>
+      <div class="hint" style="margin:-6px 0 12px">Swagger shows <code>Base URL: /public</code>, so this should be right. If calls 404, try adding <code>/v1</code>.</div>
       <div class="field-2"><div class="field"><label>Username</label><input id="wd_user" type="text" autocomplete="off" spellcheck="false"></div><div class="field"><label>Password</label><input id="wd_pass" type="password" autocomplete="off"></div></div>
       <button class="submit" id="wd_login">Sign in &amp; get token</button>
       <div class="wd-token" id="wd_tokenWrap" style="display:none"><span class="wd-token-lab">Token</span><code id="wd_token"></code><button id="wd_tokenClear" class="wd-mini">Clear</button></div>
+      <div class="field" style="margin-top:12px"><label>Auth header style</label>
+        <select id="wd_authStyle">
+          <option value="bearer-name">Bearer: &lt;token&gt;  (matches this API's spec)</option>
+          <option value="authorization-bearer">Authorization: Bearer &lt;token&gt;</option>
+          <option value="authorization-raw">Authorization: &lt;token&gt;</option>
+        </select>
+      </div>
+      <div class="hint">Swagger declares an apiKey header literally named <code>Bearer</code>. That's the first option. If it still says missing token, try the others.</div>
+      <div class="field" style="margin-top:12px"><label>Or paste a token from Swagger's Authorize box</label><input id="wd_manualTok" type="text" autocomplete="off" spellcheck="false" placeholder="paste token, then it's used below"></div>
       <div class="hint" id="wd_tokenHint" style="margin-top:8px"></div>
     </div>
 
@@ -1673,9 +1682,19 @@ const WD_PRESETS=[
   ["GET","/roles"],["GET","/users"]
 ];
 function wdBase(){ return ($("wd_base").value||"").trim().replace(/\/+$/,""); }
-function wdRenderToken(){ const w=$("wd_tokenWrap"); if(WD_TOKEN){ w.style.display="flex"; $("wd_token").textContent=WD_TOKEN; } else { w.style.display="none"; } }
+function wdActiveToken(){ const m=($("wd_manualTok").value||"").trim(); return m||WD_TOKEN; }
+function wdAuthHeaders(){
+  const tok=wdActiveToken(); if(!tok) return {};
+  const style=$("wd_authStyle").value;
+  if(style==="authorization-bearer") return {"Authorization":"Bearer "+tok};
+  if(style==="authorization-raw") return {"Authorization":tok};
+  return {"Bearer":tok};   // matches this API's declared apiKey header name
+}
+function wdRenderToken(){ const w=$("wd_tokenWrap"), t=wdActiveToken(); if(t){ w.style.display="flex"; $("wd_token").textContent=t; } else { w.style.display="none"; } }
 function wdRenderPresets(){ $("wd_presets").innerHTML=WD_PRESETS.map(([m,p])=>`<button class="wd-preset" data-wdp="${m} ${esc(p)}">${m} ${esc(p)}</button>`).join(""); }
 wdRenderPresets(); wdRenderToken();
+$("wd_manualTok").addEventListener("input",wdRenderToken);
+$("wd_authStyle").addEventListener("change",()=>{ const s=$("wd_authStyle").value; $("wd_tokenHint").innerHTML="Now sending header: <code>"+(s==="bearer-name"?"Bearer: &lt;token&gt;":s==="authorization-bearer"?"Authorization: Bearer &lt;token&gt;":"Authorization: &lt;token&gt;")+"</code>"; });
 $("wd_method").addEventListener("change",()=>{ $("wd_bodyWrap").style.display=/POST|PUT/.test($("wd_method").value)?"block":"none"; });
 document.addEventListener("click",e=>{
   const p=e.target.closest("[data-wdp]"); if(p){ const [m,...rest]=p.dataset.wdp.split(" "); $("wd_method").value=m; $("wd_path").value=rest.join(" "); $("wd_bodyWrap").style.display=/POST|PUT/.test(m)?"block":"none"; }
@@ -1734,7 +1753,7 @@ function wdShowResult(label,r,{isLogin=false}={}){
     } else {
       cls="bad"; pill.className="wd-status bad"; pill.textContent=r.status+" "+(r.statusText||"");
       heading="The server responded, but with an error status. (Good news: this means CORS is NOT the problem — the browser reached Webduct fine.)";
-      if(r.status===401||r.status===403){ points.push("<b>"+r.status+" — authentication/permission.</b> "+(isLogin?"The username/password were rejected, or the token grant path differs.":"The token is missing, wrong, or expired, or your Webduct user lacks the <b>Public API</b> permission (and job-admin/timecard) your rep mentioned enabling in BCX.")); }
+      if(r.status===401||r.status===403){ points.push("<b>"+r.status+" — authentication/permission.</b> "+(isLogin?"The username/password were rejected, or the token grant path differs.":"Likely the token header. This API declares its key as a header literally named <code>Bearer</code> — if you're on 'Authorization: Bearer', switch the <b>Auth header style</b> to the first option and resend. Otherwise the token may be wrong/expired, or your Webduct user lacks the <b>Public API</b> permission (plus job-admin/timecard) your rep mentioned enabling in BCX.")); }
       else if(r.status===404){ points.push("<b>404 — path not found.</b> The endpoint or the base URL's version segment is off. Try toggling <code>/public</code> or <code>/v1</code> in the Base URL, or adjust the path."); }
       else if(r.status===400||r.status===422){ points.push("<b>"+r.status+" — bad request.</b> The endpoint was found but didn't like the input (method or JSON body). For GETs this usually means a required query parameter is missing."); }
       else if(r.status>=500){ points.push("<b>"+r.status+" — server-side error at Webduct.</b> The path is reachable; their end hit a problem. Worth retrying or asking your rep."); }
@@ -1790,12 +1809,11 @@ onActivate($("wd_send"),async()=>{
   if(!path){ toast("Enter a path like /jobs"); return; }
   if(!/^\//.test(path)) path="/"+path;
   const url=base+path;
-  const headers={"Accept":"application/json"};
-  if(WD_TOKEN) headers["Authorization"]="Bearer "+WD_TOKEN;
+  const headers={"Accept":"application/json", ...wdAuthHeaders()};
   let body=null;
   if(/POST|PUT/.test(method)){ const raw=$("wd_body").value.trim(); if(raw){ try{ JSON.parse(raw); }catch(e){ toast("Body isn't valid JSON"); return; } headers["Content-Type"]="application/json"; body=raw; } }
   const btn=$("wd_send"); btn.disabled=true; btn.textContent="Sending…";
-  if(!WD_TOKEN){ $("wd_tokenHint").textContent="Heads up: no token yet — protected endpoints will likely 401."; }
+  if(!wdActiveToken()){ $("wd_tokenHint").textContent="Heads up: no token yet — protected endpoints will likely say missing token."; }
   const r=await wdFetch(method,url,{headers,body});
   wdShowResult(method+" "+path, r);
   btn.disabled=false; btn.textContent="Send request";
