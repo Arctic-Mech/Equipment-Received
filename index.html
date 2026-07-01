@@ -1117,7 +1117,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="2.6";
+const APP_VERSION="2.7";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1753,8 +1753,9 @@ function wdOrderCard(o){
       ${o.orderStatus?`<div class="wo-row"><b>Order status</b> ${wdEsc(o.orderStatus)}</div>`:""}
       ${o.instructions?`<div class="wo-row"><b>Instructions</b> ${wdEsc(o.instructions)}</div>`:""}
       ${(typeof o.totalPrice==="number"&&o.totalPrice>0)?`<div class="wo-row"><b>Total</b> $${o.totalPrice.toFixed(2)}</div>`:""}
+      ${o.detailUnavailable?`<div class="wo-row" style="color:var(--steel-light)">⚠ Item-level detail unavailable for this order (only its own owner's login may see line items — job/date/status above is still accurate)</div>`:""}
       ${equipItems.length?`<div class="wo-equip-head">🏭 Equipment to deliver</div>`+equipItems.map(itemLine).join(""):""}
-      <div class="wo-cats-toggle" data-wocats="${wdEsc(o.docId)}"><span class="wo-cats-chev" id="wo-cats-chev-${wdEsc(o.docId)}">▸</span> All items by category (${(o.items||[]).length})</div>
+      ${(o.items&&o.items.length)?`<div class="wo-cats-toggle" data-wocats="${wdEsc(o.docId)}"><span class="wo-cats-chev" id="wo-cats-chev-${wdEsc(o.docId)}">▸</span> All items by category (${o.items.length})</div>`:""}
       <div class="wo-cats" id="wo-cats-${wdEsc(o.docId)}" style="display:none">
         ${groupNames.map(g=>`<div class="wo-cat"><div class="wo-cat-name">${wdEsc(g)} (${groups[g].length})</div>${groups[g].map(itemLine).join("")}</div>`).join("")}
       </div>
@@ -2830,52 +2831,64 @@ async function wdAutoSync(opts={}){
     }
     if(best.r.threw || !best.r.ok){ wdSyncStatus("Couldn't reach Webduct orders — key may be invalid", true); wdSyncing=false; return; }
     let orders=best.arr||[];
+    // How many distinct people show up in the raw list, before any per-order detail call.
+    // If the list itself only shows one person, that's a scope problem upstream, not a detail-fetch problem.
+    const listPeople=new Set(orders.map(o=>{ const nm=(o.orderedBy?.name||o.orderedFor?.name||{}); return (o.orderedBy?.email||o.orderedFor?.email||((nm.first||"")+" "+(nm.last||""))).toLowerCase(); }).filter(Boolean));
     // Keep only orders whose relevant date is within the last 2 months (for the calendar).
     const cutoff=Date.now()-1000*60*60*24*62;
     const orderDate=o=>{ const d=new Date(o.requested||o.delivery?.date||o.ordered||0).getTime(); return isNaN(d)?0:d; };
     orders=orders.filter(o=>orderDate(o)>=cutoff);
     orders.sort((a,b)=> orderDate(b)-orderDate(a));   // newest first
     const cap=Math.min(orders.length, 120);
-    let processed=0, equipCount=0;
+    let processed=0, equipCount=0, detailOk=0, detailFail=0;
+    const failCodes={};
     const seenOrderDocs=new Set();
-    for(let i=0;i<cap;i++){
-      const o=orders[i]; const num=o.number; if(!num) continue;
-      processed++; wdSyncStatus(`Reading order ${processed}/${cap}…`);
-      const detR=await wdFetch("GET",WD_BASE+"/orders/"+encodeURIComponent(num),{headers:H});
-      if(detR.threw||!detR.ok||!detR.json) continue;
-      const ord=detR.json.data||{}; const items=Array.isArray(ord.items)?ord.items:[];
-      const ob=ord.orderedBy?.name||ord.orderedFor?.name||{};
+    // Shared field extraction — works on EITHER a list header record or a full detail record,
+    // since Webduct's header response carries the same top-level fields, just with items:[] empty.
+    function wdOrderBaseFields(src, withItems){
+      const ob=src.orderedBy?.name||src.orderedFor?.name||{};
       const orderedByName=[ob.first, (ob.last||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim()].filter(Boolean).join(" ");
-      const orderedByEmail=(ord.orderedBy?.email||ord.orderedFor?.email||"").toLowerCase();
-      // Build a compact line-item list (all categories) for the calendar detail.
+      const orderedByEmail=(src.orderedBy?.email||src.orderedFor?.email||"").toLowerCase();
+      const items=withItems&&Array.isArray(src.items)?src.items:[];
       let hasEquip=false;
       const liteItems=items.map(it=>{
         const io=it.order||{}; const pid=io.id||"";
         const isEquip=pid.startsWith(WD_EQUIP_PREFIX); if(isEquip)hasEquip=true;
-        return {
-          label:io.label||"", notes:io.notes||"", quantity:io.quantity!=null?io.quantity:null,
+        return { label:io.label||"", notes:io.notes||"", quantity:io.quantity!=null?io.quantity:null,
           sku:(io.sku&&io.sku!=="___")?io.sku:"", type:io.type||"", productId:pid,
           group:io.fulfillmentGroup?.label||"Other", groupCode:io.fulfillmentGroup?.code||"",
-          shipStatus:io.shipping?.status?.label||"", isEquip,
-          dims:wdFittingDims(it), build:wdFittingBuild(it)
-        };
+          shipStatus:io.shipping?.status?.label||"", isEquip, dims:wdFittingDims(it), build:wdFittingBuild(it) };
       });
-      // Save the order for the calendar.
+      return {
+        number:String(src.number), job:src.job?.number||"", jobName:src.job?.name||"", jobDesc:src.job?.description||"",
+        orderedBy:orderedByName, orderedByEmail,
+        orderedDate:src.ordered||"", requestedDate:src.requested||"", deliveryDate:src.delivery?.date||"",
+        shipLabel:src.delivery?.shipping?.label||"", shipStatus:src.delivery?.status?.label||"",
+        prodStatus:src.production?.status?.label||"", orderStatus:src.status?.label||"",
+        po:src.poNumber||"", tag:src.tag||"", instructions:(src.specialInstructions&&src.specialInstructions!=="n/a")?src.specialInstructions:"",
+        totalPrice:src.calculations?.totals?.current?.price?.value ?? null,
+        totalWeight:src.calculations?.totals?.current?.weight?.value ?? null,
+        hasEquip, items:liteItems, itemCount:liteItems.length, detailUnavailable:!withItems,
+        syncedAt:Date.now()
+      };
+    }
+    for(let i=0;i<cap;i++){
+      const o=orders[i]; const num=o.number; if(!num) continue;
+      processed++; wdSyncStatus(`Reading order ${processed}/${cap}…`);
       const oDocId="wo-"+wdSlug(num);
       seenOrderDocs.add(oDocId);
-      await wdWriteOrder(oDocId, {
-        number:String(num), job:ord.job?.number||"", jobName:ord.job?.name||"", jobDesc:ord.job?.description||"",
-        orderedBy:orderedByName, orderedByEmail,
-        orderedDate:ord.ordered||"", requestedDate:ord.requested||"", deliveryDate:ord.delivery?.date||"",
-        shipLabel:ord.delivery?.shipping?.label||"", shipStatus:ord.delivery?.status?.label||"",
-        prodStatus:ord.production?.status?.label||"", orderStatus:ord.status?.label||"",
-        po:ord.poNumber||"", tag:ord.tag||"", instructions:(ord.specialInstructions&&ord.specialInstructions!=="n/a")?ord.specialInstructions:"",
-        totalPrice:ord.calculations?.totals?.current?.price?.value ?? null,
-        totalWeight:ord.calculations?.totals?.current?.weight?.value ?? null,
-        hasEquip, items:liteItems, itemCount:liteItems.length,
-        syncedAt:Date.now()
-      });
-      // Also maintain the equipment links (for Deliveries matching), as before.
+      // ALWAYS write a baseline record from the list header first, so an order never
+      // silently vanishes just because the next call (detail) fails for any reason.
+      await wdWriteOrder(oDocId, wdOrderBaseFields(o, false));
+      const detR=await wdFetch("GET",WD_BASE+"/orders/"+encodeURIComponent(num),{headers:H});
+      if(detR.threw||!detR.ok||!detR.json){ detailFail++; const code=detR.status||"blocked"; failCodes[code]=(failCodes[code]||0)+1; continue; }
+      const ord=detR.json.data||{}; detailOk++;
+      // Detail succeeded — overwrite with the richer, items-inclusive record.
+      await wdWriteOrder(oDocId, wdOrderBaseFields(ord, true));
+      const items=Array.isArray(ord.items)?ord.items:[];
+      const ob=ord.orderedBy?.name||ord.orderedFor?.name||{};
+      const orderedByName=[ob.first, (ob.last||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim()].filter(Boolean).join(" ");
+      // Maintain the equipment links (for Deliveries matching) — needs full item notes, so detail-only.
       for(const it of items){
         const io=it.order||{}; const pid=io.id||""; if(!pid.startsWith(WD_EQUIP_PREFIX)) continue;
         equipCount++;
@@ -2895,8 +2908,9 @@ async function wdAutoSync(opts={}){
     }
     // Prune calendar orders that fell out of the 2-month window.
     await wdPruneOrders(seenOrderDocs, cutoff);
-    wdSyncStatus(`Synced ${processed} orders (last 2 months) · ${equipCount} equipment items`, false, true);
-    if(opts.manual) toast(`Synced ${processed} orders`);
+    const codeStr=Object.keys(failCodes).length?(" (detail blocked: "+Object.entries(failCodes).map(([c,n])=>c+"×"+n).join(", ")+")"):"";
+    wdSyncStatus(`Synced ${processed} orders from ${listPeople.size} people · ${detailOk} full detail, ${detailFail} header-only${codeStr} · ${equipCount} equipment items`, false, true);
+    if(opts.manual) toast(`Synced ${processed} orders from ${listPeople.size} people`);
   }catch(e){ console.error("wdAutoSync",e); wdSyncStatus("Sync error — see console", true); }
   wdSyncing=false;
 }
