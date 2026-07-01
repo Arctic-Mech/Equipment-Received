@@ -456,6 +456,9 @@
   .wd-req-row input{flex:1;min-width:0;font-family:'JetBrains Mono';font-size:13px}
   #wd_path,#wd_base{font-family:'JetBrains Mono'}
   .wd-presets{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+  .wd-connected{background:var(--teal-soft);color:#0c5c53;border:1px solid #b7e0da;border-radius:9px;padding:9px 11px;font-size:13px;font-weight:600;margin-bottom:12px}
+  .wd-count{color:var(--steel-light);font-family:'JetBrains Mono';font-size:11px;font-weight:400;text-transform:none;letter-spacing:0}
+  #wd_presetSel,#wd_method{font-family:inherit}
   .wd-preset{font-family:'JetBrains Mono';font-size:11.5px;background:var(--surface);border:1px solid var(--line);color:var(--steel);padding:5px 9px;border-radius:7px}
   .wd-preset:active{background:var(--line-soft)}
   .wd-token{display:flex;align-items:center;gap:8px;margin-top:12px;background:var(--teal-soft);border:1px solid #b7e0da;border-radius:9px;padding:9px 11px;overflow:hidden}
@@ -606,20 +609,10 @@
 
     <div class="wd-card">
       <div class="wd-card-title">1 · Connection</div>
-      <div class="field"><label>Base URL</label><input id="wd_base" type="text" value="https://api.webduct.com/public" autocomplete="off" spellcheck="false"></div>
-      <div class="hint" style="margin:-6px 0 12px">Swagger shows <code>Base URL: /public</code>, so this should be right. If calls 404, try adding <code>/v1</code>.</div>
+      <div class="wd-connected" id="wd_connected" style="display:none">✓ Signed in — token active for this session.</div>
       <div class="field-2"><div class="field"><label>Username</label><input id="wd_user" type="text" autocomplete="off" spellcheck="false"></div><div class="field"><label>Password</label><input id="wd_pass" type="password" autocomplete="off"></div></div>
       <button class="submit" id="wd_login">Sign in &amp; get token</button>
       <div class="wd-token" id="wd_tokenWrap" style="display:none"><span class="wd-token-lab">Token</span><code id="wd_token"></code><button id="wd_tokenClear" class="wd-mini">Clear</button></div>
-      <div class="field" style="margin-top:12px"><label>Auth header style</label>
-        <select id="wd_authStyle">
-          <option value="bearer-name">Bearer: &lt;token&gt;  (matches this API's spec)</option>
-          <option value="authorization-bearer">Authorization: Bearer &lt;token&gt;</option>
-          <option value="authorization-raw">Authorization: &lt;token&gt;</option>
-        </select>
-      </div>
-      <div class="hint">Swagger declares an apiKey header literally named <code>Bearer</code>. That's the first option. If it still says missing token, try the others.</div>
-      <div class="field" style="margin-top:12px"><label>Or paste a token from Swagger's Authorize box</label><input id="wd_manualTok" type="text" autocomplete="off" spellcheck="false" placeholder="paste token, then it's used below"></div>
       <div class="hint" id="wd_tokenHint" style="margin-top:8px"></div>
     </div>
 
@@ -631,16 +624,17 @@
           <input id="wd_path" type="text" value="/jobs" autocomplete="off" spellcheck="false" placeholder="/jobs">
         </div>
       </div>
-      <div class="wd-presets" id="wd_presets"></div>
+      <div class="field"><label>Quick pick</label><select id="wd_presetSel"></select></div>
+      <div class="hint" id="wd_presetHint" style="margin:-6px 0 8px"></div>
       <div class="field" id="wd_bodyWrap" style="display:none"><label>Request body (JSON)</label><textarea id="wd_body" rows="4" spellcheck="false" placeholder='{ }'></textarea></div>
       <button class="submit" id="wd_send" style="background:var(--blue)">Send request</button>
-      <div class="hint" style="margin-top:8px">Requests run straight from your browser — exactly how the real app would call it. That's the point: this proves whether it can.</div>
+      <div class="hint" style="margin-top:8px">Requests run straight from your browser — exactly how the real app will call it.</div>
     </div>
 
     <div class="wd-card" id="wd_resultCard" style="display:none">
       <div class="wd-card-title">3 · Result <span id="wd_statusPill" class="wd-status"></span></div>
       <div id="wd_diag"></div>
-      <div class="wd-out-head"><span>Response</span><button id="wd_copyOut" class="wd-mini">Copy</button></div>
+      <div class="wd-out-head"><span>Response <span id="wd_count" class="wd-count"></span></span><button id="wd_copyOut" class="wd-mini">Copy</button></div>
       <pre class="wd-out" id="wd_out">—</pre>
     </div>
 
@@ -1675,30 +1669,164 @@ $("btnExport").addEventListener("click",exportExcel);
    and if not, exactly why (CORS vs auth vs 404 vs network/DNS).
    ============================================================ */
 let WD_TOKEN=sessionStorage.getItem("wd_token")||"";
-const WD_PRESETS=[
-  ["GET","/jobs"],["GET","/jobs/phases"],["GET","/orders"],
-  ["GET","/orders/shipping/statuses"],["GET","/orders/fulfillment/statuses"],
-  ["GET","/orders/fulfillment/groups"],["GET","/catalogs"],["GET","/organizations"],
-  ["GET","/roles"],["GET","/users"]
+const WD_BASE="https://api.webduct.com/public";
+// Full endpoint catalog from the Webduct public API (Swagger). {group?, m, p, b?(has body), note?}
+const WD_ENDPOINTS=[
+  {group:"— Most useful for this app —"},
+  {m:"GET",p:"/jobs",note:"list of jobs (job # + name)"},
+  {m:"GET",p:"/orders",note:"orders you place"},
+  {m:"GET",p:"/orders/{orderNumber}",note:"one order — replace {orderNumber}"},
+  {m:"GET",p:"/orders/shipping/statuses",note:"shipping statuses"},
+  {m:"GET",p:"/orders/fulfillment/statuses",note:"fulfillment statuses"},
+  {m:"GET",p:"/orders/fulfillment/groups",note:"fulfillment groups"},
+  {m:"GET",p:"/jobs/phases",note:"job phases"},
+
+  {group:"Catalogs"},
+  {m:"GET",p:"/catalogs"},
+  {m:"GET",p:"/catalogs/{id}"},
+
+  {group:"Environments"},
+  {m:"GET",p:"/environments"},
+  {m:"POST",p:"/environments",b:1},
+  {m:"GET",p:"/environments/{id}"},
+  {m:"PUT",p:"/environments/{id}",b:1},
+  {m:"DELETE",p:"/environments/{id}"},
+
+  {group:"Integrations"},
+  {m:"GET",p:"/integrations/exports"},
+  {m:"GET",p:"/integrations/exports/orders"},
+  {m:"GET",p:"/integrations/mappings"},
+  {m:"PUT",p:"/integrations/mappings",b:1},
+  {m:"DELETE",p:"/integrations/mappings/{id}"},
+
+  {group:"Jobs"},
+  {m:"GET",p:"/jobs"},
+  {m:"POST",p:"/jobs",b:1},
+  {m:"GET",p:"/jobs/{id}"},
+  {m:"PUT",p:"/jobs/{id}",b:1},
+
+  {group:"Job codes"},
+  {m:"GET",p:"/jobs/codes"},
+  {m:"POST",p:"/jobs/codes",b:1},
+  {m:"GET",p:"/jobs/codes/{id}"},
+  {m:"PUT",p:"/jobs/codes/{id}",b:1},
+  {m:"DELETE",p:"/jobs/codes/{id}"},
+  {m:"POST",p:"/v2/jobs/codes",b:1,note:"bulk (testing)"},
+
+  {group:"Job phases"},
+  {m:"GET",p:"/jobs/phases"},
+  {m:"POST",p:"/jobs/phases",b:1},
+  {m:"GET",p:"/jobs/phases/{id}"},
+  {m:"PUT",p:"/jobs/phases/{id}",b:1},
+  {m:"DELETE",p:"/jobs/phases/{id}"},
+  {m:"POST",p:"/v2/jobs/phases",b:1,note:"bulk add (testing)"},
+  {m:"POST",p:"/jobs/phases/bulk",b:1,note:"fetch phases by job/phase IDs"},
+
+  {group:"Job phase job codes"},
+  {m:"GET",p:"/jobs/phases/codes"},
+  {m:"PUT",p:"/jobs/phases/codes",b:1},
+  {m:"DELETE",p:"/jobs/phases/codes",b:1},
+  {m:"PUT",p:"/jobs/phases/codes/bulk",b:1},
+  {m:"PUT",p:"/jobs/phases/codes/jobs",b:1,note:"copy codes between phases"},
+
+  {group:"Materials"},
+  {m:"GET",p:"/materials"},
+  {m:"GET",p:"/materials/{id}"},
+  {m:"PUT",p:"/materials/{id}",b:1},
+  {m:"GET",p:"/materials/factors/costweight"},
+  {m:"POST",p:"/materials/factors/costweight",b:1},
+  {m:"PUT",p:"/materials/factors/costweight",b:1},
+  {m:"DELETE",p:"/materials/factors/costweight",b:1},
+  {m:"GET",p:"/materials/factors/costweight/categories"},
+
+  {group:"Orders"},
+  {m:"GET",p:"/orders"},
+  {m:"POST",p:"/orders",b:1},
+  {m:"PUT",p:"/orders",b:1},
+  {m:"GET",p:"/orders/{orderNumber}"},
+  {m:"GET",p:"/orders/adjustments"},
+  {m:"POST",p:"/orders/adjustments",b:1},
+  {m:"DELETE",p:"/orders/adjustments/{id}"},
+  {m:"GET",p:"/orders/attachments"},
+  {m:"POST",p:"/orders/attachments",b:1},
+  {m:"GET",p:"/orders/exports/{orderId}"},
+  {m:"GET",p:"/orders/fulfillment/groups"},
+  {m:"GET",p:"/orders/fulfillment/statuses"},
+  {m:"GET",p:"/orders/shipping/statuses"},
+
+  {group:"Organizations"},
+  {m:"GET",p:"/organizations"},
+  {m:"GET",p:"/organizations/{index}"},
+
+  {group:"Product lookups & scripts"},
+  {m:"GET",p:"/products/lookups"},
+  {m:"GET",p:"/products/lookups/{id}"},
+  {m:"POST",p:"/products/lookups",b:1},
+  {m:"DELETE",p:"/products/lookups/{product_id}"},
+  {m:"GET",p:"/products/scripts"},
+  {m:"POST",p:"/products/scripts/{id}",b:1},
+  {m:"DELETE",p:"/products/scripts/{id}"},
+
+  {group:"Reimbursements"},
+  {m:"GET",p:"/reimbursements"},
+  {m:"GET",p:"/reimbursements/{id}"},
+  {m:"GET",p:"/reimbursements/codes"},
+  {m:"POST",p:"/reimbursements/codes",b:1},
+  {m:"GET",p:"/reimbursements/codes/{id}"},
+  {m:"PUT",p:"/reimbursements/codes/{id}",b:1},
+  {m:"DELETE",p:"/reimbursements/codes/{id}"},
+  {m:"GET",p:"/reimbursements/codes/jobs"},
+  {m:"POST",p:"/reimbursements/codes/jobs",b:1},
+  {m:"DELETE",p:"/reimbursements/codes/jobs",b:1},
+  {m:"GET",p:"/reimbursements/statuses"},
+  {m:"PUT",p:"/reimbursements/statuses",b:1},
+
+  {group:"Roles & seats & users"},
+  {m:"GET",p:"/roles"},
+  {m:"GET",p:"/seats/types"},
+  {m:"GET",p:"/seats/types/{id}"},
+  {m:"GET",p:"/seats/users"},
+  {m:"GET",p:"/users"},
+  {m:"POST",p:"/users",b:1},
+  {m:"GET",p:"/users/{id}"},
+  {m:"PUT",p:"/users/{id}",b:1},
+  {m:"GET",p:"/users/groups"},
+  {m:"POST",p:"/users/groups",b:1},
+  {m:"GET",p:"/users/groups/{id}"},
+  {m:"PUT",p:"/users/groups/{id}",b:1},
+  {m:"DELETE",p:"/users/groups/{id}"},
+
+  {group:"Spools"},
+  {m:"GET",p:"/spools/packages"},
+  {m:"POST",p:"/spools/packages",b:1},
+  {m:"GET",p:"/spools/settings"},
+  {m:"GET",p:"/spools/statuses"},
+  {m:"GET",p:"/spools/statuses/models/{modelId}"},
+  {m:"PUT",p:"/spools/statuses/models/{modelId}",b:1},
+
+  {group:"Timecards"},
+  {m:"GET",p:"/timecards"},
+  {m:"GET",p:"/timecards/{id}"},
+  {m:"GET",p:"/timecards/statuses"},
+  {m:"PUT",p:"/timecards/statuses",b:1}
 ];
-function wdBase(){ return ($("wd_base").value||"").trim().replace(/\/+$/,""); }
-function wdActiveToken(){ const m=($("wd_manualTok").value||"").trim(); return m||WD_TOKEN; }
-function wdAuthHeaders(){
-  const tok=wdActiveToken(); if(!tok) return {};
-  const style=$("wd_authStyle").value;
-  if(style==="authorization-bearer") return {"Authorization":"Bearer "+tok};
-  if(style==="authorization-raw") return {"Authorization":tok};
-  return {"Bearer":tok};   // matches this API's declared apiKey header name
+function wdBase(){ return WD_BASE; }
+function wdActiveToken(){ return WD_TOKEN; }
+function wdAuthHeaders(){ const tok=wdActiveToken(); return tok?{"Bearer":tok}:{}; }   // API's apiKey header is literally named "Bearer"
+function wdRenderToken(){ const w=$("wd_tokenWrap"), t=wdActiveToken(); if(t){ w.style.display="flex"; $("wd_token").textContent=t; $("wd_connected").style.display="block"; } else { w.style.display="none"; $("wd_connected").style.display="none"; } }
+function wdRenderPresetSel(){
+  const sel=$("wd_presetSel"); let html='<option value="">— pick an endpoint —</option>';
+  WD_ENDPOINTS.forEach((e,i)=>{ if(e.group){ html+=`<option disabled>${esc(e.group)}</option>`; } else { html+=`<option value="${i}">${e.m}  ${esc(e.p)}${e.note?"  — "+esc(e.note):""}</option>`; } });
+  sel.innerHTML=html;
 }
-function wdRenderToken(){ const w=$("wd_tokenWrap"), t=wdActiveToken(); if(t){ w.style.display="flex"; $("wd_token").textContent=t; } else { w.style.display="none"; } }
-function wdRenderPresets(){ $("wd_presets").innerHTML=WD_PRESETS.map(([m,p])=>`<button class="wd-preset" data-wdp="${m} ${esc(p)}">${m} ${esc(p)}</button>`).join(""); }
-wdRenderPresets(); wdRenderToken();
-$("wd_manualTok").addEventListener("input",wdRenderToken);
-$("wd_authStyle").addEventListener("change",()=>{ const s=$("wd_authStyle").value; $("wd_tokenHint").innerHTML="Now sending header: <code>"+(s==="bearer-name"?"Bearer: &lt;token&gt;":s==="authorization-bearer"?"Authorization: Bearer &lt;token&gt;":"Authorization: &lt;token&gt;")+"</code>"; });
-$("wd_method").addEventListener("change",()=>{ $("wd_bodyWrap").style.display=/POST|PUT/.test($("wd_method").value)?"block":"none"; });
-document.addEventListener("click",e=>{
-  const p=e.target.closest("[data-wdp]"); if(p){ const [m,...rest]=p.dataset.wdp.split(" "); $("wd_method").value=m; $("wd_path").value=rest.join(" "); $("wd_bodyWrap").style.display=/POST|PUT/.test(m)?"block":"none"; }
+wdRenderPresetSel(); wdRenderToken();
+$("wd_presetSel").addEventListener("change",()=>{
+  const i=$("wd_presetSel").value; if(i==="")return; const e=WD_ENDPOINTS[+i]; if(!e||e.group)return;
+  $("wd_method").value=e.m; $("wd_path").value=e.p;
+  $("wd_bodyWrap").style.display=e.b?"block":"none";
+  $("wd_presetHint").innerHTML = /\{/.test(e.p) ? "This path has a <code>{placeholder}</code> — replace it with a real id/number before sending." : (e.note?esc(e.note):"");
 });
+$("wd_method").addEventListener("change",()=>{ $("wd_bodyWrap").style.display=/POST|PUT/.test($("wd_method").value)?"block":"none"; });
 onActivate($("wd_tokenClear"),()=>{ WD_TOKEN=""; sessionStorage.removeItem("wd_token"); wdRenderToken(); $("wd_tokenHint").textContent="Token cleared."; });
 
 // Distinguish a network/CORS failure from a real HTTP response.
@@ -1768,6 +1896,9 @@ function wdShowResult(label,r,{isLogin=false}={}){
   diag.className="wd-diag "+cls;
   diag.innerHTML=`<b>${esc(heading)}</b><ul>${points.map(p=>"<li>"+p+"</li>").join("")}</ul>`;
   out.textContent=pretty;
+  // Record count, if the payload is a list (Webduct wraps lists in { data: [...] }).
+  const cnt=$("wd_count"); const arr = r.json && Array.isArray(r.json.data) ? r.json.data : (Array.isArray(r.json)?r.json:null);
+  cnt.textContent = arr ? `· ${arr.length} record${arr.length===1?"":"s"}` : "";
   wdLog(label, r.threw?"ERR":(r.ok?"ok":"bad"), r.threw?"blocked":r.status);
 }
 
