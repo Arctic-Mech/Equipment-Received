@@ -528,8 +528,13 @@
   .wd-scan-sumrow:active{background:var(--line-soft)}
   .wd-scan-path{flex:1;min-width:0;font-family:'JetBrains Mono';font-size:11.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .wd-scan-note{flex:none;font-size:11px;color:var(--steel-light);font-family:'JetBrains Mono'}
-  .wd-scan-block{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
-  .wd-scan-blockhead{font-family:'JetBrains Mono';font-size:12px;color:var(--ink);font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .wd-scan-block{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .wd-scan-blockhead{font-family:'JetBrains Mono';font-size:12px;color:var(--ink);font-weight:700;padding:11px 12px;background:var(--surface);display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer}
+  .wd-scan-blockhead:active{background:var(--line-soft)}
+  .wd-scan-chev{flex:none;color:var(--steel);font-size:12px}
+  .wd-scan-hpath{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wd-scan-hnote{flex:none;font-size:10.5px;color:var(--steel-light);font-weight:400}
+  .wd-scan-bodywrap{padding:12px}
   .wd-item-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
   .wd-chip{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px;padding:2px 7px;border-radius:6px;background:var(--line-soft);color:var(--steel)}
   .wd-chip.green{background:var(--teal-soft);color:var(--teal)}
@@ -1058,7 +1063,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="2.4";
+const APP_VERSION="2.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2566,19 +2571,41 @@ onActivate($("wd_scan"),async()=>{
     wdRenderScan();
   }
   wdScanStatus(`Scan complete — ${WD_SCAN_RESULTS.length} endpoints. Files & tool-data are pinned at the top.`, "ok");
+  wdRenderScan(true);
   btn.disabled=false; btn.textContent="Run full scan"; wdScanning=false;
 });
-function wdRenderScan(){
+function wdScanRaw(r){
+  if(r.threw) return "// Blocked — no response";
+  if(r.binary) return `// Binary file (${(r.blobSize/1024).toFixed(1)} KB, ${r.ct}) — use the download button in Readable`;
+  if(r.status===0) return "// "+(r.statusText||"skipped");
+  return r.json ? JSON.stringify(r.json,null,2) : (r.text||"(empty response body)");
+}
+function wdRenderScan(final){
   const rank=r=>({file:0,tool:1,data:2,err:3,blocked:3,skip:4}[r.cls.tag]??5);
   const sorted=WD_SCAN_RESULTS.slice().sort((a,b)=>rank(a)-rank(b));
   const badge=c=>{ const map={file:"green",tool:"green",data:"",err:"amber",blocked:"amber",skip:""}; const lbl={file:"FILE",tool:"TOOL DATA",data:"OK",err:"ERR",blocked:"BLOCKED",skip:"SKIP"}; return `<span class="wd-chip ${map[c.tag]||""}">${lbl[c.tag]||c.tag}</span>`; };
-  $("wd_scanSummary").innerHTML=`<div class="wd-scan-sumhead">Summary (${WD_SCAN_RESULTS.length})</div>`+sorted.map(x=>`<div class="wd-scan-sumrow" data-scanjump="${WD_SCAN_RESULTS.indexOf(x)}">${badge(x.cls)}<span class="wd-scan-path">${wdEsc(x.path)}</span><span class="wd-scan-note">${wdEsc(x.cls.note||"")}</span></div>`).join("");
-  $("wd_scanDetail").innerHTML=`<div class="wd-scan-dethead">Details</div>`+WD_SCAN_RESULTS.map((x,i)=>`<div class="wd-scan-block" id="wd-scan-${i}"><div class="wd-scan-blockhead">${badge(x.cls)} ${wdEsc(x.path)}</div>${x.r.status===0?`<div class="dd-empty">${wdEsc(x.r.statusText||"skipped")}</div>`:wdReadable(x.r, x.path)}</div>`).join("");
+  $("wd_scanSummary").innerHTML=`<div class="wd-scan-sumhead">Summary (${WD_SCAN_RESULTS.length})${final?" — tap a row to jump":" — scanning…"}</div>`+sorted.map(x=>`<div class="wd-scan-sumrow" data-scanjump="${WD_SCAN_RESULTS.indexOf(x)}">${badge(x.cls)}<span class="wd-scan-path">${wdEsc(x.path)}</span><span class="wd-scan-note">${wdEsc(x.cls.note||"")}</span></div>`).join("");
+  if(!final){ return; }   // heavy detail only builds once, at the end
+  $("wd_scanDetail").innerHTML=`<div class="wd-scan-dethead">Details — tap any endpoint to expand</div>`+WD_SCAN_RESULTS.map((x,i)=>{
+    const body = x.r.status===0 ? `<div class="dd-empty">${wdEsc(x.r.statusText||"skipped")}</div>`
+      : `<div class="wd-viewtabs"><button class="wd-vtab active" data-scantab="rd" data-si="${i}">Readable</button><button class="wd-vtab" data-scantab="raw" data-si="${i}">Raw JSON</button></div>
+         <div class="wd-scan-rd" id="wd-scan-rd-${i}">${wdReadable(x.r, x.path)}</div>
+         <div class="wd-scan-raw" id="wd-scan-raw-${i}" style="display:none"><div class="wd-out-head"><span>Raw</span><button class="wd-mini" data-scancopy="${i}">Copy</button></div><pre class="wd-out">${wdEsc(wdScanRaw(x.r))}</pre></div>`;
+    return `<div class="wd-scan-block" id="wd-scan-${i}">
+      <div class="wd-scan-blockhead" data-scantoggle="${i}"><span class="wd-scan-chev" id="wd-scan-chev-${i}">▸</span>${badge(x.cls)} <span class="wd-scan-hpath">${wdEsc(x.path)}</span><span class="wd-scan-hnote">${wdEsc(x.cls.note||"")}</span></div>
+      <div class="wd-scan-bodywrap" id="wd-scan-body-${i}" style="display:none">${body}</div>
+    </div>`;
+  }).join("");
 }
 document.addEventListener("click",e=>{
-  const j=e.target.closest("[data-scanjump]"); if(j){ const el=$("wd-scan-"+j.dataset.scanjump); if(el)el.scrollIntoView({behavior:"smooth",block:"start"}); return; }
+  const j=e.target.closest("[data-scanjump]"); if(j){ const i=j.dataset.scanjump; wdScanExpand(i,true); const el=$("wd-scan-"+i); if(el)el.scrollIntoView({behavior:"smooth",block:"start"}); return; }
+  const tg=e.target.closest("[data-scantoggle]"); if(tg){ wdScanToggle(tg.dataset.scantoggle); return; }
+  const tab=e.target.closest("[data-scantab]"); if(tab){ const i=tab.dataset.si, rd=tab.dataset.scantab==="rd"; $("wd-scan-rd-"+i).style.display=rd?"block":"none"; $("wd-scan-raw-"+i).style.display=rd?"none":"block"; tab.parentElement.querySelectorAll(".wd-vtab").forEach(b=>b.classList.toggle("active",b===tab)); return; }
+  const cp=e.target.closest("[data-scancopy]"); if(cp){ const i=+cp.dataset.scancopy; navigator.clipboard.writeText(wdScanRaw(WD_SCAN_RESULTS[i].r)).then(()=>toast("Copied")).catch(()=>toast("Copy failed")); return; }
   if(e.target.closest("#wd_scanClear")){ WD_SCAN_RESULTS=[]; $("wd_scanResults").style.display="none"; $("wd_scanSummary").innerHTML=""; $("wd_scanDetail").innerHTML=""; wdScanStatus(""); return; }
 });
+function wdScanToggle(i){ const b=$("wd-scan-body-"+i),c=$("wd-scan-chev-"+i); if(!b)return; const open=b.style.display==="none"; b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; }
+function wdScanExpand(i,open){ const b=$("wd-scan-body-"+i),c=$("wd-scan-chev-"+i); if(!b)return; b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; }
 
 /* ============================================================
    WEBDUCT AUTO-SYNC — shop-equipment orders → Deliveries
