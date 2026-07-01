@@ -1747,7 +1747,7 @@ function wdShowResult(label,r,{isLogin=false}={}){
     if(good){
       cls="ok"; pill.className="wd-status ok"; pill.textContent=r.status+" OK";
       heading=isLogin?"Success — the server responded and we got a token back.":"Success — the server responded with data.";
-      points.push("The browser <b>can</b> reach <code>"+esc(wdBase())+"</code> and read the response. CORS is not blocking us. 🎉");
+      points.push("The browser <b>can</b> reach <code>"+esc(wdBase())+"</code> from this app's origin (<code>"+esc(location.origin)+"</code>) and read the response. Cross-origin is working — no server relay needed. 🎉");
       points.push("Response time: "+r.ms+" ms · Content-Type: <code>"+esc(r.ct||"(none)")+"</code>");
       toast(isLogin?"✅ Token received":"✅ "+r.status+" — it works!");
     } else {
@@ -1791,11 +1791,11 @@ onActivate($("wd_login"),async()=>{
   $("wd_tokenHint").textContent="Calling POST /oauth/authorize/password …";
   // We don't know the exact body shape, so send the common OAuth password-grant form.
   const url=base+"/oauth/authorize/password";
-  const form=new URLSearchParams({grant_type:"password",username:u,password:p});
+  const form=new URLSearchParams({username:u,password:p});
   const r=await wdFetch("POST",url,{headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},body:form.toString()});
   // Try to auto-extract a token from whatever came back.
   let tok="";
-  if(r.json){ tok=r.json.access_token||r.json.token||r.json.accessToken||r.json.bearer||(r.json.data&&(r.json.data.access_token||r.json.data.token))||""; }
+  if(r.json){ const d=r.json.data||{}; tok=d.accessToken||d.access_token||d.token||r.json.accessToken||r.json.access_token||r.json.token||r.json.bearer||""; }
   if(tok){ WD_TOKEN=tok; sessionStorage.setItem("wd_token",tok); wdRenderToken(); $("wd_tokenHint").innerHTML="Token captured and attached to every request below."; }
   else if(!r.threw && r.ok){ $("wd_tokenHint").innerHTML="Server responded OK but no token field was auto-found — check the Response below and paste the token manually if needed."; }
   else { $("wd_tokenHint").textContent=""; }
