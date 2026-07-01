@@ -578,6 +578,8 @@
   .we-act{flex:1;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12.5px;padding:7px;border-radius:8px}
   .we-act.delivered{background:var(--teal-soft);color:var(--teal);border:1px solid #b7e0da}
   .we-act.delivered:active{background:#c9ebe5}
+  .we-act.primary{background:var(--blue);color:#fff}
+  .we-act.primary:active{opacity:.85}
   .we-act.dismiss{background:var(--surface);border:1px solid var(--line);color:var(--steel-light)}
   .we-act.dismiss:active{background:var(--line-soft)}
   .we-linkbtn{color:var(--blue);text-decoration:underline;font-weight:600}
@@ -652,7 +654,7 @@
       <div class="cal-nav"><button class="cal-arrow" id="calPrev">‹</button><div class="cal-title" id="calTitle">—</div><button class="cal-arrow" id="calNext">›</button></div>
       <button class="cal-today" id="calToday">Today</button>
       <div class="cal-grid" id="calGrid"></div>
-      <div class="cal-legend"><span><i class="lg-dot req"></i> Requested</span><span><i class="lg-dot done"></i> Delivered</span><span><i class="lg-dot wd"></i> Webduct equip</span></div>
+      <div class="cal-legend"><span><i class="lg-dot req"></i> Delivery wanted</span><span><i class="lg-dot done"></i> All delivered</span></div>
     </div>
     <div id="dayDetail" class="day-detail" style="display:none"></div>
     <div class="dl-toggle" id="dlToggle"><span>List view — everything requested &amp; delivered</span><span class="dl-chev" id="dlChev">▾</span></div>
@@ -1033,7 +1035,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="2.0";
+const APP_VERSION="2.1";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1620,12 +1622,15 @@ function renderCalendar(){
   for(let day=1;day<=daysIn;day++){
     const key=calYear+"-"+String(calMonth+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
     const m=map[key]; const has=m&&(m.req.length||m.done.length||m.wd.length);
-    const dots=[]; if(m&&m.req.length)dots.push('<span class="cal-dot req"></span>'); if(m&&m.done.length)dots.push('<span class="cal-dot done"></span>'); if(m&&m.wd.length)dots.push('<span class="cal-dot wd"></span>');
-    const cnt=m?(m.req.length+m.wd.length):0;
+    // One dot per day. Orange if anything is still outstanding; teal once everything that day is delivered.
+    const outstanding=m?(m.req.length+m.wd.length):0;
+    const delivered=m?m.done.length:0;
+    let dot=""; if(has){ dot=outstanding>0?'<span class="cal-dot req"></span>':'<span class="cal-dot done"></span>'; }
+    const cnt=outstanding;
     html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''} ${key===calSelDay?'sel':''}" ${has?`data-calday="${key}"`:""}>
       <span class="cal-num">${day}</span>
       ${cnt>0?`<span class="cal-cnt">${cnt}</span>`:""}
-      <span class="cal-dots">${dots.join("")}</span>
+      <span class="cal-dots">${dot}</span>
     </div>`;
   }
   grid.innerHTML=html;
@@ -1648,13 +1653,14 @@ function renderDayDetail(){
 function wdEquipMiniCard(e){
   const q=e.quantity!=null?` ×${wdEsc(e.quantity)}`:"";
   const arr=ARRIVALS.find(a=>a.id===e.arrivalId);
+  const isDelivered=arr&&arr.delivered;
   return `<div class="we-row" data-werow="${wdEsc(e.docId)}">
-    <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${e.shipStatus?`<span class="we-stat ${wdTone(e.shipStatus)}">${wdEsc(e.shipStatus)}</span>`:""}</div>
+    <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${isDelivered?`<span class="we-stat green">✓ Delivered${arr.deliveredDate?" "+wdEsc(longDate(arr.deliveredDate).split(",")[0]):""}</span>`:`<span class="we-stat amber">Not delivered</span>`}</div>
     <div class="we-label">${wdEsc(e.label||"Equipment")}${q}</div>
     ${e.notes?`<div class="we-notes">${wdEsc(e.notes)}</div>`:""}
     <div class="we-dates">${e.orderedBy?`By ${wdEsc(String(e.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim())}`:""}${e.orderedDate?` · ordered ${wdDate(e.orderedDate)}`:""}</div>
     ${arr?`<div class="we-linked">Linked arrival: <b>${wdEsc(arr.description||"arrival")}</b></div>`:`<div class="we-unmatched">No arrival linked. <button class="we-linkbtn" data-welinkopen="${wdEsc(e.docId)}">Link to an arrival</button><div class="we-linkwrap" id="welink-${wdEsc(e.docId)}" style="display:none"><select class="we-linksel" data-welinksel="${wdEsc(e.docId)}">${wdLinkOptions(e)}</select></div></div>`}
-    <div class="we-actions">${arr?`<button class="we-act delivered" data-deliv="${wdEsc(arr.id)}">📸 Photo / mark delivered</button>`:`<button class="we-act delivered" data-wedelivered="${wdEsc(e.docId)}">✓ Got it (remove)</button>`}<button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
+    <div class="we-actions">${arr?`<button class="we-act ${isDelivered?'':'primary'}" data-deliv="${wdEsc(arr.id)}">📸 Photo / ${isDelivered?'edit delivery':'mark delivered'}</button>`:`<button class="we-act" data-wedelivered="${wdEsc(e.docId)}">Got it (remove)</button>`}<button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
   </div>`;
 }
 function renderDeliveries(){
@@ -2517,13 +2523,20 @@ function renderWdEquip(){
   const linkOptions=wdLinkOptions;
   const card=(e,extra)=>{
     const q=e.quantity!=null?` ×${wdEsc(e.quantity)}`:"";
+    const arr=ARRIVALS.find(a=>a.id===e.arrivalId);
+    const isDelivered=arr&&arr.delivered;
+    const badge = arr ? (isDelivered?`<span class="we-stat green">✓ Delivered${arr.deliveredDate?" "+wdEsc(longDate(arr.deliveredDate).split(",")[0]):""}</span>`:`<span class="we-stat amber">Not delivered</span>`) : "";
+    // Action button: linked → open the real delivery modal (checkbox is the source of truth); unmatched → just clear from list.
+    const actBtn = arr
+      ? `<button class="we-act ${isDelivered?'':'primary'}" data-deliv="${wdEsc(arr.id)}">📸 Photo / ${isDelivered?'edit delivery':'mark delivered'}</button>`
+      : `<button class="we-act" data-wedelivered="${wdEsc(e.docId)}">Got it (remove)</button>`;
     return `<div class="we-row" data-werow="${wdEsc(e.docId)}">
-      <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${e.shipStatus?`<span class="we-stat ${wdTone(e.shipStatus)}">${wdEsc(e.shipStatus)}</span>`:""}</div>
+      <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${badge}</div>
       <div class="we-label">${wdEsc(e.label||"Equipment")}${q}</div>
       ${e.notes?`<div class="we-notes">${wdEsc(e.notes)}</div>`:""}
       <div class="we-dates">${e.orderedBy?`By ${wdEsc(String(e.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim())}`:""}${e.orderedDate?` · ordered ${wdDate(e.orderedDate)}`:""}${e.requestedDate?` · field wants ${wdDate(e.requestedDate)}`:""}</div>
       ${extra||""}
-      <div class="we-actions"><button class="we-act delivered" data-wedelivered="${wdEsc(e.docId)}">✓ Delivered</button><button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
+      <div class="we-actions">${actBtn}<button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
     </div>`;
   };
   let html=`<div class="we-head">🏭 Equipment from Webduct <button class="we-refresh" id="wdSyncBtn">${WD_TOKEN?"Refresh":"Sign in to sync"}</button></div><div class="wd-sync-msg" id="wdSyncMsg"></div>`;
