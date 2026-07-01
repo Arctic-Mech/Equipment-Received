@@ -458,6 +458,23 @@
   .wd-presets{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
   .wd-connected{background:var(--teal-soft);color:#0c5c53;border:1px solid #b7e0da;border-radius:9px;padding:9px 11px;font-size:13px;font-weight:600;margin-bottom:12px}
   .wd-count{color:var(--steel-light);font-family:'JetBrains Mono';font-size:11px;font-weight:400;text-transform:none;letter-spacing:0}
+  .wd-viewtabs{display:flex;gap:6px;margin:0 0 12px}
+  .wd-vtab{flex:1;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:13px;padding:8px;border-radius:8px;background:var(--surface);border:1px solid var(--line);color:var(--steel)}
+  .wd-vtab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .wd-readable{display:flex;flex-direction:column;gap:10px}
+  .wd-rec{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .wd-rec-head{background:var(--surface);padding:10px 12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .wd-rec-title{font-family:'Barlow Condensed';font-weight:700;font-size:16px;color:var(--ink)}
+  .wd-rec-badge{font-family:'JetBrains Mono';font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--line-soft);color:var(--steel)}
+  .wd-rec-badge.green{background:var(--teal-soft);color:var(--teal)}
+  .wd-rec-badge.amber{background:#fff4e5;color:#8a4b00}
+  .wd-rec-badge.blue{background:#e7e7fb;color:#2a2a9e}
+  .wd-rec-body{padding:4px 12px 10px}
+  .wd-kv{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line-soft);font-size:13.5px}
+  .wd-kv:last-child{border-bottom:none}
+  .wd-kv .k{flex:none;width:120px;color:var(--steel);font-weight:600}
+  .wd-kv .v{flex:1;min-width:0;color:var(--ink);word-break:break-word}
+  .wd-more{font-size:12px;color:var(--steel);padding:8px 2px 2px}
   #wd_presetSel,#wd_method{font-family:inherit}
   .wd-preset{font-family:'JetBrains Mono';font-size:11.5px;background:var(--surface);border:1px solid var(--line);color:var(--steel);padding:5px 9px;border-radius:7px}
   .wd-preset:active{background:var(--line-soft)}
@@ -634,8 +651,15 @@
     <div class="wd-card" id="wd_resultCard" style="display:none">
       <div class="wd-card-title">3 · Result <span id="wd_statusPill" class="wd-status"></span></div>
       <div id="wd_diag"></div>
-      <div class="wd-out-head"><span>Response <span id="wd_count" class="wd-count"></span></span><button id="wd_copyOut" class="wd-mini">Copy</button></div>
-      <pre class="wd-out" id="wd_out">—</pre>
+      <div class="wd-viewtabs">
+        <button class="wd-vtab active" id="wd_tabReadable">Readable</button>
+        <button class="wd-vtab" id="wd_tabRaw">Raw JSON</button>
+      </div>
+      <div id="wd_readable" class="wd-readable"></div>
+      <div id="wd_rawWrap" style="display:none">
+        <div class="wd-out-head"><span>Response <span id="wd_count" class="wd-count"></span></span><button id="wd_copyOut" class="wd-mini">Copy</button></div>
+        <pre class="wd-out" id="wd_out">—</pre>
+      </div>
     </div>
 
     <div class="wd-card wd-log-card">
@@ -897,7 +921,8 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?"Live":s==="err"?"Offline":"Connecting"; }
+const APP_VERSION="2.0";
+function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
   onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; setSync("live"); autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
@@ -1899,7 +1924,106 @@ function wdShowResult(label,r,{isLogin=false}={}){
   // Record count, if the payload is a list (Webduct wraps lists in { data: [...] }).
   const cnt=$("wd_count"); const arr = r.json && Array.isArray(r.json.data) ? r.json.data : (Array.isArray(r.json)?r.json:null);
   cnt.textContent = arr ? `· ${arr.length} record${arr.length===1?"":"s"}` : "";
+  // Build the plain-English readable view.
+  $("wd_readable").innerHTML = wdReadable(r, label);
+  wdShowView("readable");
   wdLog(label, r.threw?"ERR":(r.ok?"ok":"bad"), r.threw?"blocked":r.status);
+}
+
+function wdShowView(which){
+  const rd=which==="readable";
+  $("wd_readable").style.display=rd?"flex":"none";
+  $("wd_rawWrap").style.display=rd?"none":"block";
+  $("wd_tabReadable").classList.toggle("active",rd);
+  $("wd_tabRaw").classList.toggle("active",!rd);
+}
+onActivate($("wd_tabReadable"),()=>wdShowView("readable"));
+onActivate($("wd_tabRaw"),()=>wdShowView("raw"));
+
+function wdEsc(x){ return esc(x==null?"":String(x)); }
+function wdDate(s){ if(!s)return""; const d=new Date(s); if(isNaN(d))return String(s); return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
+function wdRow(k,v){ if(v==null||v==="")return ""; return `<div class="wd-kv"><span class="k">${wdEsc(k)}</span><span class="v">${v}</span></div>`; }
+function wdBadge(txt,tone){ return `<span class="wd-rec-badge ${tone||""}">${wdEsc(txt)}</span>`; }
+
+// Turn a status label into a color tone.
+function wdTone(label){ const l=(label||"").toLowerCase(); if(/deliver|complete|done|success|active|shipped/.test(l))return"green"; if(/progress|production|partial|started/.test(l))return"amber"; if(/not started|pending|hold|cancel/.test(l))return""; return"blue"; }
+
+function wdReadable(r, label){
+  if(r.threw) return `<div class="sub-empty">No response to show — the request was blocked. See the Raw tab / diagnosis above.</div>`;
+  const j=r.json;
+  if(!j) return `<div class="sub-empty">Response wasn't JSON. Here it is as text:</div><pre class="wd-out" style="margin-top:8px">${wdEsc(r.text||"(empty)")}</pre>`;
+  const status=j.status||{};
+  if(status && (status.id==="error"||status.code>=400||status.id==="invalid_token")){
+    return `<div class="wd-rec"><div class="wd-rec-head">${wdBadge("Error "+(status.code||""),"amber")}<span class="wd-rec-title">${wdEsc(status.id||"Request failed")}</span></div><div class="wd-rec-body">${wdRow("Message", wdEsc(j.message||status.message||"The server returned an error."))}</div></div>`;
+  }
+  const data = ("data" in j) ? j.data : j;
+  if(data==null) return `<div class="sub-empty">The call succeeded but returned no data.</div>`;
+  const list = Array.isArray(data) ? data : [data];
+  if(!list.length) return `<div class="sub-empty">The call succeeded but the list is empty.</div>`;
+
+  const kind = wdGuessKind(label, list[0]);
+  const shown = list.slice(0,50);
+  let html = shown.map(rec=>wdRenderRecord(rec, kind)).join("");
+  if(list.length>shown.length) html += `<div class="wd-more">Showing first ${shown.length} of ${list.length}. Use Raw JSON to see all, or filter the endpoint.</div>`;
+  return html;
+}
+
+function wdGuessKind(label, sample){
+  const p=(label||"").toLowerCase();
+  if(/\/orders/.test(p) && sample && (sample.delivery||sample.production||sample.orderedFor)) return "order";
+  if(/\/jobs/.test(p) && sample && sample.number!=null && sample.name!=null && !sample.delivery) return "job";
+  return "generic";
+}
+
+function wdRenderRecord(rec, kind){
+  if(kind==="order"){
+    const st=rec.status?.label||rec.status?.id;
+    const del=rec.delivery?.status?.label;
+    const prod=rec.production?.status?.label;
+    const who=[rec.orderedFor?.name?.first, (rec.orderedFor?.name?.last||"").replace(/\s*\(.*\)/,"")].filter(Boolean).join(" ");
+    const ship=rec.delivery?.shipping?.label;
+    return `<div class="wd-rec">
+      <div class="wd-rec-head">
+        <span class="wd-rec-title">Order ${wdEsc(rec.number||rec.index||"")}</span>
+        ${st?wdBadge(st,wdTone(st)):""}
+      </div>
+      <div class="wd-rec-body">
+        ${wdRow("Job", rec.job?`${wdEsc(rec.job.number||"")} · ${wdEsc(rec.job.name||"")}`:"")}
+        ${wdRow("Ordered by", wdEsc(who))}
+        ${wdRow("Ordered", wdDate(rec.ordered))}
+        ${wdRow("Requested", wdDate(rec.requested))}
+        ${wdRow("Delivery date", wdDate(rec.delivery?.date))}
+        ${wdRow("Delivery", del?wdBadge(del,wdTone(del)):"")}
+        ${wdRow("Production", prod?wdBadge(prod,wdTone(prod)):"")}
+        ${wdRow("Ship to", wdEsc(ship))}
+        ${wdRow("Items", rec.numItems!=null?wdEsc(rec.numItems):"")}
+        ${wdRow("PO #", wdEsc(rec.poNumber))}
+        ${wdRow("Instructions", (rec.specialInstructions&&rec.specialInstructions!=="n/a")?wdEsc(rec.specialInstructions):"")}
+      </div>
+    </div>`;
+  }
+  if(kind==="job"){
+    return `<div class="wd-rec">
+      <div class="wd-rec-head">
+        <span class="wd-rec-title">${wdEsc(rec.number||"")}</span>
+        <span class="wd-rec-badge">${wdEsc(rec.name||"")}</span>
+        ${rec.state?wdBadge(rec.state, rec.state==="active"?"green":""):""}
+      </div>
+      <div class="wd-rec-body">
+        ${wdRow("Name", wdEsc(rec.name))}
+        ${wdRow("Number", wdEsc(rec.number))}
+        ${wdRow("Type", wdEsc(rec.type))}
+        ${wdRow("Description", wdEsc(rec.description))}
+        ${wdRow("Created", wdDate(rec.dateCreated))}
+      </div>
+    </div>`;
+  }
+  // Generic: show top-level scalar fields.
+  const title = rec.number||rec.name||rec.label||rec.id||rec.index||"Record";
+  const rows = Object.keys(rec).filter(k=>{ const v=rec[k]; return v!=null && typeof v!=="object"; }).slice(0,14)
+    .map(k=>wdRow(k, wdEsc(rec[k]))).join("");
+  const objCount = Object.keys(rec).filter(k=>rec[k]&&typeof rec[k]==="object").length;
+  return `<div class="wd-rec"><div class="wd-rec-head"><span class="wd-rec-title">${wdEsc(title)}</span></div><div class="wd-rec-body">${rows}${objCount?`<div class="wd-more">+ ${objCount} nested field${objCount===1?"":"s"} — see Raw JSON</div>`:""}</div></div>`;
 }
 
 function wdLog(path,kind,status){
