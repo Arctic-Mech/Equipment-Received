@@ -519,6 +519,9 @@
   .wd-item-desc{flex:1;min-width:0;color:var(--ink);font-weight:600;font-size:13.5px}
   .wd-item-qty{flex:none;font-family:'JetBrains Mono';font-size:13px;color:var(--ink);font-weight:700}
   .wd-item-notes{font-size:12.5px;color:var(--steel);margin-top:3px;line-height:1.4;white-space:pre-wrap}
+  .wd-item-num{flex:none;font-family:'JetBrains Mono';font-size:12px;color:var(--steel-light);font-weight:700}
+  .wd-item-specs{font-size:12px;color:var(--blue);margin-top:3px;font-family:'JetBrains Mono'}
+  .wd-dl{display:inline-block;background:var(--blue);color:#fff;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;padding:9px 16px;border-radius:9px;text-decoration:none;margin-right:8px}
   .wd-item-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
   .wd-chip{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px;padding:2px 7px;border-radius:6px;background:var(--line-soft);color:var(--steel)}
   .wd-chip.green{background:var(--teal-soft);color:var(--teal)}
@@ -1036,7 +1039,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="2.2";
+const APP_VERSION="2.3";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1965,11 +1968,20 @@ const WD_ENDPOINTS=[
   {group:"— Most useful for this app —"},
   {m:"GET",p:"/jobs",note:"list of jobs (job # + name)"},
   {m:"GET",p:"/orders",note:"orders you place"},
-  {m:"GET",p:"/orders/{orderNumber}",note:"one order — replace {orderNumber}"},
+  {m:"GET",p:"/orders/{orderNumber}",note:"one order — FULL detail, all line items"},
   {m:"GET",p:"/orders/shipping/statuses",note:"shipping statuses"},
   {m:"GET",p:"/orders/fulfillment/statuses",note:"fulfillment statuses"},
   {m:"GET",p:"/orders/fulfillment/groups",note:"fulfillment groups"},
   {m:"GET",p:"/jobs/phases",note:"job phases"},
+
+  {group:"— Hunting for the tool-rental report —"},
+  {m:"GET",p:"/spools/packages",note:"spools packages (maybe tools?)"},
+  {m:"GET",p:"/spools/settings",note:"spools settings"},
+  {m:"GET",p:"/spools/statuses",note:"spools statuses"},
+  {m:"GET",p:"/orders/exports/{orderId}",note:"order export — could be the PDF"},
+  {m:"GET",p:"/integrations/exports",note:"integration export data"},
+  {m:"GET",p:"/integrations/exports/orders",note:"bulk order export"},
+  {m:"GET",p:"/orders/attachments",note:"order attachments (PDFs?)"},
 
   {group:"Catalogs"},
   {m:"GET",p:"/catalogs"},
@@ -2148,6 +2160,13 @@ async function wdFetch(method,url,{headers={},body=null}={}){
   }
   const ms=Math.round(performance.now()-t0);
   const ct=res.headers.get("content-type")||"";
+  const isBinary=/pdf|octet-stream|zip|image|excel|spreadsheet|word|msword/i.test(ct);
+  if(isBinary){
+    // Binary payload (e.g. a generated PDF). Grab it as a blob so we can offer a download.
+    let blob=null,size=0,url2="";
+    try{ blob=await res.blob(); size=blob.size; url2=URL.createObjectURL(blob); }catch(_){}
+    return {ok:res.ok,threw:false,status:res.status,statusText:res.statusText,ct,binary:true,blobUrl:url2,blobSize:size,ms};
+  }
   let text="",json=null;
   try{ text=await res.text(); }catch(_){}
   if(/json/i.test(ct)||/^[\s]*[[{]/.test(text)){ try{ json=JSON.parse(text); }catch(_){} }
@@ -2180,10 +2199,17 @@ function wdShowResult(label,r,{isLogin=false}={}){
     const good = isLogin ? (r.ok && (r.json||r.text)) : r.ok;
     if(good){
       cls="ok"; pill.className="wd-status ok"; pill.textContent=r.status+" OK";
-      heading=isLogin?"Success — the server responded and we got a token back.":"Success — the server responded with data.";
-      points.push("The browser <b>can</b> reach <code>"+esc(wdBase())+"</code> from this app's origin (<code>"+esc(location.origin)+"</code>) and read the response. Cross-origin is working — no server relay needed. 🎉");
-      points.push("Response time: "+r.ms+" ms · Content-Type: <code>"+esc(r.ct||"(none)")+"</code>");
-      toast(isLogin?"✅ Token received":"✅ "+r.status+" — it works!");
+      if(r.binary){
+        heading="Success — this endpoint returned a FILE (not JSON). This is very likely the report you're after.";
+        const kb=(r.blobSize/1024).toFixed(1);
+        points.push("Content-Type: <code>"+esc(r.ct)+"</code> · Size: "+kb+" KB. That's a binary document — almost certainly a generated PDF.");
+        points.push("If this is the tool-rental report, we can pull it automatically and store it, replacing the manual upload. 🎯");
+      } else {
+        heading=isLogin?"Success — the server responded and we got a token back.":"Success — the server responded with data.";
+        points.push("The browser <b>can</b> reach <code>"+esc(wdBase())+"</code> from this app's origin (<code>"+esc(location.origin)+"</code>) and read the response. Cross-origin is working — no server relay needed. 🎉");
+      }
+      points.push("Response time: "+r.ms+" ms"+(r.binary?"":" · Content-Type: <code>"+esc(r.ct||"(none)")+"</code>"));
+      toast(isLogin?"✅ Token received":r.binary?"✅ Got a file! See Result.":"✅ "+r.status+" — it works!");
     } else {
       cls="bad"; pill.className="wd-status bad"; pill.textContent=r.status+" "+(r.statusText||"");
       heading="The server responded, but with an error status. (Good news: this means CORS is NOT the problem — the browser reached Webduct fine.)";
@@ -2195,7 +2221,7 @@ function wdShowResult(label,r,{isLogin=false}={}){
       points.push("Because a real status came back, a browser-to-Webduct integration is technically possible — we just need to get the request shape/credentials right.");
       toast("⚠️ "+r.status+" "+(r.statusText||"")+" — server reached, see details.");
     }
-    pretty = r.json ? JSON.stringify(r.json,null,2) : (r.text||"(empty response body)");
+    pretty = r.binary ? `// Binary file response (${(r.blobSize/1024).toFixed(1)} KB, ${r.ct}).\n// Not text — use the download button in the Readable tab.` : (r.json ? JSON.stringify(r.json,null,2) : (r.text||"(empty response body)"));
     if(pretty.length>20000) pretty=pretty.slice(0,20000)+"\n… (truncated)";
   }
 
@@ -2230,6 +2256,17 @@ function wdTone(label){ const l=(label||"").toLowerCase(); if(/deliver|complete|
 
 function wdReadable(r, label){
   if(r.threw) return `<div class="sub-empty">No response to show — the request was blocked. See the Raw tab / diagnosis above.</div>`;
+  if(r.binary){
+    const kb=(r.blobSize/1024).toFixed(1);
+    const isPdf=/pdf/i.test(r.ct);
+    const fname=(label||"webduct-file").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"")+(isPdf?".pdf":"");
+    return `<div class="wd-rec"><div class="wd-rec-head"><span class="wd-rec-title">📄 File returned</span>${wdBadge(isPdf?"PDF":"FILE","green")}</div><div class="wd-rec-body">
+      ${wdRow("Type", wdEsc(r.ct))}
+      ${wdRow("Size", kb+" KB")}
+      <div style="margin-top:10px"><a href="${r.blobUrl}" download="${wdEsc(fname)}" class="wd-dl">⬇ Download file</a> ${isPdf?`<a href="${r.blobUrl}" target="_blank" class="wd-dl" style="background:var(--surface);color:var(--ink);border:1px solid var(--line)">Open in new tab</a>`:""}</div>
+      <div class="wd-more">If this is the tool-rental report, tell me and I'll wire it to pull + store automatically.</div>
+    </div></div>`;
+  }
   const j=r.json;
   if(!j) return `<div class="sub-empty">Response wasn't JSON. Here it is as text:</div><pre class="wd-out" style="margin-top:8px">${wdEsc(r.text||"(empty)")}</pre>`;
   const status=j.status||{};
@@ -2262,6 +2299,12 @@ function wdRenderRecord(rec, kind){
     const prod=rec.production?.status?.label;
     const who=[rec.orderedFor?.name?.first, (rec.orderedFor?.name?.last||"").replace(/\s*\(.*\)/,"")].filter(Boolean).join(" ");
     const ship=rec.delivery?.shipping?.label;
+    const totalPrice=rec.calculations?.totals?.current?.price?.value;
+    const totalWeight=rec.calculations?.totals?.current?.weight?.value;
+    // Count line items per fulfillment group so you can see the mix of categories.
+    const groups={};
+    if(Array.isArray(rec.items)) rec.items.forEach(it=>{ const g=it.order?.fulfillmentGroup?.label||"Other"; groups[g]=(groups[g]||0)+1; });
+    const groupSummary=Object.keys(groups).map(g=>`${g} (${groups[g]})`).join(", ");
     return `<div class="wd-rec">
       <div class="wd-rec-head">
         <span class="wd-rec-title">Order ${wdEsc(rec.number||rec.index||"")}</span>
@@ -2270,16 +2313,22 @@ function wdRenderRecord(rec, kind){
       </div>
       <div class="wd-rec-body">
         ${wdRow("Job", rec.job?`${wdEsc(rec.job.number||"")} · ${wdEsc(rec.job.name||"")}`:"")}
+        ${wdRow("Job desc", wdEsc(rec.job?.description))}
         ${wdRow("Ordered by", wdEsc(who))}
+        ${wdRow("Measured by", wdEsc(rec.measuredBy))}
         ${wdRow("Ordered", wdDate(rec.ordered))}
         ${wdRow("Requested", wdDate(rec.requested))}
         ${wdRow("Delivery date", wdDate(rec.delivery?.date))}
         ${wdRow("Delivery", del?wdBadge(del,wdTone(del)):"")}
         ${wdRow("Production", prod?wdBadge(prod,wdTone(prod)):"")}
         ${wdRow("Ship to", wdEsc(ship))}
-        ${wdRow("Items", rec.numItems!=null?wdEsc(rec.numItems)+(rec.numItems===0?" (list view shows no line items — tap “View full order” to check)":""):"")}
         ${wdRow("PO #", wdEsc(rec.poNumber))}
+        ${wdRow("Tag", wdEsc(rec.tag))}
         ${wdRow("Instructions", (rec.specialInstructions&&rec.specialInstructions!=="n/a")?wdEsc(rec.specialInstructions):"")}
+        ${wdRow("Total", (typeof totalPrice==="number"&&totalPrice>0)?"$"+totalPrice.toFixed(2):"")}
+        ${wdRow("Total weight", (typeof totalWeight==="number"&&totalWeight>0)?totalWeight.toFixed(1)+" lb":"")}
+        ${wdRow("Items", rec.numItems!=null?wdEsc(rec.numItems)+(rec.numItems===0?" (list view shows none — tap “View full order”)":""):"")}
+        ${wdRow("Categories", wdEsc(groupSummary))}
         ${wdRenderItems(rec.items)}
       </div>
     </div>`;
@@ -2308,25 +2357,55 @@ function wdRenderRecord(rec, kind){
   return `<div class="wd-rec"><div class="wd-rec-head"><span class="wd-rec-title">${wdEsc(title)}</span></div><div class="wd-rec-body">${rows}${objCount?`<div class="wd-more">+ ${objCount} nested field${objCount===1?"":"s"} — see Raw JSON</div>`:""}</div></div>`;
 }
 
-// Render an order's line items (materials). Each item's product info lives in item.order.
+// Render an order's line items (ALL categories, full detail). Product info lives in item.order;
+// computed material specs live in item.engine.output.
+function wdItemPrice(it){
+  const p=it.engine?.output?.calculations?.totals?.current?.price?.value ?? it.order?.calculations?.totals?.current?.price?.value;
+  return (typeof p==="number"&&p>0)?("$"+p.toFixed(2)):"";
+}
+function wdItemWeight(it){
+  const w=it.engine?.output?.calculations?.totals?.current?.weight?.value;
+  return (typeof w==="number"&&w>0)?(w.toFixed(1)+" lb"):"";
+}
+function wdItemSpecs(it){
+  // Pull any human-readable dimension/spec strings from the engine material rows.
+  const mats=it.engine?.output?.materials; if(!Array.isArray(mats)) return [];
+  const out=[];
+  mats.forEach(m=>{ const lbl=m.label||m.name||m.description; if(lbl) out.push(String(lbl)); });
+  return out.filter(Boolean);
+}
 function wdRenderItems(items){
   if(!Array.isArray(items)||!items.length) return "";
-  const rows=items.slice(0,100).map(it=>{
+  const rows=items.slice(0,200).map((it,i)=>{
     const o=it.order||it;
     const name=o.label||o.name||o.description||"Item";
     const qty=o.quantity;
     const sku=(o.sku && o.sku!=="___")?o.sku:"";
     const grp=o.fulfillmentGroup?.label||"";
     const notes=o.notes;
+    const tag=o.tag;
     const shipStat=o.shipping?.status?.label;
     const tone=shipStat?wdTone(shipStat):"";
+    const price=wdItemPrice(it), weight=wdItemWeight(it);
+    const specs=wdItemSpecs(it);
+    const engineType=it.engine?.type||"";
+    const chips=[];
+    if(grp) chips.push(`<span class="wd-chip">${wdEsc(grp)}</span>`);
+    if(sku) chips.push(`<span class="wd-chip">SKU ${wdEsc(sku)}</span>`);
+    if(tag) chips.push(`<span class="wd-chip">Tag ${wdEsc(tag)}</span>`);
+    if(price) chips.push(`<span class="wd-chip">${wdEsc(price)}</span>`);
+    if(weight) chips.push(`<span class="wd-chip">${wdEsc(weight)}</span>`);
+    if(engineType) chips.push(`<span class="wd-chip">${wdEsc(engineType)}</span>`);
+    if(shipStat) chips.push(`<span class="wd-chip ${tone}">${wdEsc(shipStat)}</span>`);
     return `<div class="wd-item">
       <div class="wd-item-main">
+        <span class="wd-item-num">${i+1}.</span>
         <span class="wd-item-desc">${wdEsc(name)}</span>
         ${qty!=null?`<span class="wd-item-qty">×${wdEsc(qty)}</span>`:""}
       </div>
       ${notes?`<div class="wd-item-notes">${wdEsc(notes)}</div>`:""}
-      <div class="wd-item-meta">${grp?`<span class="wd-chip">${wdEsc(grp)}</span>`:""}${sku?`<span class="wd-chip">SKU ${wdEsc(sku)}</span>`:""}${shipStat?`<span class="wd-chip ${tone}">${wdEsc(shipStat)}</span>`:""}</div>
+      ${specs.length?`<div class="wd-item-specs">${specs.map(s=>wdEsc(s)).join(" · ")}</div>`:""}
+      <div class="wd-item-meta">${chips.join("")}</div>
     </div>`;
   }).join("");
   return `<div class="wd-items-h">Line items (${items.length})</div><div class="wd-items">${rows}</div>`;
