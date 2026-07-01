@@ -518,6 +518,37 @@
   .wd-log-badge.bad{background:#ffe3e3;color:#c0341a}
   .wd-log-path{flex:1;min-width:0;font-family:'JetBrains Mono';font-size:11.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .wd-log-time{flex:none;color:var(--steel-light);font-size:11px}
+  /* Webduct equipment on Deliveries */
+  .we-head{display:flex;align-items:center;gap:9px;font-family:'Barlow Condensed';font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:16px;color:var(--ink);margin:14px 14px 4px}
+  .we-refresh{margin-left:auto;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:12px;background:var(--ink);color:#fff;padding:6px 12px;border-radius:8px;white-space:nowrap}
+  .we-refresh:active{opacity:.8}
+  .wd-sync-msg{font-size:12px;color:var(--steel);margin:0 14px;min-height:0}
+  .wd-sync-msg:not(:empty){margin:2px 14px 6px}
+  .wd-sync-msg.err{color:#c0341a}
+  .wd-sync-msg.ok{color:var(--teal)}
+  .we-sec{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:13px;color:var(--steel);margin:14px 14px 6px}
+  .we-row{background:var(--card);border:1px solid var(--line);border-radius:11px;margin:0 14px 8px;padding:11px 13px;box-shadow:var(--shadow)}
+  .we-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+  .we-job{font-family:'Barlow Condensed';font-weight:700;font-size:14px;background:var(--hivis);color:#fff;padding:2px 9px;border-radius:6px}
+  .we-ord{font-family:'JetBrains Mono';font-size:11.5px;color:var(--steel)}
+  .we-stat{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px;padding:2px 8px;border-radius:6px;background:var(--line-soft);color:var(--steel)}
+  .we-stat.green{background:var(--teal-soft);color:var(--teal)} .we-stat.amber{background:#fff4e5;color:#8a4b00} .we-stat.blue{background:#e7e7fb;color:#2a2a9e}
+  .we-label{font-weight:700;font-size:14px;color:var(--ink)}
+  .we-notes{font-size:13px;color:var(--steel);margin-top:2px;line-height:1.4;white-space:pre-wrap}
+  .we-dates{font-size:12px;color:var(--steel-light);margin-top:5px}
+  .we-guess,.we-unmatched,.we-linked{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--ink)}
+  .we-unmatched{color:var(--steel)}
+  .we-btns{display:flex;gap:8px;margin-top:8px}
+  .we-yes{flex:1;background:var(--teal);color:#fff;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;padding:8px;border-radius:8px}
+  .we-no{flex:1;background:var(--surface);border:1px solid var(--line);color:var(--steel);font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;padding:8px;border-radius:8px}
+  .we-confd{font-size:11px;color:var(--teal);font-weight:600;text-transform:uppercase}
+  .we-detach{margin-left:6px;font-size:12px;color:var(--steel-light);text-decoration:underline}
+  /* Webduct strip on arrival cards */
+  .ac-wd{margin:2px 0 4px;display:flex;flex-direction:column;gap:6px}
+  .ac-wd-row{display:flex;gap:9px;background:#f4f0ff;border:1px solid #ded4ff;border-radius:9px;padding:8px 10px}
+  .ac-wd-tag{flex:none;font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;font-size:10px;color:#5b3fd6;background:#e7dfff;padding:2px 6px;border-radius:5px;height:fit-content}
+  .ac-wd-body{flex:1;min-width:0;font-size:12.5px;color:var(--ink);line-height:1.45}
+  .ac-wd-stat{font-weight:600;color:#8a4b00}
 </style>
 </head>
 <body>
@@ -577,6 +608,7 @@
   <!-- DELIVERIES -->
   <section class="view" id="view-deliveries">
     <div class="mj-head"><h2>Deliveries</h2><p>Requested deliveries and deliveries that have been made. Tap the truck on any arrival to set a requested date or mark it delivered.</p></div>
+    <div id="wdEquip"></div>
     <div class="controls" style="position:static">
       <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="delSearch" type="search" placeholder="Search job #, item…" autocomplete="off"><button class="clr" id="delClr" style="display:none">Clear</button></div>
     </div>
@@ -759,14 +791,25 @@
 
 <!-- NAME MODAL -->
 <div class="modal-back" id="nameModal"><div class="modal"><div class="modal-grip"></div>
-  <div class="modal-head"><h3 id="nameTitle">Who are you?</h3><button class="x" id="nameX" style="display:none">✕</button></div>
+  <div class="modal-head"><h3 id="nameTitle">Sign in</h3><button class="x" id="nameX" style="display:none">✕</button></div>
   <div class="modal-body">
-    <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 16px">Your name links jobs you request and lets others share with you. Saved to your account, so it carries to any device you sign in on.</p>
-    <div class="field-2"><div class="field"><label>First name <span class="req">*</span></label><input id="n_first" type="text" placeholder="e.g. Pete" autocomplete="off"></div><div class="field"><label>Last name <span class="req">*</span></label><input id="n_last" type="text" placeholder="e.g. Martin" autocomplete="off"></div></div>
-    <div class="people-sug" id="nameSug"></div>
-    <div class="field"><label>Email <span class="req">*</span></label><input id="n_email" type="email" placeholder="e.g. [email protected]" autocomplete="email"><div class="hint" id="n_emailHint"></div></div>
-    <button class="submit" id="nameSubmit">Save</button>
-    <button class="del-link" id="nameCancel" style="display:none;color:var(--steel)">Cancel</button>
+    <!-- STEP 1: Webduct login -->
+    <div id="signStep1">
+      <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 16px">Sign in with your Webduct login. This connects you to live orders and identifies you across the app.</p>
+      <div class="field"><label>Email <span class="req">*</span></label><input id="si_email" type="email" placeholder="[email protected]" autocomplete="username" spellcheck="false"></div>
+      <div class="field"><label>Password <span class="req">*</span></label><input id="si_pass" type="password" placeholder="Webduct password" autocomplete="current-password"></div>
+      <button class="submit" id="si_login">Sign in with Webduct</button>
+      <div class="hint" id="si_hint" style="margin-top:10px"></div>
+      <button class="del-link" id="si_noWd" style="display:block;margin-top:14px;color:var(--steel)">Can't sign in to Webduct? Continue without it →</button>
+      <button class="del-link" id="nameCancel" style="display:none;color:var(--steel)">Cancel</button>
+    </div>
+    <!-- STEP 2: name (only when we don't have a name for this email) -->
+    <div id="signStep2" style="display:none">
+      <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 8px">First time here — what's your name? We'll remember it for <b id="si_forEmail"></b> next time.</p>
+      <div class="field-2"><div class="field"><label>First name <span class="req">*</span></label><input id="n_first" type="text" placeholder="e.g. Pete" autocomplete="off"></div><div class="field"><label>Last name <span class="req">*</span></label><input id="n_last" type="text" placeholder="e.g. Martin" autocomplete="off"></div></div>
+      <div class="people-sug" id="nameSug"></div>
+      <button class="submit" id="nameSubmit">Save &amp; continue</button>
+    </div>
   </div>
 </div></div>
 
@@ -841,6 +884,7 @@ let mjSeg="arrivals";
 let USER=loadUser();                // {first,last,email,id} or null — editable
 let PEOPLE=[];                      // people directory {id,first,last,nameNorm,email}
 let SHARES=[];                      // pending shares addressed to me
+let WD_EQUIP=[];                    // Webduct shop-equipment order items (synced) {docId, order#, job, dates, status, notes, label, arrivalId, matchState}
 let shareJob=null, shareArrivalId=null;
 let VIEW_AS=null;                   // {id,first,last} — viewing someone else's My Jobs page read-only (null = viewing your own)
 let PENDING_ARRIVAL=null;           // arrival id to scroll to + expand once the Arrivals tab is showing
@@ -949,6 +993,7 @@ function startSync(){
   onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>console.error("pdfmeta",e));
   onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null});}); PEOPLE=l; onPeople(); resolvePendingHash(); }, e=>console.error("people",e));
   onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>console.error("shares",e));
+  onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>console.error("webductEquip",e));
 }
 let lastJobEdit=0;
 function onPeople(){
@@ -982,8 +1027,11 @@ function arrivalRow(r,opts={}){
     : `<span class="m none">—</span>`;
   const partial = r.partial?'<span class="m partial">⚠ Partial</span>':"";
   const newTag = opts.isNew?`<span class="m new-tag">NEW<button class="newx" data-clearone="${esc(r.id)}" title="Clear this alert">✕</button></span>`:"";
+  const wdInfo=(typeof wdEquipForArrival==="function")?wdEquipForArrival(r.id):[];
+  const wdStrip = wdInfo.length ? `<div class="ac-wd">${wdInfo.map(e=>`<div class="ac-wd-row"><span class="ac-wd-tag">WEBDUCT</span><div class="ac-wd-body"><b>Order ${esc(e.orderNumber)}</b>${e.orderedDate?` · ordered ${esc(longDate(e.orderedDate).split(",")[0])}`:""}${e.requestedDate?`<br>Field wants delivered: <b>${esc(longDate(e.requestedDate).split(",")[0])}</b>`:""}${e.shipStatus?` · <span class="ac-wd-stat">${esc(e.shipStatus)}</span>`:""}</div></div>`).join("")}</div>` : "";
   const extra=`<div class="acard-extra">
       <div class="extra-chips">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">Req: ${esc(r.requestedBy)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}${!r.supplier&&!r.po&&!r.requestedBy?'<span class="m none">No extra details</span>':""}</div>
+      ${wdStrip}
       <div class="act-row"><button class="share-btn" data-share="${esc(r.id)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"></line></svg> Share</button>${adminActs("arrival",r.id)}</div>
     </div>`;
   return `<div class="acard ${open?'open':''} ${opts.compact?'compact':''}" data-type="arrival" data-id="${esc(r.id)}">
@@ -1327,12 +1375,79 @@ $("reorderToggle").addEventListener("click",()=>{ reorderMode=!reorderMode; rend
 $("orderReset").addEventListener("click",()=>{ JOB_ORDER=[]; syncUserJobs(); renderJobs(); toast("Back to newest-first"); });
 function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(job); if(i<0)return; const j=i+dir; if(j<0||j>=order.length)return; const t=order[i]; order[i]=order[j]; order[j]=t; JOB_ORDER=order; syncUserJobs(); renderJobs(); }
 
-/* ---------- Identity (name + email, synced) ---------- */
+/* ---------- Identity (Webduct login primary; name captured once per email) ---------- */
 function renderWho(){ const av=$("whoAv"),nm=$("whoName"); if(!av)return; if(USER){ av.textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); nm.textContent=USER.first; } else { av.textContent="?"; nm.textContent="Sign in"; } }
 function findPersonByName(f,l){ const nn=nameNorm(f,l); return PEOPLE.find(p=>p.nameNorm===nn); }
-function openName(){ $("n_first").value=USER?.first||""; $("n_last").value=USER?.last||""; $("n_email").value=USER?.email||""; $("n_emailHint").textContent=""; $("nameSug").className="people-sug"; $("nameSug").innerHTML=""; $("nameTitle").textContent=USER?"Your account":"Who are you?"; $("nameCancel").style.display=USER?"block":"none"; $("nameX").style.display=USER?"block":"none"; openModal("nameModal"); setTimeout(()=>$("n_first").focus(),300); }
+function findPersonByEmail(em){ const e=(em||"").trim().toLowerCase(); if(!e)return null; return PEOPLE.find(p=>(p.email||"").trim().toLowerCase()===e); }
+let signPendingEmail="";   // email captured from a successful (or skipped) login, awaiting a name
+
+function showSignStep(n){ $("signStep1").style.display=n===1?"block":"none"; $("signStep2").style.display=n===2?"block":"none"; }
+function openName(){
+  // If already signed in, this is the "account" view — show step 1 prefilled with a sign-out-ish affordance.
+  showSignStep(1);
+  $("si_email").value=USER?.email||""; $("si_pass").value=""; $("si_hint").textContent="";
+  $("nameTitle").textContent=USER?"Your account":"Sign in";
+  $("nameCancel").style.display=USER?"block":"none"; $("nameX").style.display=USER?"block":"none";
+  $("si_noWd").style.display="block";
+  openModal("nameModal"); setTimeout(()=>$("si_email").focus(),300);
+}
 function closeName(){ closeModal("nameModal"); }
-function pickPerson(p){ $("n_first").value=p.first; $("n_last").value=p.last; $("n_email").value=p.email||""; $("n_emailHint").textContent=p.email?"Welcome back — we filled in your saved info.":"Welcome back — add your email to finish."; $("nameSug").className="people-sug"; $("nameSug").innerHTML=""; if(!p.email)$("n_email").focus(); }
+
+// The single path everything funnels through once we know name+email (+ optional token).
+async function signInAs(first,last,email,token){
+  const existing=findPersonByEmail(email)||findPersonByName(first,last);
+  const id=existing?existing.id:personId(first,last);
+  USER={first,last,email,id}; saveUser();
+  if(token){ WD_TOKEN=token; sessionStorage.setItem("wd_token",token); if(typeof wdRenderToken==="function")wdRenderToken(); }
+  MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; EXPANDED_FOLDERS.clear(); userRecordLoaded=false;
+  if(fbReady){
+    try{
+      await setDoc(doc(db,"people",id),{first,last,nameNorm:nameNorm(first,last),email,updatedAt:serverTimestamp()},{merge:true});
+      const snap=await getDoc(doc(db,"people",id));
+      if(snap.exists()){ const me=snap.data();
+        MY_JOBS=Array.isArray(me.savedJobs)?me.savedJobs.slice():[];
+        REMOVED_JOBS=new Set(Array.isArray(me.removedJobs)?me.removedJobs:[]);
+        JOB_ORDER=Array.isArray(me.jobOrder)?me.jobOrder.slice():[];
+      }
+      userRecordLoaded=true;
+    }catch(e){console.error(e); toast("Signed in, but couldn't load your saved jobs");}
+  } else { toast("No connection — your saved jobs can't load right now"); }
+  const added=autoLinkJobs(); syncUserJobs();
+  closeName(); renderWho(); renderAll();
+  if($("view-jobs").classList.contains("active")) setView("jobs");
+  toast(added?"Signed in — matching jobs linked":"Signed in");
+  // Kick off the Webduct order sync in the background if we have a token.
+  if(token && typeof wdAutoSync==="function") wdAutoSync();
+}
+
+// Webduct login button (step 1).
+onActivate($("si_login"),async()=>{
+  const em=$("si_email").value.trim(), pw=$("si_pass").value;
+  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");$("si_email").focus();return;}
+  if(!pw){toast("Enter your Webduct password");$("si_pass").focus();return;}
+  const btn=$("si_login"); btn.disabled=true; btn.textContent="Signing in…"; $("si_hint").textContent="Contacting Webduct…";
+  const r=await wdFetch("POST",WD_BASE+"/oauth/authorize/password",{headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},body:new URLSearchParams({username:em,password:pw}).toString()});
+  btn.disabled=false; btn.textContent="Sign in with Webduct";
+  let tok="";
+  if(r.json){ const d=r.json.data||{}; tok=d.accessToken||d.access_token||d.token||r.json.accessToken||r.json.token||""; }
+  if(r.threw){ $("si_hint").innerHTML="<span style='color:#c0341a'>Couldn't reach Webduct (network/CORS). You can still continue without it.</span>"; return; }
+  if(!tok){ $("si_hint").innerHTML="<span style='color:#c0341a'>Login failed — check your email/password, or continue without Webduct.</span>"; return; }
+  // Token good. Do we already have a name for this email?
+  const person=findPersonByEmail(em);
+  if(person && person.first){ await signInAs(person.first, person.last, em, tok); }
+  else { signPendingEmail=em; window._pendingToken=tok; $("si_forEmail").textContent=em; showSignStep(2); $("nameTitle").textContent="One more thing"; setTimeout(()=>$("n_first").focus(),200); }
+});
+
+// "Continue without Webduct" — capture identity only, no token.
+onActivate($("si_noWd"),()=>{
+  const em=$("si_email").value.trim();
+  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter your email to continue");$("si_email").focus();return;}
+  const person=findPersonByEmail(em);
+  if(person && person.first){ signInAs(person.first, person.last, em, ""); }
+  else { signPendingEmail=em; window._pendingToken=""; $("si_forEmail").textContent=em; showSignStep(2); $("nameTitle").textContent="One more thing"; setTimeout(()=>$("n_first").focus(),200); }
+});
+
+function pickPerson(p){ $("n_first").value=p.first; $("n_last").value=p.last; $("nameSug").className="people-sug"; $("nameSug").innerHTML=""; }
 function renderNameSug(){
   const sug=$("nameSug"); const f=$("n_first").value.trim().toLowerCase(),l=$("n_last").value.trim().toLowerCase();
   if(!f && !l){ sug.className="people-sug"; sug.innerHTML=""; return; }
@@ -1347,31 +1462,14 @@ onActivate($("nameCancel"),closeName); onActivate($("nameX"),closeName);
 document.querySelectorAll("[data-changename]").forEach(b=>b.addEventListener("click",openName));
 onActivate($("whoChip"),openName);
 onActivate($("vabBack"),()=>{ VIEW_AS=null; setView("jobs"); });
+
+// Name step (step 2) — save the name against the pending email, then sign in.
 onActivate($("nameSubmit"),async()=>{
-  const f=$("n_first").value.trim(),l=$("n_last").value.trim(),em=$("n_email").value.trim();
+  const f=$("n_first").value.trim(),l=$("n_last").value.trim(),em=signPendingEmail;
   if(!f||!l){toast("Enter first and last name");return;}
-  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");$("n_email").focus();return;}
-  const existing=findPersonByName(f,l); const id=existing?existing.id:personId(f,l);
-  USER={first:f,last:l,email:em,id}; saveUser();
-  // My Jobs is solely Firebase-synced to the account — always REPLACE local state, never merge
-  // with whatever the previous identity on this device had.
-  MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; EXPANDED_FOLDERS.clear(); userRecordLoaded=false;
-  if(fbReady){
-    try{
-      await setDoc(doc(db,"people",id),{first:f,last:l,nameNorm:nameNorm(f,l),email:em,updatedAt:serverTimestamp()},{merge:true});
-      const snap=await getDoc(doc(db,"people",id));
-      if(snap.exists()){ const me=snap.data();
-        MY_JOBS=Array.isArray(me.savedJobs)?me.savedJobs.slice():[];
-        REMOVED_JOBS=new Set(Array.isArray(me.removedJobs)?me.removedJobs:[]);
-        JOB_ORDER=Array.isArray(me.jobOrder)?me.jobOrder.slice():[];
-      }
-      userRecordLoaded=true;   // we've now read this account's removedJobs — safe to auto-link
-    }catch(e){console.error(e); toast("Signed in, but couldn't load your saved jobs");}
-  } else { toast("No connection — your saved jobs can't load right now"); }
-  const added=autoLinkJobs(); syncUserJobs();
-  closeName(); renderWho(); renderAll();
-  if($("view-jobs").classList.contains("active")) setView("jobs");
-  toast(added?"Signed in — matching jobs linked":"Signed in");
+  if(!em){toast("Something went wrong — start over");showSignStep(1);return;}
+  await signInAs(f,l,em, window._pendingToken||"");
+  window._pendingToken="";
 });
 
 /* ---------- Delivery ---------- */
@@ -1432,6 +1530,7 @@ document.addEventListener("click",async e=>{ const sv=e.target.closest("[data-ps
 $("delSearch").addEventListener("input",renderDeliveries); $("delClr").addEventListener("click",()=>{$("delSearch").value="";renderDeliveries();});
 function deliveryRow(r){ const job=normJob(r.jobNumber); return `<div class="acard open" data-type="arrival" data-id="${esc(r.id)}"><div class="acard-head" style="cursor:default"><div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div><div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div><div class="ac-icons"><button class="mini-btn deliv-btn ${r.delivered?'set':''}" data-deliv="${esc(r.id)}" title="Edit delivery"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></button></div><div class="ac-desc">${esc(r.description)||""}</div><div class="ac-foot">${r.delivered?`<span class="m deliv">✓ Delivered${r.deliveredDate?" "+esc(longDate(r.deliveredDate).split(",")[0]):""}</span>`:`<span class="m reqd">Requested ${esc(longDate(r.reqDeliv).split(",")[0])}</span>`}${r.partial?'<span class="m partial">⚠ Partial</span>':""}${r.storageLocation?`<span class="m loc">📍 ${esc(r.storageLocation)}</span>`:""}</div></div></div>`; }
 function renderDeliveries(){
+  if(typeof renderWdEquip==="function") renderWdEquip();
   const q=$("delSearch").value.trim().toLowerCase(); $("delClr").style.display=q?"block":"none";
   let req=ARRIVALS.filter(r=>r.reqDeliv && !r.delivered);
   let done=ARRIVALS.filter(r=>r.delivered);
@@ -2145,12 +2244,159 @@ onActivate($("wd_send"),async()=>{
   btn.disabled=false; btn.textContent="Send request";
 });
 
+/* ============================================================
+   WEBDUCT AUTO-SYNC — shop-equipment orders → Deliveries
+   Runs on sign-in (when a token exists). Pulls orders, keeps
+   only "Equipment stored at the shop" line items, matches each
+   to an arrival by job#, and writes results to Firestore so the
+   whole shop sees them without their own Webduct pull.
+   ============================================================ */
+const WD_EQUIP_PREFIX="wd_product_job_equipment";   // product id prefix that means "equipment stored at the shop"
+let wdSyncing=false;
+
+// Normalize text for matching (lowercase, strip punctuation, collapse spaces).
+function wdNorm(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim(); }
+// Token overlap score 0..1 between two strings.
+function wdSimilarity(a,b){
+  const A=wdNorm(a).split(" ").filter(w=>w.length>2), B=new Set(wdNorm(b).split(" ").filter(w=>w.length>2));
+  if(!A.length||!B.size)return 0; let hit=0; A.forEach(w=>{if(B.has(w))hit++;}); return hit/Math.max(A.length,B.size);
+}
+
+// Given an equipment item + its job#, find the best arrival match on the SAME job.
+function wdMatchArrival(job, itemText){
+  const cands=ARRIVALS.filter(a=>normJob(a.jobNumber)===normJob(job));
+  if(!cands.length) return {arrivalId:"", state:"none", score:0};
+  let best=null, bestScore=0;
+  for(const a of cands){ const s=wdSimilarity(itemText, a.description||""); if(s>bestScore){ bestScore=s; best=a; } }
+  if(best && wdNorm(itemText)===wdNorm(best.description)) return {arrivalId:best.id, state:"exact", score:1};
+  if(best && bestScore>=0.5) return {arrivalId:best.id, state:"exact", score:bestScore};      // strong → auto-link
+  if(best && bestScore>=0.2) return {arrivalId:best.id, state:"guess", score:bestScore};       // weak → needs confirm
+  return {arrivalId:"", state:"none", score:0};
+}
+
+// Fire the whole sync. Called from signInAs after a successful token, and from the manual button.
+async function wdAutoSync(opts={}){
+  if(wdSyncing) return; if(!WD_TOKEN){ if(opts.manual)toast("Sign in to Webduct first"); return; }
+  wdSyncing=true; wdSyncStatus("Pulling orders…");
+  try{
+    const listR=await wdFetch("GET",WD_BASE+"/orders",{headers:{"Accept":"application/json", ...wdAuthHeaders()}});
+    if(listR.threw || !listR.ok){ wdSyncStatus("Couldn't reach Webduct orders", true); wdSyncing=false; return; }
+    const orders=(listR.json&&Array.isArray(listR.json.data))?listR.json.data:[];
+    // We must fetch each order's detail to see its line items (the list view has items:[]).
+    // Limit how many we pull per run to stay quick; newest first.
+    const sorted=orders.slice().sort((a,b)=> (b.ordered||"")<(a.ordered||"")?-1:1);
+    const cap=Math.min(sorted.length, opts.manual?60:40);
+    let found=0, processed=0;
+    for(let i=0;i<cap;i++){
+      const o=sorted[i]; const num=o.number; if(!num) continue;
+      processed++; wdSyncStatus(`Scanning order ${processed}/${cap}…`);
+      const detR=await wdFetch("GET",WD_BASE+"/orders/"+encodeURIComponent(num),{headers:{"Accept":"application/json", ...wdAuthHeaders()}});
+      if(detR.threw||!detR.ok||!detR.json) continue;
+      const ord=detR.json.data||{}; const items=Array.isArray(ord.items)?ord.items:[];
+      for(const it of items){
+        const io=it.order||{}; const pid=io.id||"";
+        if(!pid.startsWith(WD_EQUIP_PREFIX)) continue;   // only equipment-stored-at-shop items
+        found++;
+        const job=ord.job?.number||""; const itemText=(io.notes||io.label||"");
+        const m=wdMatchArrival(job, io.notes||"");        // match on the item NOTES vs arrival description
+        // Stable doc id per order-item so re-syncs update rather than duplicate.
+        const docId="we-"+wdSlug(num)+"-"+wdSlug(io.ddoIndex||io.id||found);
+        await wdWriteEquip(docId, {
+          orderNumber:String(num),
+          job, jobName:ord.job?.name||"",
+          label:io.label||"", notes:io.notes||"",
+          quantity:io.quantity!=null?io.quantity:null,
+          orderedDate:ord.ordered||"", requestedDate:ord.requested||"", deliveryDate:ord.delivery?.date||"",
+          shipStatus:io.shipping?.status?.label||ord.delivery?.status?.label||"",
+          orderStatus:ord.status?.label||"",
+          arrivalId:m.arrivalId, matchState:m.state, matchScore:Math.round(m.score*100)/100,
+          syncedAt:Date.now(), syncedBy:(USER?USER.first+" "+USER.last:"")
+        });
+      }
+    }
+    wdSyncStatus(`Synced — ${found} shop-equipment item${found===1?"":"s"} from ${processed} orders`, false, true);
+    if(opts.manual) toast(`Webduct sync done — ${found} equipment item${found===1?"":"s"}`);
+  }catch(e){ console.error("wdAutoSync",e); wdSyncStatus("Sync error — see console", true); }
+  wdSyncing=false;
+}
+function wdSlug(x){ return String(x).replace(/[^A-Za-z0-9]+/g,"").slice(0,40); }
+
+// Write one equipment link doc, preserving any human confirm/deny decision already made.
+async function wdWriteEquip(docId, data){
+  if(!fbReady) return;
+  try{
+    const existing=WD_EQUIP.find(e=>e.docId===docId);
+    // Never clobber a manual decision: if someone confirmed or rejected the match, keep their choice.
+    if(existing && (existing.matchState==="confirmed"||existing.matchState==="rejected")){
+      data.matchState=existing.matchState;
+      if(existing.arrivalId) data.arrivalId=existing.arrivalId;
+    }
+    await setDoc(doc(db,"webductEquip",docId), data, {merge:true});
+  }catch(e){ console.error("wdWriteEquip",e); }
+}
+
+function wdSyncStatus(msg, isErr, ok){
+  const el=$("wdSyncMsg"); if(el){ el.textContent=msg; el.className="wd-sync-msg"+(isErr?" err":ok?" ok":""); }
+}
+
+// Confirm / reject a guessed match, or manually detach.
+async function wdSetMatch(docId, state, arrivalId){
+  if(!fbReady) return;
+  const patch={matchState:state}; if(arrivalId!==undefined) patch.arrivalId=arrivalId;
+  try{ await setDoc(doc(db,"webductEquip",docId), patch, {merge:true}); }catch(e){ console.error(e); }
+}
+
+/* ---------- Deliveries: Webduct equipment section ---------- */
+function wdEquipForArrival(arrivalId){ return WD_EQUIP.filter(e=>e.arrivalId===arrivalId && e.matchState!=="rejected"); }
+
+function renderWdEquip(){
+  const box=$("wdEquip"); if(!box) return;
+  if(!WD_EQUIP.length){ box.innerHTML=""; return; }
+  const active=WD_EQUIP.filter(e=>e.matchState!=="rejected");
+  const guesses=active.filter(e=>e.matchState==="guess");
+  const linked=active.filter(e=>e.matchState==="exact"||e.matchState==="confirmed");
+  const unmatched=active.filter(e=>e.matchState==="none");
+  const arrName=id=>{ const a=ARRIVALS.find(x=>x.id===id); return a?(a.description||"arrival"):"arrival"; };
+  const card=(e,extra)=>{
+    const q=e.quantity!=null?` ×${wdEsc(e.quantity)}`:"";
+    return `<div class="we-row">
+      <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${e.shipStatus?`<span class="we-stat ${wdTone(e.shipStatus)}">${wdEsc(e.shipStatus)}</span>`:""}</div>
+      <div class="we-label">${wdEsc(e.label||"Equipment")}${q}</div>
+      ${e.notes?`<div class="we-notes">${wdEsc(e.notes)}</div>`:""}
+      <div class="we-dates">${e.orderedDate?`Ordered ${wdDate(e.orderedDate)}`:""}${e.requestedDate?` · Field wants ${wdDate(e.requestedDate)}`:""}</div>
+      ${extra||""}
+    </div>`;
+  };
+  let html=`<div class="we-head">🏭 Equipment from Webduct <button class="we-refresh" id="wdSyncBtn">${WD_TOKEN?"Refresh":"Sign in to sync"}</button></div><div class="wd-sync-msg" id="wdSyncMsg"></div>`;
+  if(guesses.length){
+    html+=`<div class="we-sec">⚠️ Possible matches — confirm these</div>`;
+    html+=guesses.map(e=>card(e, `<div class="we-guess">Looks like arrival: <b>${wdEsc(arrName(e.arrivalId))}</b><div class="we-btns"><button class="we-yes" data-weconfirm="${wdEsc(e.docId)}">✓ Correct match</button><button class="we-no" data-wereject="${wdEsc(e.docId)}">✕ Not a match</button></div></div>`)).join("");
+  }
+  if(unmatched.length){
+    html+=`<div class="we-sec">📦 Wanted — no arrival logged yet</div>`;
+    html+=unmatched.map(e=>card(e, `<div class="we-unmatched">No matching arrival on job ${wdEsc(e.job||"?")}. The shop can still see it's wanted.</div>`)).join("");
+  }
+  if(linked.length){
+    html+=`<div class="we-sec">✓ Linked to arrivals</div>`;
+    html+=linked.map(e=>card(e, `<div class="we-linked">On arrival: <b>${wdEsc(arrName(e.arrivalId))}</b>${e.matchState==="exact"?"":' <span class="we-confd">confirmed</span>'} <button class="we-detach" data-wedetach="${wdEsc(e.docId)}">Unlink</button></div>`)).join("");
+  }
+  box.innerHTML=html;
+}
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-weconfirm]"); if(c){ wdSetMatch(c.dataset.weconfirm,"confirmed"); return; }
+  const r=e.target.closest("[data-wereject]"); if(r){ wdSetMatch(r.dataset.wereject,"rejected",""); return; }
+  const d=e.target.closest("[data-wedetach]"); if(d){ wdSetMatch(d.dataset.wedetach,"rejected",""); return; }
+  const s=e.target.closest("#wdSyncBtn"); if(s){ if(WD_TOKEN){ wdAutoSync({manual:true}); } else { openName(); } return; }
+});
+
 /* ---------- Init ---------- */
 renderWho(); renderFeed(); renderJobs(); renderDeliveries();
 lockDateInputs();
 const initView=viewForHash(location.hash.replace("#","")); if(initView)setView(initView,true);
 syncAdminView(); startSync();
 if(!USER){ setTimeout(()=>{ if(!USER) openName(); },600); }
+// Returning user whose Webduct token survived the session → refresh equipment in the background.
+if(USER && WD_TOKEN){ setTimeout(()=>{ if(typeof wdAutoSync==="function") wdAutoSync(); }, 2500); }
 window.addEventListener("pageshow",()=>{ if($("view-admin").classList.contains("active"))syncAdminView(); });
 </script>
 </body>
