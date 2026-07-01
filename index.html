@@ -795,11 +795,11 @@
       <div class="wd-keybox">
         <div class="wd-keybox-title">🔑 Webduct Company Connection</div>
         <div class="wd-key-status" id="wdKeyStatus"><span class="wd-key-dot" id="wdKeyDot"></span><span id="wdKeyStatusTxt">Checking…</span></div>
-        <p style="font-size:12.5px;color:var(--steel);line-height:1.45;margin:8px 0 10px">Sign in with a Webduct company login. The API key is saved for the whole team, so everyone's app pulls live orders — no one else needs to log in to Webduct.</p>
+        <p style="font-size:12.5px;color:var(--steel);line-height:1.45;margin:8px 0 10px">Sign in with a Webduct company login. The login is saved for the whole team and the app mints a fresh token before every sync, so it never goes stale. Everyone's app pulls live orders — no one else needs to log in.</p>
         <div class="field-2"><div class="field"><label>Webduct email</label><input id="wdKeyEmail" type="email" autocomplete="off" spellcheck="false"></div><div class="field"><label>Password</label><input id="wdKeyPass" type="password" autocomplete="off"></div></div>
-        <button class="submit" id="wdKeyLogin">Connect &amp; save key</button>
+        <button class="submit" id="wdKeyLogin">Connect &amp; save login</button>
         <div class="hint" id="wdKeyHint" style="margin-top:8px"></div>
-        <div class="wd-key-actions" id="wdKeyActions" style="display:none"><button class="wd-mini" id="wdKeyReveal">Show key</button><button class="wd-mini" id="wdKeyClear">Disconnect</button></div>
+        <div class="wd-key-actions" id="wdKeyActions" style="display:none"><button class="wd-mini" id="wdKeyReveal">Show details</button><button class="wd-mini" id="wdKeyClear">Disconnect</button></div>
         <div class="wd-key-reveal" id="wdKeyRevealBox" style="display:none"><code id="wdKeyValue"></code></div>
       </div>
       <div class="wd-admin-toggle" id="wdTestToggle"><span>🔧 Webduct API Tester</span><span class="dl-chev" id="wdTestChev">▾</span></div>
@@ -1121,7 +1121,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="2.8";
+const APP_VERSION="2.9";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1809,7 +1809,7 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#dlToggle")){ const w=$("dlListWrap"),c=$("dlChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
   if(e.target.closest("#delFbToggle")){ const w=$("delFbWrap"),c=$("delFbChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
   if(e.target.closest("#wdTestToggle")){ const w=$("wdTestWrap"),c=$("wdTestChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
-  if(e.target.closest("#wdKeyReveal")){ const b=$("wdKeyRevealBox"); const show=b.style.display==="none"; b.style.display=show?"block":"none"; if(show)$("wdKeyValue").textContent=WD_ADMIN_KEY||"(none)"; $("wdKeyReveal").textContent=show?"Hide key":"Show key"; return; }
+  if(e.target.closest("#wdKeyReveal")){ const b=$("wdKeyRevealBox"); const show=b.style.display==="none"; b.style.display=show?"block":"none"; if(show)$("wdKeyValue").textContent=wdHasAdmin()?("Connected as "+WD_ADMIN_CREDS.email+" (password stored, token minted fresh each sync)"):"(no company login saved)"; $("wdKeyReveal").textContent=show?"Hide":"Show details"; return; }
 });
 
 // Connect a Webduct company login → save the key to Firebase for everyone.
@@ -1817,24 +1817,28 @@ onActivate($("wdKeyLogin"),async()=>{
   const em=$("wdKeyEmail").value.trim(), pw=$("wdKeyPass").value;
   if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter the Webduct email");$("wdKeyEmail").focus();return;}
   if(!pw){toast("Enter the password");$("wdKeyPass").focus();return;}
-  const btn=$("wdKeyLogin"); btn.disabled=true; btn.textContent="Connecting…"; $("wdKeyHint").textContent="Contacting Webduct…";
+  const btn=$("wdKeyLogin"); btn.disabled=true; btn.textContent="Connecting…"; $("wdKeyHint").textContent="Verifying login with Webduct…";
+  // Verify the credentials work by minting a token once.
   const r=await wdFetch("POST",WD_BASE+"/oauth/authorize/password",{headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},body:new URLSearchParams({username:em,password:pw}).toString()});
-  btn.disabled=false; btn.textContent="Connect & save key";
+  btn.disabled=false; btn.textContent="Connect & save login";
   let tok="";
   if(r.json){ const d=r.json.data||{}; tok=d.accessToken||d.access_token||d.token||r.json.accessToken||r.json.token||""; }
   if(r.threw){ $("wdKeyHint").innerHTML="<span style='color:#c0341a'>Couldn't reach Webduct (network/CORS).</span>"; return; }
   if(!tok){ $("wdKeyHint").innerHTML="<span style='color:#c0341a'>Login failed — check the email/password.</span>"; return; }
-  if(!fbReady){ $("wdKeyHint").innerHTML="<span style='color:#c0341a'>No Firebase connection — can't save the key.</span>"; return; }
+  if(!fbReady){ $("wdKeyHint").innerHTML="<span style='color:#c0341a'>No Firebase connection — can't save the login.</span>"; return; }
   try{
-    await setDoc(doc(db,"config","webductKey"),{token:tok, email:em, savedBy:(USER?USER.first+" "+USER.last:""), savedAt:serverTimestamp()},{merge:true});
-    $("wdKeyPass").value=""; $("wdKeyHint").innerHTML="<span style='color:#0d7a73'>✓ Connected. The whole team's app now pulls live orders.</span>";
+    // Store the LOGIN (not the token). The app mints a fresh token from this before every sync,
+    // so it never goes stale the way a saved token would.
+    await setDoc(doc(db,"config","webductKey"),{email:em, password:pw, token:"", savedBy:(USER?USER.first+" "+USER.last:""), savedAt:serverTimestamp()},{merge:true});
+    WD_ADMIN_CREDS={email:em,password:pw}; WD_ADMIN_TOKEN=tok; WD_ADMIN_TOKEN_TS=Date.now(); wdUpdateLights();
+    $("wdKeyPass").value=""; $("wdKeyHint").innerHTML="<span style='color:#0d7a73'>✓ Connected. The app now mints a fresh token before each sync — no more stale keys.</span>";
     toast("Webduct connected for everyone");
     setTimeout(()=>wdAutoSync({manual:true}),400);
-  }catch(err){ console.error(err); $("wdKeyHint").innerHTML="<span style='color:#c0341a'>Couldn't save the key to Firebase.</span>"; }
+  }catch(err){ console.error(err); $("wdKeyHint").innerHTML="<span style='color:#c0341a'>Couldn't save the login to Firebase.</span>"; }
 });
 onActivate($("wdKeyClear"),async()=>{
   if(!fbReady)return; if(!confirm("Disconnect Webduct for the whole team? Everyone's live order sync will stop until someone reconnects."))return;
-  try{ await setDoc(doc(db,"config","webductKey"),{token:"",clearedBy:(USER?USER.first+" "+USER.last:""),clearedAt:serverTimestamp()},{merge:true}); toast("Webduct disconnected"); $("wdKeyRevealBox").style.display="none"; $("wdKeyReveal").textContent="Show key"; }catch(err){ console.error(err); }
+  try{ await setDoc(doc(db,"config","webductKey"),{email:"",password:"",token:"",clearedBy:(USER?USER.first+" "+USER.last:""),clearedAt:serverTimestamp()},{merge:true}); WD_ADMIN_CREDS=null; WD_ADMIN_TOKEN=""; wdUpdateLights(); toast("Webduct disconnected"); $("wdKeyRevealBox").style.display="none"; $("wdKeyReveal").textContent="Show key"; }catch(err){ console.error(err); }
 });
 // Deliveries personal-login fallback: sets WD_TOKEN (personal) and pulls orders using it.
 onActivate($("delFbLogin"),async()=>{
@@ -2120,29 +2124,49 @@ $("btnExport").addEventListener("click",exportExcel);
    and if not, exactly why (CORS vs auth vs 404 vs network/DNS).
    ============================================================ */
 let WD_TOKEN=sessionStorage.getItem("wd_token")||"";   // personal token (Deliveries fallback only)
-let WD_ADMIN_KEY="";                                    // shared company key from Firebase (drives all syncing)
+let WD_ADMIN_CREDS=null;                                // shared company login {email,password} from Firebase
+let WD_ADMIN_TOKEN="";                                  // freshly-minted token from those creds (cached in-memory this session)
+let WD_ADMIN_TOKEN_TS=0;                                // when it was minted
+const WD_TOKEN_TTL=1000*60*45;                          // treat a minted token as good for 45 min, then re-mint
 const WD_BASE="https://api.webduct.com/public";
 
-// Active token priority: shared admin key first (that's the norm now), personal token only as fallback.
-function wdSyncToken(){ return WD_ADMIN_KEY || WD_TOKEN; }
+// Mint a fresh token from the stored company creds. Cached briefly so we don't hammer the auth endpoint.
+async function wdMintAdminToken(force){
+  if(!WD_ADMIN_CREDS || !WD_ADMIN_CREDS.email || !WD_ADMIN_CREDS.password) return "";
+  if(!force && WD_ADMIN_TOKEN && (Date.now()-WD_ADMIN_TOKEN_TS)<WD_TOKEN_TTL) return WD_ADMIN_TOKEN;
+  const r=await wdFetch("POST",WD_BASE+"/oauth/authorize/password",{headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},body:new URLSearchParams({username:WD_ADMIN_CREDS.email,password:WD_ADMIN_CREDS.password}).toString()});
+  let tok=""; if(r.json){ const d=r.json.data||{}; tok=d.accessToken||d.access_token||d.token||r.json.accessToken||r.json.token||""; }
+  if(tok){ WD_ADMIN_TOKEN=tok; WD_ADMIN_TOKEN_TS=Date.now(); }
+  return tok;
+}
+// Do we have a working company connection (creds on file)?
+function wdHasAdmin(){ return !!(WD_ADMIN_CREDS && WD_ADMIN_CREDS.email && WD_ADMIN_CREDS.password); }
+// Any usable connection at all (company creds or a personal fallback token).
+function wdConnected(){ return wdHasAdmin() || !!WD_TOKEN; }
+// Best token available right now WITHOUT minting (for header-building helpers): prefer cached admin, then personal.
+function wdSyncToken(){ return WD_ADMIN_TOKEN || WD_TOKEN; }
+// The token the SYNC should use — mints a fresh one from creds first, falls back to personal.
+async function wdActiveSyncToken(){ const t=await wdMintAdminToken(false); return t || WD_TOKEN; }
 
 // Red/green light everywhere + the admin box status.
 function wdUpdateLights(){
-  const on=!!WD_ADMIN_KEY;
+  const on=wdHasAdmin();
   const hd=$("wdHdrDot"), ht=$("wdHdrTxt");
   if(hd){ hd.className="wd-hdr-dot "+(on?"on":"off"); }
   if(ht){ ht.textContent=on?"Webduct on":"Webduct off"; }
   const kd=$("wdKeyDot"), ks=$("wdKeyStatusTxt"), ka=$("wdKeyActions");
   if(kd){ kd.className="wd-key-dot "+(on?"on":"off"); }
-  if(ks){ ks.textContent=on?"Connected — key active for the whole team":"Not connected — no company key saved"; }
+  if(ks){ ks.textContent=on?("Connected as "+WD_ADMIN_CREDS.email+" — active for the whole team"):"Not connected — no company login saved"; }
   if(ka){ ka.style.display=on?"flex":"none"; }
 }
-// Listen for the shared key in Firebase (config/webductKey).
+// Listen for the shared company login in Firebase (config/webductKey).
 function wdWatchAdminKey(){
   if(!fbReady) return;
   try{
     onSnapshot(doc(db,"config","webductKey"), d=>{
-      WD_ADMIN_KEY = (d.exists() && d.data().token) ? d.data().token : "";
+      const v=d.exists()?d.data():null;
+      if(v && v.email && v.password){ WD_ADMIN_CREDS={email:v.email,password:v.password}; }
+      else { WD_ADMIN_CREDS=null; WD_ADMIN_TOKEN=""; WD_ADMIN_TOKEN_TS=0; }
       wdUpdateLights();
     }, e=>console.error("adminKey",e));
   }catch(e){ console.error(e); }
@@ -2819,13 +2843,17 @@ function wdMatchArrival(job, itemText){
 // Fire the whole sync. Called from signInAs after a successful token, and from the manual button.
 async function wdAutoSync(opts={}){
   if(wdSyncing) return;
-  const tok=wdSyncToken();
-  if(!tok){ if(opts.manual)toast("Connect Webduct in Admin first"); wdSyncStatus("No Webduct key — connect in Admin", true); return; }
+  // Mint a FRESH token right now (from stored company creds), so we never use a stale saved token.
+  wdSyncStatus("Signing in to Webduct…");
+  let tok="";
+  if(wdHasAdmin()){ tok=await wdMintAdminToken(true); if(!tok){ wdSyncStatus("Webduct login failed — check the company login in Admin", true); if(opts.manual)toast("Webduct login failed — re-check Admin"); return; } }
+  else { tok=WD_TOKEN; }   // personal fallback (Deliveries)
+  if(!tok){ if(opts.manual)toast("Connect Webduct in Admin first"); wdSyncStatus("No Webduct connection — set it up in Admin", true); return; }
   wdSyncing=true; wdSyncStatus("Pulling orders…");
   try{
     // Pull the order list. Try a few scope params so a company login sees EVERYONE's orders,
     // not just the caller's. The first that returns more rows wins.
-    const H={"Accept":"application/json", ...wdAuthHeaders()};
+    const H={"Accept":"application/json", "Bearer":tok};
     async function tryList(qs){ const r=await wdFetch("GET",WD_BASE+"/orders"+qs,{headers:H}); const arr=(r.json&&Array.isArray(r.json.data))?r.json.data:null; return {r,arr}; }
     let best=await tryList("");
     for(const qs of ["?all=true","?scope=company","?scope=all","?filter=all","?everyone=true"]){
@@ -2833,7 +2861,7 @@ async function wdAutoSync(opts={}){
       const t=await tryList(qs);
       if(t.arr && (!best.arr || t.arr.length>best.arr.length)) best=t;
     }
-    if(best.r.threw || !best.r.ok){ wdSyncStatus("Couldn't reach Webduct orders — key may be invalid", true); wdSyncing=false; return; }
+    if(best.r.threw || !best.r.ok){ wdSyncStatus("Couldn't reach Webduct orders — login may be invalid", true); wdSyncing=false; return; }
     let orders=best.arr||[];
     // How many distinct people show up in the raw list, before any per-order detail call.
     // If the list itself only shows one person, that's a scope problem upstream, not a detail-fetch problem.
@@ -3016,7 +3044,7 @@ function renderWdEquip(){
       <div class="we-actions">${actBtn}<button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
     </div>`;
   };
-  let html=`<div class="we-head">🏭 Equipment from Webduct <button class="we-refresh" id="wdSyncBtn">${wdSyncToken()?"Refresh":"Connect Webduct in Admin"}</button></div><div class="wd-sync-msg" id="wdSyncMsg"></div>`;
+  let html=`<div class="we-head">🏭 Equipment from Webduct <button class="we-refresh" id="wdSyncBtn">${wdConnected()?"Refresh":"Connect Webduct in Admin"}</button></div><div class="wd-sync-msg" id="wdSyncMsg"></div>`;
   if(!active.length){ html+=`<div class="sub-empty" style="margin:0 14px">All caught up — nothing pending.</div>`; box.innerHTML=html; return; }
   if(guesses.length){
     html+=`<div class="we-sec">⚠️ Possible matches — confirm these</div>`;
@@ -3039,8 +3067,8 @@ document.addEventListener("click",e=>{
   const lo=e.target.closest("[data-welinkopen]"); if(lo){ const w=$("welink-"+lo.dataset.welinkopen); if(w){ w.style.display=w.style.display==="none"?"block":"none"; } return; }
   const del=e.target.closest("[data-wedelivered]"); if(del){ wdMarkEquip(del.dataset.wedelivered,{deliveredMark:true}); toast("Marked delivered"); return; }
   const dis=e.target.closest("[data-wedismiss]"); if(dis){ wdMarkEquip(dis.dataset.wedismiss,{dismissed:true}); toast("Dismissed"); return; }
-  const s=e.target.closest("#wdSyncBtn"); if(s){ if(wdSyncToken()){ wdAutoSync({manual:true}); } else { toast("Connect Webduct in Admin first"); } return; }
-  const cr=e.target.closest("#calRefreshBtn"); if(cr){ if(!wdSyncToken()){ toast("Connect Webduct in Admin first"); return; } cr.disabled=true; cr.textContent="⟳ Syncing…"; wdAutoSync({manual:true}).finally(()=>{ cr.disabled=false; cr.textContent="⟳ Refresh"; }); return; }
+  const s=e.target.closest("#wdSyncBtn"); if(s){ if(wdConnected()){ wdAutoSync({manual:true}); } else { toast("Connect Webduct in Admin first"); } return; }
+  const cr=e.target.closest("#calRefreshBtn"); if(cr){ if(!wdConnected()){ toast("Connect Webduct in Admin first"); return; } cr.disabled=true; cr.textContent="⟳ Syncing…"; wdAutoSync({manual:true}).finally(()=>{ cr.disabled=false; cr.textContent="⟳ Refresh"; }); return; }
 });
 document.addEventListener("change",e=>{
   const sel=e.target.closest("[data-welinksel]"); if(sel){ const arrivalId=sel.value; if(arrivalId){ wdSetMatch(sel.dataset.welinksel,"confirmed",arrivalId); toast("Linked to arrival"); } }
