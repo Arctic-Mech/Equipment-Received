@@ -448,6 +448,39 @@
   .del-section h3 .cnt{font-family:'JetBrains Mono';font-size:12px;color:#fff;background:var(--steel);padding:1px 8px;border-radius:8px}
   .as-of{margin:12px 14px 0;font-size:12px;color:var(--steel);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 12px}
   .as-of b{color:var(--ink)}
+  /* Webduct API test */
+  .wd-card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:12px 14px;padding:14px;box-shadow:var(--shadow)}
+  .wd-card-title{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:14px;color:var(--steel);margin:0 0 12px}
+  .wd-req-row{display:flex;gap:8px}
+  .wd-req-row select{flex:none;width:88px}
+  .wd-req-row input{flex:1;min-width:0;font-family:'JetBrains Mono';font-size:13px}
+  #wd_path,#wd_base{font-family:'JetBrains Mono'}
+  .wd-presets{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+  .wd-preset{font-family:'JetBrains Mono';font-size:11.5px;background:var(--surface);border:1px solid var(--line);color:var(--steel);padding:5px 9px;border-radius:7px}
+  .wd-preset:active{background:var(--line-soft)}
+  .wd-token{display:flex;align-items:center;gap:8px;margin-top:12px;background:var(--teal-soft);border:1px solid #b7e0da;border-radius:9px;padding:9px 11px;overflow:hidden}
+  .wd-token-lab{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.05em;color:var(--teal);flex:none}
+  .wd-token code{flex:1;min-width:0;font-family:'JetBrains Mono';font-size:11px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wd-mini{flex:none;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:11.5px;background:var(--surface);border:1px solid var(--line);color:var(--steel);padding:5px 10px;border-radius:7px}
+  .wd-status{font-family:'JetBrains Mono';font-size:12px;font-weight:700;padding:2px 9px;border-radius:7px;margin-left:6px;vertical-align:middle}
+  .wd-status.ok{background:var(--teal-soft);color:var(--teal)}
+  .wd-status.bad{background:#ffe3e3;color:#c0341a}
+  .wd-diag{border-radius:9px;padding:11px 12px;margin:0 0 12px;font-size:13px;line-height:1.5}
+  .wd-diag.ok{background:var(--teal-soft);color:#0c5c53}
+  .wd-diag.bad{background:#fff4e5;color:#8a4b00;border:1px solid #ffd9a8}
+  .wd-diag b{font-weight:700}
+  .wd-diag ul{margin:7px 0 0;padding-left:18px}
+  .wd-diag li{margin:3px 0}
+  .wd-out-head{display:flex;justify-content:space-between;align-items:center;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:12px;color:var(--steel);margin-bottom:6px}
+  .wd-out{background:#0e1116;color:#c8e1cd;font-family:'JetBrains Mono';font-size:11.5px;line-height:1.45;padding:12px;border-radius:9px;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0}
+  .wd-log{max-height:260px;overflow:auto}
+  .wd-log-item{display:flex;align-items:center;gap:9px;padding:8px 2px;border-bottom:1px solid var(--line-soft);font-size:12.5px}
+  .wd-log-item:last-child{border-bottom:none}
+  .wd-log-badge{flex:none;font-family:'JetBrains Mono';font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px}
+  .wd-log-badge.ok{background:var(--teal-soft);color:var(--teal)}
+  .wd-log-badge.bad{background:#ffe3e3;color:#c0341a}
+  .wd-log-path{flex:1;min-width:0;font-family:'JetBrains Mono';font-size:11.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wd-log-time{flex:none;color:var(--steel-light);font-size:11px}
 </style>
 </head>
 <body>
@@ -468,6 +501,7 @@
     <button class="tab" data-view="jobs">My Jobs <span class="notif" id="jobsNotif">0</span></button>
     <button class="tab" data-view="deliveries">Deliveries</button>
     <button class="tab" data-view="admin">Admin</button>
+    <button class="tab" data-view="webduct">Webduct API</button>
   </nav>
 </header>
 
@@ -563,6 +597,47 @@
         <button class="act" id="btnPeople"><div class="a-ico" style="background:var(--steel)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div><div class="a-title">Manage People</div><div class="a-sub">Add names and edit emails.</div></button>
       </div>
       <div class="admin-foot"><button class="lock-again" id="btnLock">Lock admin</button></div>
+    </div>
+  </section>
+
+  <!-- WEBDUCT API TEST -->
+  <section class="view" id="view-webduct">
+    <div class="mj-head"><h2>Webduct API Test</h2><p>Diagnostic tool. Sign in to get a bearer token, then fire any endpoint and see the raw result — or the exact reason it failed.</p></div>
+
+    <div class="wd-card">
+      <div class="wd-card-title">1 · Connection</div>
+      <div class="field"><label>Base URL</label><input id="wd_base" type="text" value="https://api.webduct.com/public/v1" autocomplete="off" spellcheck="false"></div>
+      <div class="hint" style="margin:-6px 0 12px">If calls 404, the version segment may differ. Try with/without <code>/public</code> or <code>/v1</code>.</div>
+      <div class="field-2"><div class="field"><label>Username</label><input id="wd_user" type="text" autocomplete="off" spellcheck="false"></div><div class="field"><label>Password</label><input id="wd_pass" type="password" autocomplete="off"></div></div>
+      <button class="submit" id="wd_login">Sign in &amp; get token</button>
+      <div class="wd-token" id="wd_tokenWrap" style="display:none"><span class="wd-token-lab">Token</span><code id="wd_token"></code><button id="wd_tokenClear" class="wd-mini">Clear</button></div>
+      <div class="hint" id="wd_tokenHint" style="margin-top:8px"></div>
+    </div>
+
+    <div class="wd-card">
+      <div class="wd-card-title">2 · Fire an endpoint</div>
+      <div class="field"><label>Method + path</label>
+        <div class="wd-req-row">
+          <select id="wd_method"><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option></select>
+          <input id="wd_path" type="text" value="/jobs" autocomplete="off" spellcheck="false" placeholder="/jobs">
+        </div>
+      </div>
+      <div class="wd-presets" id="wd_presets"></div>
+      <div class="field" id="wd_bodyWrap" style="display:none"><label>Request body (JSON)</label><textarea id="wd_body" rows="4" spellcheck="false" placeholder='{ }'></textarea></div>
+      <button class="submit" id="wd_send" style="background:var(--blue)">Send request</button>
+      <div class="hint" style="margin-top:8px">Requests run straight from your browser — exactly how the real app would call it. That's the point: this proves whether it can.</div>
+    </div>
+
+    <div class="wd-card" id="wd_resultCard" style="display:none">
+      <div class="wd-card-title">3 · Result <span id="wd_statusPill" class="wd-status"></span></div>
+      <div id="wd_diag"></div>
+      <div class="wd-out-head"><span>Response</span><button id="wd_copyOut" class="wd-mini">Copy</button></div>
+      <pre class="wd-out" id="wd_out">—</pre>
+    </div>
+
+    <div class="wd-card wd-log-card">
+      <div class="wd-card-title">History <button id="wd_clearLog" class="wd-mini" style="float:right">Clear</button></div>
+      <div id="wd_log" class="wd-log"><div class="sub-empty">No requests yet.</div></div>
     </div>
   </section>
 </main>
@@ -1119,7 +1194,7 @@ function addJob(job){ if(!USER){toast("Sign in to save jobs"); openName(); retur
 function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); REMOVED_JOBS.add(job); syncUserJobs(); renderAll(); toast("Removed "+job); }
 
 /* ---------- Tabs ---------- */
-const VALID_VIEWS=["feed","rentals","tools","deliveries","jobs","admin"];
+const VALID_VIEWS=["feed","rentals","tools","deliveries","jobs","admin","webduct"];
 function personalHashFor(p){ if(!p)return ""; return ((p.first||"")+(p.last||"")).replace(/[^A-Za-z0-9]/g,""); }
 function personalHash(){ return USER?(personalHashFor(USER)||"myjobs"):"myjobs"; }
 function findPersonByHash(h){ if(!h)return null; const hl=h.toLowerCase(); return PEOPLE.find(p=>personalHashFor(p).toLowerCase()===hl); }
@@ -1583,6 +1658,148 @@ function exportExcel(){
   finally{ btn.disabled=false; }
 }
 $("btnExport").addEventListener("click",exportExcel);
+
+/* ============================================================
+   WEBDUCT API TEST — diagnostic harness
+   Runs real fetch() calls from the browser so we can see, with
+   certainty, whether GitHub Pages → api.webduct.com is possible,
+   and if not, exactly why (CORS vs auth vs 404 vs network/DNS).
+   ============================================================ */
+let WD_TOKEN=sessionStorage.getItem("wd_token")||"";
+const WD_PRESETS=[
+  ["GET","/jobs"],["GET","/jobs/phases"],["GET","/orders"],
+  ["GET","/orders/shipping/statuses"],["GET","/orders/fulfillment/statuses"],
+  ["GET","/orders/fulfillment/groups"],["GET","/catalogs"],["GET","/organizations"],
+  ["GET","/roles"],["GET","/users"]
+];
+function wdBase(){ return ($("wd_base").value||"").trim().replace(/\/+$/,""); }
+function wdRenderToken(){ const w=$("wd_tokenWrap"); if(WD_TOKEN){ w.style.display="flex"; $("wd_token").textContent=WD_TOKEN; } else { w.style.display="none"; } }
+function wdRenderPresets(){ $("wd_presets").innerHTML=WD_PRESETS.map(([m,p])=>`<button class="wd-preset" data-wdp="${m} ${esc(p)}">${m} ${esc(p)}</button>`).join(""); }
+wdRenderPresets(); wdRenderToken();
+$("wd_method").addEventListener("change",()=>{ $("wd_bodyWrap").style.display=/POST|PUT/.test($("wd_method").value)?"block":"none"; });
+document.addEventListener("click",e=>{
+  const p=e.target.closest("[data-wdp]"); if(p){ const [m,...rest]=p.dataset.wdp.split(" "); $("wd_method").value=m; $("wd_path").value=rest.join(" "); $("wd_bodyWrap").style.display=/POST|PUT/.test(m)?"block":"none"; }
+});
+onActivate($("wd_tokenClear"),()=>{ WD_TOKEN=""; sessionStorage.removeItem("wd_token"); wdRenderToken(); $("wd_tokenHint").textContent="Token cleared."; });
+
+// Distinguish a network/CORS failure from a real HTTP response.
+async function wdFetch(method,url,{headers={},body=null}={}){
+  const t0=performance.now();
+  let res;
+  try{
+    res=await fetch(url,{method,headers,body,mode:"cors",credentials:"omit"});
+  }catch(err){
+    // fetch() rejects (vs resolves) ONLY for network-level failures:
+    // CORS block, DNS failure, connection refused, mixed-content, offline.
+    return {ok:false,threw:true,error:err,ms:Math.round(performance.now()-t0)};
+  }
+  const ms=Math.round(performance.now()-t0);
+  const ct=res.headers.get("content-type")||"";
+  let text="",json=null;
+  try{ text=await res.text(); }catch(_){}
+  if(/json/i.test(ct)||/^[\s]*[[{]/.test(text)){ try{ json=JSON.parse(text); }catch(_){} }
+  return {ok:res.ok,threw:false,status:res.status,statusText:res.statusText,ct,text,json,ms};
+}
+
+function wdShowResult(label,r,{isLogin=false}={}){
+  $("wd_resultCard").style.display="block";
+  const pill=$("wd_statusPill"), diag=$("wd_diag"), out=$("wd_out");
+  const online=navigator.onLine;
+  let cls,heading,points=[],pretty;
+
+  if(r.threw){
+    // Network-level rejection — classify the likely cause.
+    cls="bad"; pill.className="wd-status bad"; pill.textContent="BLOCKED";
+    const msg=(r.error&&r.error.message)||String(r.error);
+    heading="The request never completed — the browser blocked it or couldn't reach the server.";
+    if(!online){ points.push("Your device reports it's <b>offline</b>. Check the connection and retry."); }
+    else {
+      points.push("This is a <b>network-level failure</b>, which almost always means one of these:");
+      points.push("<b>CORS</b> — most likely. The server answered, but didn't send an <code>Access-Control-Allow-Origin</code> header permitting this website's origin (<code>"+esc(location.origin)+"</code>), so the browser threw the response away before our code could read it. This is the exact wall we were testing for. Fix = a small server-side relay (Firebase Cloud Function) that holds credentials and calls Webduct; the app then reads results from Firestore.");
+      points.push("<b>Bad base URL / DNS</b> — if the host is wrong or unreachable. Double-check <code>"+esc(wdBase())+"</code>.");
+      points.push("<b>Mixed content</b> — only if the URL were <code>http://</code> on an <code>https://</code> page. Yours is https, so unlikely.");
+      points.push("Raw error the browser gave: <code>"+esc(msg)+"</code>");
+      points.push("<b>How to be 100% sure it's CORS:</b> open your browser's DevTools → Console right after this. A CORS block prints a message like “<i>Access to fetch at 'api.webduct.com…' from origin '"+esc(location.origin)+"' has been blocked by CORS policy</i>.” If you see that line, it's confirmed CORS and we move to the Cloud Function.");
+    }
+    pretty=`// No HTTP response was received (fetch rejected).\n// Elapsed: ${r.ms} ms\n// navigator.onLine: ${online}\n// Error: ${msg}`;
+    toast("❌ Blocked — no response (likely CORS). See details.");
+  } else {
+    const good = isLogin ? (r.ok && (r.json||r.text)) : r.ok;
+    if(good){
+      cls="ok"; pill.className="wd-status ok"; pill.textContent=r.status+" OK";
+      heading=isLogin?"Success — the server responded and we got a token back.":"Success — the server responded with data.";
+      points.push("The browser <b>can</b> reach <code>"+esc(wdBase())+"</code> and read the response. CORS is not blocking us. 🎉");
+      points.push("Response time: "+r.ms+" ms · Content-Type: <code>"+esc(r.ct||"(none)")+"</code>");
+      toast(isLogin?"✅ Token received":"✅ "+r.status+" — it works!");
+    } else {
+      cls="bad"; pill.className="wd-status bad"; pill.textContent=r.status+" "+(r.statusText||"");
+      heading="The server responded, but with an error status. (Good news: this means CORS is NOT the problem — the browser reached Webduct fine.)";
+      if(r.status===401||r.status===403){ points.push("<b>"+r.status+" — authentication/permission.</b> "+(isLogin?"The username/password were rejected, or the token grant path differs.":"The token is missing, wrong, or expired, or your Webduct user lacks the <b>Public API</b> permission (and job-admin/timecard) your rep mentioned enabling in BCX.")); }
+      else if(r.status===404){ points.push("<b>404 — path not found.</b> The endpoint or the base URL's version segment is off. Try toggling <code>/public</code> or <code>/v1</code> in the Base URL, or adjust the path."); }
+      else if(r.status===400||r.status===422){ points.push("<b>"+r.status+" — bad request.</b> The endpoint was found but didn't like the input (method or JSON body). For GETs this usually means a required query parameter is missing."); }
+      else if(r.status>=500){ points.push("<b>"+r.status+" — server-side error at Webduct.</b> The path is reachable; their end hit a problem. Worth retrying or asking your rep."); }
+      else { points.push("HTTP <b>"+r.status+"</b> "+esc(r.statusText||"")+"."); }
+      points.push("Because a real status came back, a browser-to-Webduct integration is technically possible — we just need to get the request shape/credentials right.");
+      toast("⚠️ "+r.status+" "+(r.statusText||"")+" — server reached, see details.");
+    }
+    pretty = r.json ? JSON.stringify(r.json,null,2) : (r.text||"(empty response body)");
+    if(pretty.length>20000) pretty=pretty.slice(0,20000)+"\n… (truncated)";
+  }
+
+  diag.className="wd-diag "+cls;
+  diag.innerHTML=`<b>${esc(heading)}</b><ul>${points.map(p=>"<li>"+p+"</li>").join("")}</ul>`;
+  out.textContent=pretty;
+  wdLog(label, r.threw?"ERR":(r.ok?"ok":"bad"), r.threw?"blocked":r.status);
+}
+
+function wdLog(path,kind,status){
+  const box=$("wd_log"); if(box.querySelector(".sub-empty"))box.innerHTML="";
+  const time=new Date().toLocaleTimeString();
+  const badge = kind==="ok"?"ok":"bad";
+  const label = kind==="ERR"?"BLOCK":status;
+  const el=document.createElement("div"); el.className="wd-log-item";
+  el.innerHTML=`<span class="wd-log-badge ${badge}">${esc(String(label))}</span><span class="wd-log-path">${esc(path)}</span><span class="wd-log-time">${esc(time)}</span>`;
+  box.prepend(el);
+}
+onActivate($("wd_clearLog"),()=>{ $("wd_log").innerHTML='<div class="sub-empty">No requests yet.</div>'; });
+onActivate($("wd_copyOut"),async()=>{ try{ await navigator.clipboard.writeText($("wd_out").textContent); toast("Copied"); }catch(_){ toast("Copy failed"); } });
+
+// --- Login (OAuth password grant) ---
+onActivate($("wd_login"),async()=>{
+  const base=wdBase(), u=$("wd_user").value.trim(), p=$("wd_pass").value;
+  if(!u||!p){ toast("Enter username and password"); return; }
+  const btn=$("wd_login"); btn.disabled=true; btn.textContent="Signing in…";
+  $("wd_tokenHint").textContent="Calling POST /oauth/authorize/password …";
+  // We don't know the exact body shape, so send the common OAuth password-grant form.
+  const url=base+"/oauth/authorize/password";
+  const form=new URLSearchParams({grant_type:"password",username:u,password:p});
+  const r=await wdFetch("POST",url,{headers:{"Content-Type":"application/x-www-form-urlencoded","Accept":"application/json"},body:form.toString()});
+  // Try to auto-extract a token from whatever came back.
+  let tok="";
+  if(r.json){ tok=r.json.access_token||r.json.token||r.json.accessToken||r.json.bearer||(r.json.data&&(r.json.data.access_token||r.json.data.token))||""; }
+  if(tok){ WD_TOKEN=tok; sessionStorage.setItem("wd_token",tok); wdRenderToken(); $("wd_tokenHint").innerHTML="Token captured and attached to every request below."; }
+  else if(!r.threw && r.ok){ $("wd_tokenHint").innerHTML="Server responded OK but no token field was auto-found — check the Response below and paste the token manually if needed."; }
+  else { $("wd_tokenHint").textContent=""; }
+  wdShowResult("POST /oauth/authorize/password", r, {isLogin:true});
+  btn.disabled=false; btn.textContent="Sign in & get token";
+});
+
+// --- Fire an arbitrary endpoint ---
+onActivate($("wd_send"),async()=>{
+  const base=wdBase(), method=$("wd_method").value; let path=$("wd_path").value.trim();
+  if(!path){ toast("Enter a path like /jobs"); return; }
+  if(!/^\//.test(path)) path="/"+path;
+  const url=base+path;
+  const headers={"Accept":"application/json"};
+  if(WD_TOKEN) headers["Authorization"]="Bearer "+WD_TOKEN;
+  let body=null;
+  if(/POST|PUT/.test(method)){ const raw=$("wd_body").value.trim(); if(raw){ try{ JSON.parse(raw); }catch(e){ toast("Body isn't valid JSON"); return; } headers["Content-Type"]="application/json"; body=raw; } }
+  const btn=$("wd_send"); btn.disabled=true; btn.textContent="Sending…";
+  if(!WD_TOKEN){ $("wd_tokenHint").textContent="Heads up: no token yet — protected endpoints will likely 401."; }
+  const r=await wdFetch(method,url,{headers,body});
+  wdShowResult(method+" "+path, r);
+  btn.disabled=false; btn.textContent="Send request";
+});
 
 /* ---------- Init ---------- */
 renderWho(); renderFeed(); renderJobs(); renderDeliveries();
