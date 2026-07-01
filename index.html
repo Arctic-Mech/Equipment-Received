@@ -481,10 +481,17 @@
   .wd-fetch:disabled{opacity:.6}
   .wd-items-h{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:12px;color:var(--steel);margin:10px 0 4px}
   .wd-items{border:1px solid var(--line);border-radius:8px;overflow:hidden}
-  .wd-item{display:flex;gap:10px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line-soft);font-size:13px}
+  .wd-item{padding:9px 11px;border-bottom:1px solid var(--line-soft)}
   .wd-item:last-child{border-bottom:none}
-  .wd-item-desc{flex:1;min-width:0;color:var(--ink)}
-  .wd-item-qty{flex:none;font-family:'JetBrains Mono';font-size:12px;color:var(--steel);font-weight:600}
+  .wd-item-main{display:flex;gap:10px;align-items:baseline}
+  .wd-item-desc{flex:1;min-width:0;color:var(--ink);font-weight:600;font-size:13.5px}
+  .wd-item-qty{flex:none;font-family:'JetBrains Mono';font-size:13px;color:var(--ink);font-weight:700}
+  .wd-item-notes{font-size:12.5px;color:var(--steel);margin-top:3px;line-height:1.4;white-space:pre-wrap}
+  .wd-item-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .wd-chip{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px;padding:2px 7px;border-radius:6px;background:var(--line-soft);color:var(--steel)}
+  .wd-chip.green{background:var(--teal-soft);color:var(--teal)}
+  .wd-chip.amber{background:#fff4e5;color:#8a4b00}
+  .wd-chip.blue{background:#e7e7fb;color:#2a2a9e}
   #wd_presetSel,#wd_method{font-family:inherit}
   .wd-preset{font-family:'JetBrains Mono';font-size:11.5px;background:var(--surface);border:1px solid var(--line);color:var(--steel);padding:5px 9px;border-radius:7px}
   .wd-preset:active{background:var(--line-soft)}
@@ -2054,15 +2061,26 @@ function wdRenderRecord(rec, kind){
   return `<div class="wd-rec"><div class="wd-rec-head"><span class="wd-rec-title">${wdEsc(title)}</span></div><div class="wd-rec-body">${rows}${objCount?`<div class="wd-more">+ ${objCount} nested field${objCount===1?"":"s"} — see Raw JSON</div>`:""}</div></div>`;
 }
 
-// Render an order's line items (materials) when present.
+// Render an order's line items (materials). Each item's product info lives in item.order.
 function wdRenderItems(items){
   if(!Array.isArray(items)||!items.length) return "";
   const rows=items.slice(0,100).map(it=>{
-    const desc=it.description||it.name||it.label||it.product?.name||it.part||"Item";
-    const qty=it.quantity??it.qty??it.count;
-    const unit=it.unit||it.uom||"";
-    const size=it.size||it.dimensions||"";
-    return `<div class="wd-item"><span class="wd-item-desc">${wdEsc(desc)}${size?" · "+wdEsc(size):""}</span>${qty!=null?`<span class="wd-item-qty">${wdEsc(qty)}${unit?" "+wdEsc(unit):""}</span>`:""}</div>`;
+    const o=it.order||it;
+    const name=o.label||o.name||o.description||"Item";
+    const qty=o.quantity;
+    const sku=(o.sku && o.sku!=="___")?o.sku:"";
+    const grp=o.fulfillmentGroup?.label||"";
+    const notes=o.notes;
+    const shipStat=o.shipping?.status?.label;
+    const tone=shipStat?wdTone(shipStat):"";
+    return `<div class="wd-item">
+      <div class="wd-item-main">
+        <span class="wd-item-desc">${wdEsc(name)}</span>
+        ${qty!=null?`<span class="wd-item-qty">×${wdEsc(qty)}</span>`:""}
+      </div>
+      ${notes?`<div class="wd-item-notes">${wdEsc(notes)}</div>`:""}
+      <div class="wd-item-meta">${grp?`<span class="wd-chip">${wdEsc(grp)}</span>`:""}${sku?`<span class="wd-chip">SKU ${wdEsc(sku)}</span>`:""}${shipStat?`<span class="wd-chip ${tone}">${wdEsc(shipStat)}</span>`:""}</div>
+    </div>`;
   }).join("");
   return `<div class="wd-items-h">Line items (${items.length})</div><div class="wd-items">${rows}</div>`;
 }
