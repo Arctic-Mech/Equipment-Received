@@ -543,6 +543,15 @@
   .we-no{flex:1;background:var(--surface);border:1px solid var(--line);color:var(--steel);font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;padding:8px;border-radius:8px}
   .we-confd{font-size:11px;color:var(--teal);font-weight:600;text-transform:uppercase}
   .we-detach{margin-left:6px;font-size:12px;color:var(--steel-light);text-decoration:underline}
+  .we-actions{display:flex;gap:8px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft)}
+  .we-act{flex:1;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12.5px;padding:7px;border-radius:8px}
+  .we-act.delivered{background:var(--teal-soft);color:var(--teal);border:1px solid #b7e0da}
+  .we-act.delivered:active{background:#c9ebe5}
+  .we-act.dismiss{background:var(--surface);border:1px solid var(--line);color:var(--steel-light)}
+  .we-act.dismiss:active{background:var(--line-soft)}
+  .we-linkbtn{color:var(--blue);text-decoration:underline;font-weight:600}
+  .we-linkwrap{margin-top:8px}
+  .we-linksel{width:100%;font-size:13px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
   /* Webduct strip on arrival cards */
   .ac-wd{margin:2px 0 4px;display:flex;flex-direction:column;gap:6px}
   .ac-wd-row{display:flex;gap:9px;background:#f4f0ff;border:1px solid #ded4ff;border-radius:9px;padding:8px 10px}
@@ -2299,6 +2308,8 @@ async function wdAutoSync(opts={}){
         found++;
         const job=ord.job?.number||""; const itemText=(io.notes||io.label||"");
         const m=wdMatchArrival(job, io.notes||"");        // match on the item NOTES vs arrival description
+        const ob=ord.orderedBy?.name||ord.orderedFor?.name||{};
+        const orderedByName=[ob.first, (ob.last||"").replace(/\s*\(.*\)/,"").trim()].filter(Boolean).join(" ");
         // Stable doc id per order-item so re-syncs update rather than duplicate.
         const docId="we-"+wdSlug(num)+"-"+wdSlug(io.ddoIndex||io.id||found);
         await wdWriteEquip(docId, {
@@ -2306,6 +2317,7 @@ async function wdAutoSync(opts={}){
           job, jobName:ord.job?.name||"",
           label:io.label||"", notes:io.notes||"",
           quantity:io.quantity!=null?io.quantity:null,
+          orderedBy:orderedByName,
           orderedDate:ord.ordered||"", requestedDate:ord.requested||"", deliveryDate:ord.delivery?.date||"",
           shipStatus:io.shipping?.status?.label||ord.delivery?.status?.label||"",
           orderStatus:ord.status?.label||"",
@@ -2321,16 +2333,20 @@ async function wdAutoSync(opts={}){
 }
 function wdSlug(x){ return String(x).replace(/[^A-Za-z0-9]+/g,"").slice(0,40); }
 
-// Write one equipment link doc, preserving any human confirm/deny decision already made.
+// Write one equipment link doc, preserving any human decision already made.
 async function wdWriteEquip(docId, data){
   if(!fbReady) return;
   try{
     const existing=WD_EQUIP.find(e=>e.docId===docId);
-    // Never clobber a manual decision: if someone confirmed or rejected the match, keep their choice.
-    if(existing && (existing.matchState==="confirmed"||existing.matchState==="rejected")){
+    if(existing && existing.userSet){
+      // A person has confirmed/rejected/linked this — keep their match decision, don't re-guess.
       data.matchState=existing.matchState;
-      if(existing.arrivalId) data.arrivalId=existing.arrivalId;
+      data.arrivalId=existing.arrivalId||"";
+      data.userSet=true;
     }
+    // Dismissed / delivered flags are per-person actions and must survive a re-sync.
+    if(existing && existing.dismissed) data.dismissed=true;
+    if(existing && existing.deliveredMark) data.deliveredMark=true;
     await setDoc(doc(db,"webductEquip",docId), data, {merge:true});
   }catch(e){ console.error("wdWriteEquip",e); }
 }
@@ -2342,39 +2358,52 @@ function wdSyncStatus(msg, isErr, ok){
 // Confirm / reject a guessed match, or manually detach.
 async function wdSetMatch(docId, state, arrivalId){
   if(!fbReady) return;
-  const patch={matchState:state}; if(arrivalId!==undefined) patch.arrivalId=arrivalId;
+  const patch={matchState:state, userSet:true}; if(arrivalId!==undefined) patch.arrivalId=arrivalId;
   try{ await setDoc(doc(db,"webductEquip",docId), patch, {merge:true}); }catch(e){ console.error(e); }
 }
 
 /* ---------- Deliveries: Webduct equipment section ---------- */
-function wdEquipForArrival(arrivalId){ return WD_EQUIP.filter(e=>e.arrivalId===arrivalId && e.matchState!=="rejected"); }
+function wdEquipForArrival(arrivalId){ return WD_EQUIP.filter(e=>e.arrivalId===arrivalId && (e.matchState==="exact"||e.matchState==="confirmed") && !e.dismissed && !e.deliveredMark); }
 
 function renderWdEquip(){
   const box=$("wdEquip"); if(!box) return;
   if(!WD_EQUIP.length){ box.innerHTML=""; return; }
-  const active=WD_EQUIP.filter(e=>e.matchState!=="rejected");
+  // Hide dismissed + delivered from the main list; sort newest order first.
+  const active=WD_EQUIP.filter(e=>e.matchState!=="rejected" && !e.dismissed && !e.deliveredMark)
+    .sort((a,b)=>(b.orderedDate||"")<(a.orderedDate||"")?-1:1);
   const guesses=active.filter(e=>e.matchState==="guess");
   const linked=active.filter(e=>e.matchState==="exact"||e.matchState==="confirmed");
   const unmatched=active.filter(e=>e.matchState==="none");
   const arrName=id=>{ const a=ARRIVALS.find(x=>x.id===id); return a?(a.description||"arrival"):"arrival"; };
+  // Options for the manual-link dropdown: arrivals on the same job first, then all.
+  const linkOptions=(e)=>{
+    const same=ARRIVALS.filter(a=>normJob(a.jobNumber)===normJob(e.job));
+    const rest=ARRIVALS.filter(a=>normJob(a.jobNumber)!==normJob(e.job));
+    const opt=a=>`<option value="${wdEsc(a.id)}">${wdEsc((isRealJob(a.jobNumber)?normJob(a.jobNumber)+" · ":"")+(a.description||"No description").slice(0,60))}</option>`;
+    return `<option value="">— pick an arrival to link —</option>`+
+      (same.length?`<optgroup label="On job ${wdEsc(e.job||"?")}">${same.map(opt).join("")}</optgroup>`:"")+
+      (rest.length?`<optgroup label="Other jobs">${rest.slice(0,200).map(opt).join("")}</optgroup>`:"");
+  };
   const card=(e,extra)=>{
     const q=e.quantity!=null?` ×${wdEsc(e.quantity)}`:"";
-    return `<div class="we-row">
+    return `<div class="we-row" data-werow="${wdEsc(e.docId)}">
       <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${e.shipStatus?`<span class="we-stat ${wdTone(e.shipStatus)}">${wdEsc(e.shipStatus)}</span>`:""}</div>
       <div class="we-label">${wdEsc(e.label||"Equipment")}${q}</div>
       ${e.notes?`<div class="we-notes">${wdEsc(e.notes)}</div>`:""}
-      <div class="we-dates">${e.orderedDate?`Ordered ${wdDate(e.orderedDate)}`:""}${e.requestedDate?` · Field wants ${wdDate(e.requestedDate)}`:""}</div>
+      <div class="we-dates">${e.orderedBy?`By ${wdEsc(e.orderedBy)}`:""}${e.orderedDate?` · ordered ${wdDate(e.orderedDate)}`:""}${e.requestedDate?` · field wants ${wdDate(e.requestedDate)}`:""}</div>
       ${extra||""}
+      <div class="we-actions"><button class="we-act delivered" data-wedelivered="${wdEsc(e.docId)}">✓ Delivered</button><button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
     </div>`;
   };
   let html=`<div class="we-head">🏭 Equipment from Webduct <button class="we-refresh" id="wdSyncBtn">${WD_TOKEN?"Refresh":"Sign in to sync"}</button></div><div class="wd-sync-msg" id="wdSyncMsg"></div>`;
+  if(!active.length){ html+=`<div class="sub-empty" style="margin:0 14px">All caught up — nothing pending.</div>`; box.innerHTML=html; return; }
   if(guesses.length){
     html+=`<div class="we-sec">⚠️ Possible matches — confirm these</div>`;
     html+=guesses.map(e=>card(e, `<div class="we-guess">Looks like arrival: <b>${wdEsc(arrName(e.arrivalId))}</b><div class="we-btns"><button class="we-yes" data-weconfirm="${wdEsc(e.docId)}">✓ Correct match</button><button class="we-no" data-wereject="${wdEsc(e.docId)}">✕ Not a match</button></div></div>`)).join("");
   }
   if(unmatched.length){
-    html+=`<div class="we-sec">📦 Wanted — no arrival logged yet</div>`;
-    html+=unmatched.map(e=>card(e, `<div class="we-unmatched">No matching arrival on job ${wdEsc(e.job||"?")}. The shop can still see it's wanted.</div>`)).join("");
+    html+=`<div class="we-sec">📦 Wanted — no arrival matched</div>`;
+    html+=unmatched.map(e=>card(e, `<div class="we-unmatched">No arrival matched on job ${wdEsc(e.job||"?")}. <button class="we-linkbtn" data-welinkopen="${wdEsc(e.docId)}">Link to an arrival</button><div class="we-linkwrap" id="welink-${wdEsc(e.docId)}" style="display:none"><select class="we-linksel" data-welinksel="${wdEsc(e.docId)}">${linkOptions(e)}</select></div></div>`)).join("");
   }
   if(linked.length){
     html+=`<div class="we-sec">✓ Linked to arrivals</div>`;
@@ -2384,10 +2413,18 @@ function renderWdEquip(){
 }
 document.addEventListener("click",e=>{
   const c=e.target.closest("[data-weconfirm]"); if(c){ wdSetMatch(c.dataset.weconfirm,"confirmed"); return; }
-  const r=e.target.closest("[data-wereject]"); if(r){ wdSetMatch(r.dataset.wereject,"rejected",""); return; }
-  const d=e.target.closest("[data-wedetach]"); if(d){ wdSetMatch(d.dataset.wedetach,"rejected",""); return; }
+  const r=e.target.closest("[data-wereject]"); if(r){ wdSetMatch(r.dataset.wereject,"none",""); return; }
+  const d=e.target.closest("[data-wedetach]"); if(d){ wdSetMatch(d.dataset.wedetach,"none",""); return; }
+  const lo=e.target.closest("[data-welinkopen]"); if(lo){ const w=$("welink-"+lo.dataset.welinkopen); if(w){ w.style.display=w.style.display==="none"?"block":"none"; } return; }
+  const del=e.target.closest("[data-wedelivered]"); if(del){ wdMarkEquip(del.dataset.wedelivered,{deliveredMark:true}); toast("Marked delivered"); return; }
+  const dis=e.target.closest("[data-wedismiss]"); if(dis){ wdMarkEquip(dis.dataset.wedismiss,{dismissed:true}); toast("Dismissed"); return; }
   const s=e.target.closest("#wdSyncBtn"); if(s){ if(WD_TOKEN){ wdAutoSync({manual:true}); } else { openName(); } return; }
 });
+document.addEventListener("change",e=>{
+  const sel=e.target.closest("[data-welinksel]"); if(sel){ const arrivalId=sel.value; if(arrivalId){ wdSetMatch(sel.dataset.welinksel,"confirmed",arrivalId); toast("Linked to arrival"); } }
+});
+// Set dismissed/delivered flags on an equipment link.
+async function wdMarkEquip(docId, patch){ if(!fbReady)return; try{ await setDoc(doc(db,"webductEquip",docId), patch, {merge:true}); }catch(err){ console.error(err); } }
 
 /* ---------- Init ---------- */
 renderWho(); renderFeed(); renderJobs(); renderDeliveries();
