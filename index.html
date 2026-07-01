@@ -451,6 +451,9 @@
   .cal-arrow{width:40px;height:40px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:22px;color:var(--ink);display:flex;align-items:center;justify-content:center}
   .cal-arrow:active{background:var(--line-soft)}
   .cal-today{display:block;margin:0 auto 10px;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:12.5px;color:var(--steel);background:var(--surface);border:1px solid var(--line);padding:5px 14px;border-radius:8px}
+  .cal-refresh{display:block;margin:0;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:12.5px;color:#fff;background:var(--blue);border:1px solid var(--blue);padding:5px 14px;border-radius:8px}
+  .cal-refresh:active{opacity:.8}
+  .cal-refresh:disabled{opacity:.6}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
   .cal-dow{text-align:center;font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:11px;color:var(--steel-light);padding:2px 0 4px}
   .cal-cell{aspect-ratio:1/1;border:1px solid var(--line);border-radius:9px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:5px 2px 2px;position:relative;overflow:hidden}
@@ -714,7 +717,8 @@
     <div class="mj-head"><h2>Deliveries</h2><p>Days with a requested delivery are marked. Tap a day to see what's wanted, add photos, share, or mark it delivered.</p></div>
     <div class="cal-wrap">
       <div class="cal-nav"><button class="cal-arrow" id="calPrev">‹</button><div class="cal-title" id="calTitle">—</div><button class="cal-arrow" id="calNext">›</button></div>
-      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:10px"><button class="cal-today" id="calToday" style="margin:0">Today</button><div class="seg" id="calSeg" style="box-shadow:none"><button data-calseg="all" class="on">Everyone</button><button data-calseg="mine">Just mine</button></div></div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px"><button class="cal-today" id="calToday" style="margin:0">Today</button><div class="seg" id="calSeg" style="box-shadow:none"><button data-calseg="all" class="on">Everyone</button><button data-calseg="mine">Just mine</button></div><button class="cal-refresh" id="calRefreshBtn">⟳ Refresh</button></div>
+      <div class="wd-sync-msg" id="calSyncMsg" style="text-align:center;margin-bottom:8px"></div>
       <div class="cal-grid" id="calGrid"></div>
       <div class="cal-legend"><span><i class="lg-dot blue"></i> Order delivery</span><span><i class="lg-dot req"></i> Includes equipment</span><span><i class="lg-dot done"></i> Delivered</span></div>
     </div>
@@ -1117,7 +1121,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="2.7";
+const APP_VERSION="2.8";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2958,7 +2962,9 @@ async function wdWriteEquip(docId, data){
 }
 
 function wdSyncStatus(msg, isErr, ok){
-  const el=$("wdSyncMsg"); if(el){ el.textContent=msg; el.className="wd-sync-msg"+(isErr?" err":ok?" ok":""); }
+  const cls="wd-sync-msg"+(isErr?" err":ok?" ok":"");
+  const el=$("wdSyncMsg"); if(el){ el.textContent=msg; el.className=cls; }
+  const el2=$("calSyncMsg"); if(el2){ el2.textContent=msg; el2.className=cls; }
 }
 
 // Confirm / reject a guessed match, or manually detach.
@@ -3010,7 +3016,7 @@ function renderWdEquip(){
       <div class="we-actions">${actBtn}<button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
     </div>`;
   };
-  let html=`<div class="we-head">🏭 Equipment from Webduct <button class="we-refresh" id="wdSyncBtn">${WD_TOKEN?"Refresh":"Sign in to sync"}</button></div><div class="wd-sync-msg" id="wdSyncMsg"></div>`;
+  let html=`<div class="we-head">🏭 Equipment from Webduct <button class="we-refresh" id="wdSyncBtn">${wdSyncToken()?"Refresh":"Connect Webduct in Admin"}</button></div><div class="wd-sync-msg" id="wdSyncMsg"></div>`;
   if(!active.length){ html+=`<div class="sub-empty" style="margin:0 14px">All caught up — nothing pending.</div>`; box.innerHTML=html; return; }
   if(guesses.length){
     html+=`<div class="we-sec">⚠️ Possible matches — confirm these</div>`;
@@ -3033,7 +3039,8 @@ document.addEventListener("click",e=>{
   const lo=e.target.closest("[data-welinkopen]"); if(lo){ const w=$("welink-"+lo.dataset.welinkopen); if(w){ w.style.display=w.style.display==="none"?"block":"none"; } return; }
   const del=e.target.closest("[data-wedelivered]"); if(del){ wdMarkEquip(del.dataset.wedelivered,{deliveredMark:true}); toast("Marked delivered"); return; }
   const dis=e.target.closest("[data-wedismiss]"); if(dis){ wdMarkEquip(dis.dataset.wedismiss,{dismissed:true}); toast("Dismissed"); return; }
-  const s=e.target.closest("#wdSyncBtn"); if(s){ if(WD_TOKEN){ wdAutoSync({manual:true}); } else { openName(); } return; }
+  const s=e.target.closest("#wdSyncBtn"); if(s){ if(wdSyncToken()){ wdAutoSync({manual:true}); } else { toast("Connect Webduct in Admin first"); } return; }
+  const cr=e.target.closest("#calRefreshBtn"); if(cr){ if(!wdSyncToken()){ toast("Connect Webduct in Admin first"); return; } cr.disabled=true; cr.textContent="⟳ Syncing…"; wdAutoSync({manual:true}).finally(()=>{ cr.disabled=false; cr.textContent="⟳ Refresh"; }); return; }
 });
 document.addEventListener("change",e=>{
   const sel=e.target.closest("[data-welinksel]"); if(sel){ const arrivalId=sel.value; if(arrivalId){ wdSetMatch(sel.dataset.welinksel,"confirmed",arrivalId); toast("Linked to arrival"); } }
