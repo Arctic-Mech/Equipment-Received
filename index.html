@@ -1129,7 +1129,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="3.1";
+const APP_VERSION="3.3";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2176,152 +2176,12 @@ function wdWatchAdminKey(){
 }
 // Full endpoint catalog from the Webduct public API (Swagger). {group?, m, p, b?(has body), note?}
 const WD_ENDPOINTS=[
-  {group:"— Most useful for this app —"},
   {m:"GET",p:"/jobs",note:"list of jobs (job # + name)"},
-  {m:"GET",p:"/orders",note:"orders you place"},
-  {m:"GET",p:"/orders/{orderNumber}",note:"one order — FULL detail, all line items"},
-  {m:"GET",p:"/orders/shipping/statuses",note:"shipping statuses"},
+  {m:"GET",p:"/orders",note:"orders — same date-window filter the calendar uses"},
   {m:"GET",p:"/orders/fulfillment/statuses",note:"fulfillment statuses"},
-  {m:"GET",p:"/orders/fulfillment/groups",note:"fulfillment groups"},
-  {m:"GET",p:"/jobs/phases",note:"job phases"},
-
-  {group:"— Hunting for the tool-rental report —"},
-  {m:"GET",p:"/spools/packages",note:"spools packages (maybe tools?)"},
-  {m:"GET",p:"/spools/settings",note:"spools settings"},
-  {m:"GET",p:"/spools/statuses",note:"spools statuses"},
-  {m:"GET",p:"/orders/exports/{orderId}",note:"order export — could be the PDF"},
-  {m:"GET",p:"/integrations/exports",note:"integration export data"},
-  {m:"GET",p:"/integrations/exports/orders",note:"bulk order export"},
-  {m:"GET",p:"/orders/attachments",note:"order attachments (PDFs?)"},
-
-  {group:"Catalogs"},
-  {m:"GET",p:"/catalogs"},
-  {m:"GET",p:"/catalogs/{id}"},
-
-  {group:"Environments"},
-  {m:"GET",p:"/environments"},
-  {m:"POST",p:"/environments",b:1},
-  {m:"GET",p:"/environments/{id}"},
-  {m:"PUT",p:"/environments/{id}",b:1},
-  {m:"DELETE",p:"/environments/{id}"},
-
-  {group:"Integrations"},
-  {m:"GET",p:"/integrations/exports"},
-  {m:"GET",p:"/integrations/exports/orders"},
-  {m:"GET",p:"/integrations/mappings"},
-  {m:"PUT",p:"/integrations/mappings",b:1},
-  {m:"DELETE",p:"/integrations/mappings/{id}"},
-
-  {group:"Jobs"},
-  {m:"GET",p:"/jobs"},
-  {m:"POST",p:"/jobs",b:1},
-  {m:"GET",p:"/jobs/{id}"},
-  {m:"PUT",p:"/jobs/{id}",b:1},
-
-  {group:"Job codes"},
-  {m:"GET",p:"/jobs/codes"},
-  {m:"POST",p:"/jobs/codes",b:1},
-  {m:"GET",p:"/jobs/codes/{id}"},
-  {m:"PUT",p:"/jobs/codes/{id}",b:1},
-  {m:"DELETE",p:"/jobs/codes/{id}"},
-  {m:"POST",p:"/v2/jobs/codes",b:1,note:"bulk (testing)"},
-
-  {group:"Job phases"},
-  {m:"GET",p:"/jobs/phases"},
-  {m:"POST",p:"/jobs/phases",b:1},
-  {m:"GET",p:"/jobs/phases/{id}"},
-  {m:"PUT",p:"/jobs/phases/{id}",b:1},
-  {m:"DELETE",p:"/jobs/phases/{id}"},
-  {m:"POST",p:"/v2/jobs/phases",b:1,note:"bulk add (testing)"},
-  {m:"POST",p:"/jobs/phases/bulk",b:1,note:"fetch phases by job/phase IDs"},
-
-  {group:"Job phase job codes"},
-  {m:"GET",p:"/jobs/phases/codes"},
-  {m:"PUT",p:"/jobs/phases/codes",b:1},
-  {m:"DELETE",p:"/jobs/phases/codes",b:1},
-  {m:"PUT",p:"/jobs/phases/codes/bulk",b:1},
-  {m:"PUT",p:"/jobs/phases/codes/jobs",b:1,note:"copy codes between phases"},
-
-  {group:"Materials"},
-  {m:"GET",p:"/materials"},
-  {m:"GET",p:"/materials/{id}"},
-  {m:"PUT",p:"/materials/{id}",b:1},
-  {m:"GET",p:"/materials/factors/costweight"},
-  {m:"POST",p:"/materials/factors/costweight",b:1},
-  {m:"PUT",p:"/materials/factors/costweight",b:1},
-  {m:"DELETE",p:"/materials/factors/costweight",b:1},
-  {m:"GET",p:"/materials/factors/costweight/categories"},
-
-  {group:"Orders"},
-  {m:"GET",p:"/orders"},
-  {m:"POST",p:"/orders",b:1},
-  {m:"PUT",p:"/orders",b:1},
-  {m:"GET",p:"/orders/{orderNumber}"},
-  {m:"GET",p:"/orders/adjustments"},
-  {m:"POST",p:"/orders/adjustments",b:1},
-  {m:"DELETE",p:"/orders/adjustments/{id}"},
-  {m:"GET",p:"/orders/attachments"},
-  {m:"POST",p:"/orders/attachments",b:1},
-  {m:"GET",p:"/orders/exports/{orderId}"},
-  {m:"GET",p:"/orders/fulfillment/groups"},
-  {m:"GET",p:"/orders/fulfillment/statuses"},
-  {m:"GET",p:"/orders/shipping/statuses"},
-
-  {group:"Organizations"},
-  {m:"GET",p:"/organizations"},
-  {m:"GET",p:"/organizations/{index}"},
-
-  {group:"Product lookups & scripts"},
-  {m:"GET",p:"/products/lookups"},
-  {m:"GET",p:"/products/lookups/{id}"},
-  {m:"POST",p:"/products/lookups",b:1},
-  {m:"DELETE",p:"/products/lookups/{product_id}"},
-  {m:"GET",p:"/products/scripts"},
-  {m:"POST",p:"/products/scripts/{id}",b:1},
-  {m:"DELETE",p:"/products/scripts/{id}"},
-
-  {group:"Reimbursements"},
-  {m:"GET",p:"/reimbursements"},
-  {m:"GET",p:"/reimbursements/{id}"},
-  {m:"GET",p:"/reimbursements/codes"},
-  {m:"POST",p:"/reimbursements/codes",b:1},
-  {m:"GET",p:"/reimbursements/codes/{id}"},
-  {m:"PUT",p:"/reimbursements/codes/{id}",b:1},
-  {m:"DELETE",p:"/reimbursements/codes/{id}"},
-  {m:"GET",p:"/reimbursements/codes/jobs"},
-  {m:"POST",p:"/reimbursements/codes/jobs",b:1},
-  {m:"DELETE",p:"/reimbursements/codes/jobs",b:1},
-  {m:"GET",p:"/reimbursements/statuses"},
-  {m:"PUT",p:"/reimbursements/statuses",b:1},
-
-  {group:"Roles & seats & users"},
-  {m:"GET",p:"/roles"},
-  {m:"GET",p:"/seats/types"},
-  {m:"GET",p:"/seats/types/{id}"},
-  {m:"GET",p:"/seats/users"},
-  {m:"GET",p:"/users"},
-  {m:"POST",p:"/users",b:1},
-  {m:"GET",p:"/users/{id}"},
-  {m:"PUT",p:"/users/{id}",b:1},
-  {m:"GET",p:"/users/groups"},
-  {m:"POST",p:"/users/groups",b:1},
-  {m:"GET",p:"/users/groups/{id}"},
-  {m:"PUT",p:"/users/groups/{id}",b:1},
-  {m:"DELETE",p:"/users/groups/{id}"},
-
-  {group:"Spools"},
-  {m:"GET",p:"/spools/packages"},
-  {m:"POST",p:"/spools/packages",b:1},
-  {m:"GET",p:"/spools/settings"},
-  {m:"GET",p:"/spools/statuses"},
-  {m:"GET",p:"/spools/statuses/models/{modelId}"},
-  {m:"PUT",p:"/spools/statuses/models/{modelId}",b:1},
-
-  {group:"Timecards"},
-  {m:"GET",p:"/timecards"},
-  {m:"GET",p:"/timecards/{id}"},
-  {m:"GET",p:"/timecards/statuses"},
-  {m:"PUT",p:"/timecards/statuses",b:1}
+  {m:"GET",p:"/orders/fulfillment/groups",note:"fulfillment groups (departments)"},
+  {m:"GET",p:"/orders/shipping/statuses",note:"shipping statuses"},
+  {m:"GET",p:"/products/scripts",note:"product scripts"}
 ];
 function wdBase(){ return WD_BASE; }
 function wdActiveToken(){ return wdSyncToken(); }
@@ -2681,15 +2541,26 @@ onActivate($("wd_login"),async()=>{
 
 // --- Fire an arbitrary endpoint ---
 onActivate($("wd_send"),async()=>{
-  const base=wdBase(), method=$("wd_method").value; const path=wdResolvePath();
+  const base=wdBase(), method=$("wd_method").value; let path=wdResolvePath();
   if(!path){ toast("Enter a path like /jobs"); return; }
   if(/\{[^}]+\}/.test(path)){ toast("Fill in the highlighted value first"); const f=$("wd_params").querySelector("[data-wdparam]"); if(f)f.focus(); return; }
+  // For /orders, apply the EXACT same delivery-date window the calendar sync uses, so the
+  // tester behaves just like the real deal instead of dumping all ~1800 orders.
+  if(path==="/orders"){
+    const now=new Date();
+    const isoStart=new Date(now.getTime()-1000*60*60*24*62).toISOString();
+    const isoEnd  =new Date(now.getTime()+1000*60*60*24*120).toISOString();
+    path=`/orders?dateType=delivery&dateStart=${encodeURIComponent(isoStart)}&dateEnd=${encodeURIComponent(isoEnd)}`;
+  }
   const url=base+path;
-  const headers={"Accept":"application/json", ...wdAuthHeaders()};
+  const btn=$("wd_send"); btn.disabled=true; btn.textContent="Sending…";
+  // Mint a fresh token from the saved company login (same as the calendar), falling back to a
+  // personal tester login if one was done. This makes the tester a true mirror of production.
+  let tok=""; if(wdHasAdmin()) tok=await wdMintAdminToken(true); if(!tok) tok=wdActiveToken();
+  if(!tok){ $("wd_tokenHint").textContent="No Webduct connection — set up the company login in the Connection box above, or sign in below."; }
+  const headers={"Accept":"application/json", ...(tok?{"Bearer":tok}:{})};
   let body=null;
   if(/POST|PUT/.test(method)){ const raw=$("wd_body").value.trim(); if(raw){ try{ JSON.parse(raw); }catch(e){ toast("Body isn't valid JSON"); return; } headers["Content-Type"]="application/json"; body=raw; } }
-  const btn=$("wd_send"); btn.disabled=true; btn.textContent="Sending…";
-  if(!wdActiveToken()){ $("wd_tokenHint").textContent="Heads up: no token yet — protected endpoints will likely say missing token."; }
   const r=await wdFetch(method,url,{headers,body});
   wdShowResult(method+" "+path, r);
   btn.disabled=false; btn.textContent="Send request";
@@ -2869,34 +2740,27 @@ async function wdAutoSync(opts={}){
   try{
     const H={"Accept":"application/json", "Bearer":tok};
     async function tryList(qs){ const r=await wdFetch("GET",WD_BASE+"/orders"+qs,{headers:H}); const arr=(r.json&&Array.isArray(r.json.data))?r.json.data:null; return {r,arr,qs}; }
-    let best=await tryList("");
+    // Ask Webduct for ONLY the orders whose DELIVERY date falls in our calendar window.
+    // The window is the 2-month look-back plus a generous look-ahead (orders wanted soon).
+    // This turns "1821 orders" into a few dozen — one small, fast request instead of hundreds.
+    const now=new Date();
+    const isoStart=new Date(now.getTime()-1000*60*60*24*62).toISOString();   // 2 months back
+    const isoEnd  =new Date(now.getTime()+1000*60*60*24*120).toISOString();  // 4 months ahead
+    const winQS=`?dateType=delivery&dateStart=${encodeURIComponent(isoStart)}&dateEnd=${encodeURIComponent(isoEnd)}`;
+    let best=await tryList(winQS);
+    // Fallbacks if the date filter isn't accepted for some reason: try production date, then plain.
+    if(best.r.threw || !best.r.ok || !best.arr){
+      const prodQS=`?dateType=production&dateStart=${encodeURIComponent(isoStart)}&dateEnd=${encodeURIComponent(isoEnd)}`;
+      let t=await tryList(prodQS);
+      if(t.arr) best=t; else { t=await tryList(""); if(t.arr) best=t; }
+    }
     if(best.r.threw){ clearTimeout(watchdog); wdSyncStatus(best.r.timedOut?"Webduct didn't respond in time — tap Refresh":"Couldn't reach Webduct (network/CORS)", true); wdSyncing=false; return; }
     if(!best.r.ok){ clearTimeout(watchdog); wdSyncStatus("Webduct rejected the request ("+(best.r.status||"?")+") — check the company login", true); wdSyncing=false; return; }
-    // COVERAGE: the plain list looks page-capped (~19 rows). Probe params that ask for more,
-    // keep whichever returns the most orders.
-    const baseCount=best.arr?best.arr.length:0;
-    for(const qs of ["?limit=500","?pageSize=500","?per_page=500","?count=500","?all=true","?scope=company"]){
-      const t=await tryList(qs);
-      if(t.arr && t.arr.length>(best.arr?best.arr.length:0)) best=t;
-      if(best.arr && best.arr.length>=400) break;
-    }
-    // If no param widened it, walk pages (?page=2,3…) and keep anything new.
     let orders=(best.arr||[]).slice();
-    const seenNums=new Set(orders.map(o=>String(o.number)));
-    if(orders.length && orders.length===baseCount){
-      const sep=best.qs?"&":"?";
-      for(let p=2;p<=8;p++){
-        const t=await tryList(best.qs+sep+"page="+p);
-        const fresh=(t.arr||[]).filter(o=>!seenNums.has(String(o.number)));
-        if(!fresh.length) break;
-        fresh.forEach(o=>{ seenNums.add(String(o.number)); orders.push(o); });
-        if(orders.length>=600) break;
-      }
-    }
     const listPeople=new Set(orders.map(o=>{ const nm=(o.orderedBy?.name||o.orderedFor?.name||{}); return (o.orderedBy?.email||o.orderedFor?.email||((nm.first||"")+" "+(nm.last||""))).toLowerCase(); }).filter(Boolean));
-    // Keep only orders in the 2-month calendar window, newest first.
+    // Client-side safety net: keep the 2-month look-back window, newest first.
     const cutoff=Date.now()-1000*60*60*24*62;
-    const orderDate=o=>{ const d=new Date(o.requested||o.delivery?.date||o.ordered||0).getTime(); return isNaN(d)?0:d; };
+    const orderDate=o=>{ const d=new Date(o.delivery?.date||o.requested||o.ordered||0).getTime(); return isNaN(d)?0:d; };
     orders=orders.filter(o=>orderDate(o)>=cutoff);
     orders.sort((a,b)=> orderDate(b)-orderDate(a));
     // INCREMENTAL: skip any order we already hold whose dateModified hasn't changed —
