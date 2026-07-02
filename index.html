@@ -454,6 +454,12 @@
   .cal-refresh{display:block;margin:0;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:12.5px;color:#fff;background:var(--blue);border:1px solid var(--blue);padding:5px 14px;border-radius:8px}
   .cal-refresh:active{opacity:.8}
   .cal-refresh:disabled{opacity:.6}
+  .wd-winbar{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--steel)}
+  .wd-winbar-lab{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:var(--ink)}
+  .wd-win-in{width:54px;text-align:center;font-family:'JetBrains Mono';font-size:13px;padding:5px 4px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}
+  .wd-win-unit{font-size:11.5px;color:var(--steel-light)}
+  .wd-win-apply{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:11.5px;color:#fff;background:var(--ink);padding:5px 12px;border-radius:7px}
+  .wd-win-apply:active{opacity:.8}
   .photo-add{display:block;width:100%;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;color:var(--ink);background:var(--surface);border:1px dashed var(--line);padding:10px;border-radius:9px}
   .photo-add:active{background:var(--line-soft)}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
@@ -720,6 +726,7 @@
     <div class="cal-wrap">
       <div class="cal-nav"><button class="cal-arrow" id="calPrev">‹</button><div class="cal-title" id="calTitle">—</div><button class="cal-arrow" id="calNext">›</button></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px"><button class="cal-today" id="calToday" style="margin:0">Today</button><div class="seg" id="calSeg" style="box-shadow:none"><button data-calseg="all" class="on">Everyone</button><button data-calseg="mine">Just mine</button></div><button class="cal-refresh" id="calRefreshBtn">⟳ Refresh</button></div>
+      <div class="wd-winbar"><span class="wd-winbar-lab">Pull orders:</span><input id="calWinBack" class="wd-win-in" type="number" min="0" max="370" inputmode="numeric"> <span class="wd-win-unit">days back →</span> <input id="calWinFwd" class="wd-win-in" type="number" min="0" max="370" inputmode="numeric"> <span class="wd-win-unit">days ahead</span><button id="calWinApply" class="wd-win-apply">Apply</button></div>
       <div class="wd-sync-msg" id="calSyncMsg" style="text-align:center;margin-bottom:8px"></div>
       <div class="cal-grid" id="calGrid"></div>
       <div class="cal-legend"><span><i class="lg-dot blue"></i> Order delivery</span><span><i class="lg-dot req"></i> Includes equipment</span><span><i class="lg-dot done"></i> Delivered</span></div>
@@ -824,6 +831,7 @@
           </div>
           <div class="field"><label>Quick pick</label><select id="wd_presetSel"></select></div>
           <div class="hint" id="wd_presetHint" style="margin:-6px 0 8px"></div>
+          <div class="wd-winbar"><span class="wd-winbar-lab">/orders window:</span><input id="wdWinBack" class="wd-win-in" type="number" min="0" max="370" inputmode="numeric"> <span class="wd-win-unit">back →</span> <input id="wdWinFwd" class="wd-win-in" type="number" min="0" max="370" inputmode="numeric"> <span class="wd-win-unit">ahead</span><button id="wdWinApply" class="wd-win-apply">Apply</button></div>
           <div id="wd_params"></div>
           <div class="field" id="wd_bodyWrap" style="display:none"><label>Request body (JSON)</label><textarea id="wd_body" rows="4" spellcheck="false" placeholder='{ }'></textarea></div>
           <button class="submit" id="wd_send" style="background:var(--blue)">Send request</button>
@@ -1029,6 +1037,31 @@ let SHARES=[];                      // pending shares addressed to me
 let WD_EQUIP=[];                    // Webduct shop-equipment order items (synced) {docId, order#, job, dates, status, notes, label, arrivalId, matchState}
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
 let calShowMine=false;             // calendar: false = everyone's orders, true = just mine
+// User-adjustable order window (days back / days ahead from today), shared by the calendar sync
+// AND the admin tester so both pull the same range. Persisted per-device. Tighter default.
+let WD_WIN_BACK = parseInt(localStorage.getItem("wd_win_back")||"14",10);    // days before today
+let WD_WIN_FWD  = parseInt(localStorage.getItem("wd_win_fwd") ||"42",10);    // days after today
+function wdSaveWindow(back,fwd){
+  WD_WIN_BACK=Math.max(0,Math.min(370,back|0)); WD_WIN_FWD=Math.max(0,Math.min(370,fwd|0));
+  localStorage.setItem("wd_win_back",WD_WIN_BACK); localStorage.setItem("wd_win_fwd",WD_WIN_FWD);
+}
+// The ISO date range + the query string Webduct wants, from the current window.
+function wdWindow(){
+  const now=Date.now();
+  const isoStart=new Date(now-1000*60*60*24*WD_WIN_BACK).toISOString();
+  const isoEnd  =new Date(now+1000*60*60*24*WD_WIN_FWD).toISOString();
+  return { isoStart, isoEnd, cutoff: now-1000*60*60*24*WD_WIN_BACK,
+    qs:`?dateType=delivery&dateStart=${encodeURIComponent(isoStart)}&dateEnd=${encodeURIComponent(isoEnd)}` };
+}
+function wdWindowLabel(){
+  const b=WD_WIN_BACK, f=WD_WIN_FWD;
+  const part=(n,dir)=> n===0?"today": n%7===0?`${n/7} wk ${dir}`:`${n} day${n===1?"":"s"} ${dir}`;
+  return `${part(b,"back")} → ${part(f,"ahead")}`;
+}
+// Push the current window values into whichever input boxes exist (calendar + tester).
+function wdSyncWindowInputs(){
+  [["calWinBack",WD_WIN_BACK],["wdWinBack",WD_WIN_BACK],["calWinFwd",WD_WIN_FWD],["wdWinFwd",WD_WIN_FWD]].forEach(([id,v])=>{ const el=$(id); if(el) el.value=v; });
+}
 const EXPANDED_WO=new Set();       // order cards left open — survives the constant Firebase re-renders
 const EXPANDED_WO_CATS=new Set();  // same for the "all items by category" dropdowns
 let shareJob=null, shareArrivalId=null;
@@ -1129,7 +1162,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="3.3";
+const APP_VERSION="3.4";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1774,6 +1807,7 @@ function wdOrderCard(o){
 function renderDeliveries(){
   if(typeof renderWdEquip==="function") renderWdEquip();
   renderCalendar();
+  if(typeof wdSyncWindowInputs==="function") wdSyncWindowInputs();
   // List view (inside the collapsible)
   const q=$("delSearch").value.trim().toLowerCase(); $("delClr").style.display=q?"block":"none";
   let req=ARRIVALS.filter(r=>r.reqDeliv && !r.delivered);
@@ -2544,14 +2578,8 @@ onActivate($("wd_send"),async()=>{
   const base=wdBase(), method=$("wd_method").value; let path=wdResolvePath();
   if(!path){ toast("Enter a path like /jobs"); return; }
   if(/\{[^}]+\}/.test(path)){ toast("Fill in the highlighted value first"); const f=$("wd_params").querySelector("[data-wdparam]"); if(f)f.focus(); return; }
-  // For /orders, apply the EXACT same delivery-date window the calendar sync uses, so the
-  // tester behaves just like the real deal instead of dumping all ~1800 orders.
-  if(path==="/orders"){
-    const now=new Date();
-    const isoStart=new Date(now.getTime()-1000*60*60*24*62).toISOString();
-    const isoEnd  =new Date(now.getTime()+1000*60*60*24*120).toISOString();
-    path=`/orders?dateType=delivery&dateStart=${encodeURIComponent(isoStart)}&dateEnd=${encodeURIComponent(isoEnd)}`;
-  }
+  // For /orders, apply the SAME user-set delivery-date window the calendar sync uses.
+  if(path==="/orders"){ path="/orders"+wdWindow().qs; }
   const url=base+path;
   const btn=$("wd_send"); btn.disabled=true; btn.textContent="Sending…";
   // Mint a fresh token from the saved company login (same as the calendar), falling back to a
@@ -2740,17 +2768,13 @@ async function wdAutoSync(opts={}){
   try{
     const H={"Accept":"application/json", "Bearer":tok};
     async function tryList(qs){ const r=await wdFetch("GET",WD_BASE+"/orders"+qs,{headers:H}); const arr=(r.json&&Array.isArray(r.json.data))?r.json.data:null; return {r,arr,qs}; }
-    // Ask Webduct for ONLY the orders whose DELIVERY date falls in our calendar window.
-    // The window is the 2-month look-back plus a generous look-ahead (orders wanted soon).
-    // This turns "1821 orders" into a few dozen — one small, fast request instead of hundreds.
-    const now=new Date();
-    const isoStart=new Date(now.getTime()-1000*60*60*24*62).toISOString();   // 2 months back
-    const isoEnd  =new Date(now.getTime()+1000*60*60*24*120).toISOString();  // 4 months ahead
-    const winQS=`?dateType=delivery&dateStart=${encodeURIComponent(isoStart)}&dateEnd=${encodeURIComponent(isoEnd)}`;
-    let best=await tryList(winQS);
-    // Fallbacks if the date filter isn't accepted for some reason: try production date, then plain.
+    // Ask Webduct for ONLY the orders whose DELIVERY date falls in the user-set window.
+    // This turns "1821 orders" into a small set — one fast request instead of hundreds.
+    const win=wdWindow();
+    let best=await tryList(win.qs);
+    // Fallbacks if the delivery-date filter isn't accepted: try production date, then plain.
     if(best.r.threw || !best.r.ok || !best.arr){
-      const prodQS=`?dateType=production&dateStart=${encodeURIComponent(isoStart)}&dateEnd=${encodeURIComponent(isoEnd)}`;
+      const prodQS=`?dateType=production&dateStart=${encodeURIComponent(win.isoStart)}&dateEnd=${encodeURIComponent(win.isoEnd)}`;
       let t=await tryList(prodQS);
       if(t.arr) best=t; else { t=await tryList(""); if(t.arr) best=t; }
     }
@@ -2758,8 +2782,8 @@ async function wdAutoSync(opts={}){
     if(!best.r.ok){ clearTimeout(watchdog); wdSyncStatus("Webduct rejected the request ("+(best.r.status||"?")+") — check the company login", true); wdSyncing=false; return; }
     let orders=(best.arr||[]).slice();
     const listPeople=new Set(orders.map(o=>{ const nm=(o.orderedBy?.name||o.orderedFor?.name||{}); return (o.orderedBy?.email||o.orderedFor?.email||((nm.first||"")+" "+(nm.last||""))).toLowerCase(); }).filter(Boolean));
-    // Client-side safety net: keep the 2-month look-back window, newest first.
-    const cutoff=Date.now()-1000*60*60*24*62;
+    // Client-side safety net: keep the chosen look-back window, newest first.
+    const cutoff=win.cutoff;
     const orderDate=o=>{ const d=new Date(o.delivery?.date||o.requested||o.ordered||0).getTime(); return isNaN(d)?0:d; };
     orders=orders.filter(o=>orderDate(o)>=cutoff);
     orders.sort((a,b)=> orderDate(b)-orderDate(a));
@@ -2977,6 +3001,8 @@ document.addEventListener("click",e=>{
   const dis=e.target.closest("[data-wedismiss]"); if(dis){ wdMarkEquip(dis.dataset.wedismiss,{dismissed:true}); toast("Dismissed"); return; }
   const s=e.target.closest("#wdSyncBtn"); if(s){ if(wdConnected()){ wdAutoSync({manual:true}); } else { toast("Connect Webduct in Admin first"); } return; }
   const cr=e.target.closest("#calRefreshBtn"); if(cr){ if(!wdConnected()){ toast("Connect Webduct in Admin first"); return; } cr.disabled=true; cr.textContent="⟳ Syncing…"; wdAutoSync({manual:true}).finally(()=>{ cr.disabled=false; cr.textContent="⟳ Refresh"; }); return; }
+  if(e.target.closest("#calWinApply")){ wdSaveWindow(parseInt($("calWinBack").value||"0",10), parseInt($("calWinFwd").value||"0",10)); wdSyncWindowInputs(); toast("Window set: "+wdWindowLabel()+" — refreshing"); if(wdConnected()) wdAutoSync({manual:true}); return; }
+  if(e.target.closest("#wdWinApply")){ wdSaveWindow(parseInt($("wdWinBack").value||"0",10), parseInt($("wdWinFwd").value||"0",10)); wdSyncWindowInputs(); toast("/orders window set: "+wdWindowLabel()); return; }
 });
 document.addEventListener("change",e=>{
   const sel=e.target.closest("[data-welinksel]"); if(sel){ const arrivalId=sel.value; if(arrivalId){ wdSetMatch(sel.dataset.welinksel,"confirmed",arrivalId); toast("Linked to arrival"); } }
@@ -2987,6 +3013,7 @@ async function wdMarkEquip(docId, patch){ if(!fbReady)return; try{ await setDoc(
 /* ---------- Init ---------- */
 renderWho(); renderFeed(); renderJobs(); renderDeliveries();
 if(typeof wdUpdateLights==="function") wdUpdateLights();
+if(typeof wdSyncWindowInputs==="function") wdSyncWindowInputs();
 lockDateInputs();
 const initView=viewForHash(location.hash.replace("#","")); if(initView)setView(initView,true);
 syncAdminView(); startSync();
