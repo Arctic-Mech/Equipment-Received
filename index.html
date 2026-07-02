@@ -460,6 +460,10 @@
   .wd-win-unit{font-size:11.5px;color:var(--steel-light)}
   .wd-win-apply{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:11.5px;color:#fff;background:var(--ink);padding:5px 12px;border-radius:7px}
   .wd-win-apply:active{opacity:.8}
+  .wd-tok-active{font-size:12.5px;color:var(--ink);line-height:1.5}
+  .wd-tok-badge{display:inline-block;font-family:'Barlow Condensed';font-weight:700;font-size:10px;letter-spacing:.04em;padding:2px 7px;border-radius:5px;margin-right:6px;vertical-align:middle}
+  .wd-tok-badge.company{background:#e7e7fb;color:#2a2a9e} .wd-tok-badge.override{background:#fdecd8;color:#8a4b00} .wd-tok-badge.none{background:var(--line-soft);color:var(--steel)}
+  .wd-collapse-min{margin-top:10px;font-size:12px;color:var(--blue);cursor:pointer;font-weight:600}
   .photo-add{display:block;width:100%;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;color:var(--ink);background:var(--surface);border:1px dashed var(--line);padding:10px;border-radius:9px}
   .photo-add:active{background:var(--line-soft)}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
@@ -814,10 +818,17 @@
       <div class="wd-admin-toggle" id="wdTestToggle"><span>🔧 Webduct API Tester</span><span class="dl-chev" id="wdTestChev">▾</span></div>
       <div id="wdTestWrap" style="display:none">
         <div class="wd-card">
-          <div class="wd-card-title">1 · Connection</div>
-          <div class="wd-connected" id="wd_connected" style="display:none">✓ Signed in — token active for this session.</div>
-          <div class="field-2"><div class="field"><label>Username</label><input id="wd_user" type="text" autocomplete="off" spellcheck="false"></div><div class="field"><label>Password</label><input id="wd_pass" type="password" autocomplete="off"></div></div>
-          <button class="submit" id="wd_login">Sign in &amp; get token</button>
+          <div class="wd-card-title">1 · Token for testing</div>
+          <div class="wd-tok-active" id="wd_tokActive"></div>
+          <p style="font-size:12px;color:var(--steel);line-height:1.4;margin:6px 0 10px">By default the tester uses the shared <b>company</b> login (from the Connection box above). To test as a specific user, paste that user's token here — it overrides the company one for testing only.</p>
+          <div class="field"><label>Manual token override (optional)</label><textarea id="wd_manualTok" rows="2" spellcheck="false" placeholder="Paste a Webduct access token to test as that user…" style="font-family:'JetBrains Mono';font-size:11px"></textarea></div>
+          <div style="display:flex;gap:8px"><button class="wd-mini" id="wd_manualSet">Use this token</button><button class="wd-mini" id="wd_manualClear">Clear override</button></div>
+          <div class="wd-collapse-min" id="wd_pwToggle">▸ Or sign in with a username/password to get a token</div>
+          <div id="wd_pwBox" style="display:none;margin-top:8px">
+            <div class="field-2"><div class="field"><label>Username</label><input id="wd_user" type="text" autocomplete="off" spellcheck="false"></div><div class="field"><label>Password</label><input id="wd_pass" type="password" autocomplete="off"></div></div>
+            <button class="submit" id="wd_login">Sign in &amp; use that token</button>
+          </div>
+          <div class="wd-connected" id="wd_connected" style="display:none"></div>
           <div class="wd-token" id="wd_tokenWrap" style="display:none"><span class="wd-token-lab">Token</span><code id="wd_token"></code><button id="wd_tokenClear" class="wd-mini">Clear</button></div>
           <div class="hint" id="wd_tokenHint" style="margin-top:8px"></div>
         </div>
@@ -1162,7 +1173,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="3.5";
+const APP_VERSION="3.6";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1833,7 +1844,7 @@ document.addEventListener("click",e=>{
   const wcat=e.target.closest("[data-wocats]"); if(wcat){ const id=wcat.dataset.wocats; const open=!EXPANDED_WO_CATS.has(id); if(open)EXPANDED_WO_CATS.add(id); else EXPANDED_WO_CATS.delete(id); const b=$("wo-cats-"+id),c=$("wo-cats-chev-"+id); if(b)b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; return; }
   if(e.target.closest("#dlToggle")){ const w=$("dlListWrap"),c=$("dlChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
   if(e.target.closest("#delFbToggle")){ const w=$("delFbWrap"),c=$("delFbChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
-  if(e.target.closest("#wdTestToggle")){ const w=$("wdTestWrap"),c=$("wdTestChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
+  if(e.target.closest("#wdTestToggle")){ const w=$("wdTestWrap"),c=$("wdTestChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); if(open&&typeof wdRenderToken==="function")wdRenderToken(); return; }
   if(e.target.closest("#wdKeyReveal")){ const b=$("wdKeyRevealBox"); const show=b.style.display==="none"; b.style.display=show?"block":"none"; if(show)$("wdKeyValue").textContent=wdHasAdmin()?("Connected as "+WD_ADMIN_CREDS.email+" (password stored, token minted fresh each sync)"):"(no company login saved)"; $("wdKeyReveal").textContent=show?"Hide":"Show details"; return; }
 });
 
@@ -2161,6 +2172,7 @@ $("btnExport").addEventListener("click",exportExcel);
    and if not, exactly why (CORS vs auth vs 404 vs network/DNS).
    ============================================================ */
 let WD_TOKEN=sessionStorage.getItem("wd_token")||"";   // personal token (Deliveries fallback only)
+let WD_TEST_TOKEN=sessionStorage.getItem("wd_test_token")||"";  // manual override used ONLY by the admin tester
 let WD_ADMIN_CREDS=null;                                // shared company login {email,password} from Firebase
 let WD_ADMIN_TOKEN="";                                  // freshly-minted token from those creds (cached in-memory this session)
 let WD_ADMIN_TOKEN_TS=0;                                // when it was minted
@@ -2221,7 +2233,18 @@ const WD_ENDPOINTS=[
 function wdBase(){ return WD_BASE; }
 function wdActiveToken(){ return wdSyncToken(); }
 function wdAuthHeaders(){ const tok=wdActiveToken(); return tok?{"Bearer":tok}:{}; }   // API's apiKey header is literally named "Bearer"
-function wdRenderToken(){ const w=$("wd_tokenWrap"), t=wdActiveToken(); if(t){ w.style.display="flex"; $("wd_token").textContent=t; $("wd_connected").style.display="block"; } else { w.style.display="none"; $("wd_connected").style.display="none"; } }
+// Which token the TESTER should use: manual override first, else the company key.
+function wdTesterToken(){ return WD_TEST_TOKEN || WD_ADMIN_TOKEN; }
+function wdRenderToken(){
+  // Show what the tester will actually use.
+  const el=$("wd_tokActive"); if(!el) return;
+  if(WD_TEST_TOKEN){ el.innerHTML=`<span class="wd-tok-badge override">MANUAL TOKEN</span> Testing with your pasted token`; }
+  else if(wdHasAdmin()){ el.innerHTML=`<span class="wd-tok-badge company">COMPANY</span> Testing with the shared company login${WD_ADMIN_TOKEN?"":" (will sign in when you send)"}`; }
+  else { el.innerHTML=`<span class="wd-tok-badge none">NONE</span> No token — paste one below or connect the company login above`; }
+  const w=$("wd_tokenWrap");
+  if(w){ const show=WD_TEST_TOKEN||WD_ADMIN_TOKEN; if(show){ w.style.display="flex"; $("wd_token").textContent=show; } else { w.style.display="none"; } }
+  const mt=$("wd_manualTok"); if(mt && !mt.value && WD_TEST_TOKEN) mt.value=WD_TEST_TOKEN;
+}
 function wdRenderPresetSel(){
   const sel=$("wd_presetSel"); let html='<option value="">— pick an endpoint —</option>';
   WD_ENDPOINTS.forEach((e,i)=>{ if(e.group){ html+=`<option disabled>${esc(e.group)}</option>`; } else { html+=`<option value="${i}">${e.m}  ${esc(e.p)}${e.note?"  — "+esc(e.note):""}</option>`; } });
@@ -2251,7 +2274,10 @@ $("wd_presetSel").addEventListener("change",()=>{
 });
 $("wd_path").addEventListener("input",wdRenderParams);
 $("wd_method").addEventListener("change",()=>{ $("wd_bodyWrap").style.display=/POST|PUT/.test($("wd_method").value)?"block":"none"; });
-onActivate($("wd_tokenClear"),()=>{ WD_TOKEN=""; sessionStorage.removeItem("wd_token"); wdRenderToken(); $("wd_tokenHint").textContent="Token cleared."; });
+onActivate($("wd_tokenClear"),()=>{ WD_TEST_TOKEN=""; sessionStorage.removeItem("wd_test_token"); $("wd_manualTok").value=""; wdRenderToken(); $("wd_tokenHint").textContent="Override cleared — back to the company login."; });
+onActivate($("wd_manualSet"),()=>{ const t=$("wd_manualTok").value.trim(); if(!t){ toast("Paste a token first"); return; } WD_TEST_TOKEN=t; sessionStorage.setItem("wd_test_token",t); wdRenderToken(); $("wd_tokenHint").innerHTML="<span style='color:#0d7a73'>✓ Now testing with your pasted token.</span>"; toast("Manual token set"); });
+onActivate($("wd_manualClear"),()=>{ WD_TEST_TOKEN=""; sessionStorage.removeItem("wd_test_token"); $("wd_manualTok").value=""; wdRenderToken(); $("wd_tokenHint").textContent="Override cleared — back to the company login."; });
+onActivate($("wd_pwToggle"),()=>{ const b=$("wd_pwBox"),t=$("wd_pwToggle"); const open=b.style.display==="none"; b.style.display=open?"block":"none"; t.textContent=(open?"▾":"▸")+" Or sign in with a username/password to get a token"; });
 
 // Distinguish a network/CORS failure from a real HTTP response.
 async function wdFetch(method,url,{headers={},body=null,timeout=20000}={}){
@@ -2567,11 +2593,11 @@ onActivate($("wd_login"),async()=>{
   // Try to auto-extract a token from whatever came back.
   let tok="";
   if(r.json){ const d=r.json.data||{}; tok=d.accessToken||d.access_token||d.token||r.json.accessToken||r.json.access_token||r.json.token||r.json.bearer||""; }
-  if(tok){ WD_TOKEN=tok; sessionStorage.setItem("wd_token",tok); wdRenderToken(); $("wd_tokenHint").innerHTML="Token captured and attached to every request below."; }
+  if(tok){ WD_TEST_TOKEN=tok; sessionStorage.setItem("wd_test_token",tok); wdRenderToken(); $("wd_tokenHint").innerHTML="Token captured — the tester will now use it (overrides the company login)."; }
   else if(!r.threw && r.ok){ $("wd_tokenHint").innerHTML="Server responded OK but no token field was auto-found — check the Response below and paste the token manually if needed."; }
   else { $("wd_tokenHint").textContent=""; }
   wdShowResult("POST /oauth/authorize/password", r, {isLogin:true});
-  btn.disabled=false; btn.textContent="Sign in & get token";
+  btn.disabled=false; btn.textContent="Sign in & use that token";
 });
 
 // --- Fire an arbitrary endpoint ---
@@ -2583,10 +2609,10 @@ onActivate($("wd_send"),async()=>{
   if(path==="/orders"){ path="/orders"+wdWindow().qs; }
   const url=base+path;
   const btn=$("wd_send"); btn.disabled=true; btn.textContent="Sending…";
-  // Use ONLY the shared company login (minted fresh). No fallback to any personal token, so the
-  // tester can never accidentally show one person's data in place of the company account's.
-  let tok=""; if(wdHasAdmin()){ tok=await wdMintAdminToken(true); }
-  if(!tok){ btn.disabled=false; btn.textContent="Send request"; $("wd_tokenHint").innerHTML="<span style='color:#c0341a'>No company login connected. Set it up in the Connection box above — the tester only uses the shared company account.</span>"; toast("Connect the company login first"); return; }
+  // Manual pasted token wins (test as that user). Otherwise mint the shared company token fresh.
+  let tok=WD_TEST_TOKEN;
+  if(!tok && wdHasAdmin()){ tok=await wdMintAdminToken(true); }
+  if(!tok){ btn.disabled=false; btn.textContent="Send request"; $("wd_tokenHint").innerHTML="<span style='color:#c0341a'>No token. Paste one above, or connect the company login in the Connection box.</span>"; toast("No token to send with"); return; }
   const headers={"Accept":"application/json", "Bearer":tok};
   let body=null;
   if(/POST|PUT/.test(method)){ const raw=$("wd_body").value.trim(); if(raw){ try{ JSON.parse(raw); }catch(e){ btn.disabled=false; btn.textContent="Send request"; toast("Body isn't valid JSON"); return; } headers["Content-Type"]="application/json"; body=raw; } }
