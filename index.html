@@ -454,6 +454,8 @@
   .cal-refresh{display:block;margin:0;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:12.5px;color:#fff;background:var(--blue);border:1px solid var(--blue);padding:5px 14px;border-radius:8px}
   .cal-refresh:active{opacity:.8}
   .cal-refresh:disabled{opacity:.6}
+  .photo-add{display:block;width:100%;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;color:var(--ink);background:var(--surface);border:1px dashed var(--line);padding:10px;border-radius:9px}
+  .photo-add:active{background:var(--line-soft)}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
   .cal-dow{text-align:center;font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:11px;color:var(--steel-light);padding:2px 0 4px}
   .cal-cell{aspect-ratio:1/1;border:1px solid var(--line);border-radius:9px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:5px 2px 2px;position:relative;overflow:hidden}
@@ -714,7 +716,7 @@
 
   <!-- DELIVERIES -->
   <section class="view" id="view-deliveries">
-    <div class="mj-head"><h2>Deliveries</h2><p>Days with a requested delivery are marked. Tap a day to see what's wanted, add photos, share, or mark it delivered.</p></div>
+    <div class="mj-head"><h2>Deliveries</h2><p>Every Webduct order from the last 2 months lands on the calendar — blue dot for a standard delivery, orange when equipment needs delivered. Tap a day for the full rundown.</p></div>
     <div class="cal-wrap">
       <div class="cal-nav"><button class="cal-arrow" id="calPrev">‹</button><div class="cal-title" id="calTitle">—</div><button class="cal-arrow" id="calNext">›</button></div>
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px"><button class="cal-today" id="calToday" style="margin:0">Today</button><div class="seg" id="calSeg" style="box-shadow:none"><button data-calseg="all" class="on">Everyone</button><button data-calseg="mine">Just mine</button></div><button class="cal-refresh" id="calRefreshBtn">⟳ Refresh</button></div>
@@ -870,6 +872,11 @@
     <div class="field"><label>Job name</label><input id="f_jobname" type="text" placeholder="e.g. OHSU Peds Emergency" autocomplete="off"><div class="hint" id="jobnameHint"></div></div>
     <div class="field"><label>Description <span class="req">*</span></label><textarea id="f_desc" placeholder="What arrived — qty, item, size…"></textarea></div>
     <div class="field-2"><div class="field"><label>Supplier</label><input id="f_supplier" type="text" placeholder="e.g. ACI" autocomplete="off"></div><div class="field"><label>Stored at</label><input id="f_location" type="text" placeholder="e.g. Building 3" autocomplete="off"></div></div>
+    <div class="field"><label>Photo (optional)</label>
+      <input id="f_photoFile" type="file" accept="image/*" capture="environment" style="display:none">
+      <button type="button" class="photo-add" id="f_photoBtn">📷 Add photo</button>
+      <div id="f_photoPrev" style="display:none;margin-top:8px"><img id="f_photoImg" alt="" style="max-width:100%;border-radius:10px;border:1px solid var(--line)"><button type="button" class="del-link" id="f_photoClear" style="margin-top:6px">Remove photo</button></div>
+    </div>
     <button class="submit" id="logSubmit">Save arrival</button>
     <button class="del-link" id="logDelete" style="display:none">Delete this arrival</button>
   </div>
@@ -947,7 +954,6 @@
 </div></div>
 
 <!-- hidden legacy fields kept for code compatibility -->
-<div style="display:none"><input id="si_pass"><button id="si_login"></button><button id="si_noWd"></button><span id="si_hint"></span><span id="si_forEmail"></span><div id="signStep2"></div></div>
 
 <!-- SHARE MODAL -->
 <div class="modal-back" id="shareModal"><div class="modal"><div class="modal-grip"></div>
@@ -1023,6 +1029,8 @@ let SHARES=[];                      // pending shares addressed to me
 let WD_EQUIP=[];                    // Webduct shop-equipment order items (synced) {docId, order#, job, dates, status, notes, label, arrivalId, matchState}
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
 let calShowMine=false;             // calendar: false = everyone's orders, true = just mine
+const EXPANDED_WO=new Set();       // order cards left open — survives the constant Firebase re-renders
+const EXPANDED_WO_CATS=new Set();  // same for the "all items by category" dropdowns
 let shareJob=null, shareArrivalId=null;
 let VIEW_AS=null;                   // {id,first,last} — viewing someone else's My Jobs page read-only (null = viewing your own)
 let PENDING_ARRIVAL=null;           // arrival id to scroll to + expand once the Arrivals tab is showing
@@ -1121,7 +1129,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="3.0";
+const APP_VERSION="3.1";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1521,9 +1529,7 @@ function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(jo
 function renderWho(){ const av=$("whoAv"),nm=$("whoName"); if(!av)return; if(USER){ av.textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); nm.textContent=USER.first; } else { av.textContent="?"; nm.textContent="Sign in"; } }
 function findPersonByName(f,l){ const nn=nameNorm(f,l); return PEOPLE.find(p=>p.nameNorm===nn); }
 function findPersonByEmail(em){ const e=(em||"").trim().toLowerCase(); if(!e)return null; return PEOPLE.find(p=>(p.email||"").trim().toLowerCase()===e); }
-let signPendingEmail="";   // email captured from a successful (or skipped) login, awaiting a name
 
-function showSignStep(n){ const s2=$("signStep2"); $("signStep1").style.display="block"; if(s2)s2.style.display="none"; }
 function openName(){
   $("n_first").value=USER?.first||""; $("n_last").value=USER?.last||"";
   $("si_email").value=USER?.email||""; $("n_emailHint").textContent="";
@@ -1659,10 +1665,9 @@ function dateKeyLocal(iso){ if(!iso)return ""; const d=new Date(iso); if(isNaN(d
 // Build a map of day-key → {req:[arrivals], done:[arrivals], wd:[equip]} for the visible month.
 // Is this order/job "mine"? (ordered by my email, or on a job I've starred.)
 function wdOrderIsMine(o){
-  const myEmail=(USER?.email||"").toLowerCase();
-  if(myEmail && o.orderedByEmail && o.orderedByEmail===myEmail) return true;
-  if(o.job && MY_JOBS.some(j=>normJob(j)===normJob(o.job))) return true;
-  return false;
+  // "Just mine" = orders on jobs I've starred in My Jobs. Nothing else — not even
+  // orders I placed myself, unless that job is starred.
+  return !!(o.job && MY_JOBS.some(j=>normJob(j)===normJob(o.job)));
 }
 function buildDeliveryMap(){
   const map={};
@@ -1731,8 +1736,8 @@ function renderDayDetail(){
 }
 // Full order card for the calendar — collapsed by default, shows ordered-by / PO / all detail when expanded.
 function wdOrderCard(o){
-  const mine=wdOrderIsMine(o);
   const starred=o.job && MY_JOBS.some(j=>normJob(j)===normJob(o.job));
+  const open=EXPANDED_WO.has(o.docId), catsOpen=EXPANDED_WO_CATS.has(o.docId);
   const dateStr=wdDate(o.requestedDate||o.deliveryDate||o.orderedDate);
   const equipItems=(o.items||[]).filter(it=>it.isEquip);
   const groups={}; (o.items||[]).forEach(it=>{ (groups[it.group]=groups[it.group]||[]).push(it); });
@@ -1740,14 +1745,14 @@ function wdOrderCard(o){
   const itemLine=it=>`<div class="wo-item"><div class="wo-item-top"><span class="wo-item-name">${wdEsc(it.label||"Item")}</span>${it.quantity!=null?`<span class="wo-item-qty">×${wdEsc(it.quantity)}</span>`:""}</div>${it.notes?`<div class="wo-item-notes">${wdEsc(it.notes)}</div>`:""}${it.build?`<div class="wo-item-build">🔧 Laser/CAD: ${wdEsc(it.build)}</div>`:(it.dims?`<div class="wo-item-build">${wdEsc(it.dims)}</div>`:"")}${it.shipStatus?`<span class="wo-item-ship">${wdEsc(it.shipStatus)}</span>`:""}</div>`;
   return `<div class="wo-card" data-wocard="${wdEsc(o.docId)}">
     <div class="wo-head" data-wotoggle="${wdEsc(o.docId)}">
-      <span class="wo-chev" id="wo-chev-${wdEsc(o.docId)}">▸</span>
+      <span class="wo-chev" id="wo-chev-${wdEsc(o.docId)}">${open?"▾":"▸"}</span>
       <span class="wo-job">${wdEsc(o.job||"—")}</span>
       <span class="wo-num">#${wdEsc(o.number)}</span>
       ${o.hasEquip?`<span class="wo-tag equip">EQUIP</span>`:""}
       <button class="wo-star ${starred?'on':''}" data-wostar="${wdEsc(o.job||"")}" title="${starred?'In My Jobs':'Add to My Jobs'}">${starred?'★':'☆'}</button>
     </div>
     <div class="wo-sub">${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}</div>
-    <div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:none">
+    <div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:${open?"block":"none"}">
       ${o.orderedBy?`<div class="wo-row"><b>Ordered by</b> ${wdEsc(String(o.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim())}</div>`:""}
       ${o.orderedDate?`<div class="wo-row"><b>Ordered</b> ${wdEsc(wdDate(o.orderedDate))}</div>`:""}
       ${o.requestedDate?`<div class="wo-row"><b>Field wants</b> ${wdEsc(wdDate(o.requestedDate))}</div>`:""}
@@ -1759,25 +1764,11 @@ function wdOrderCard(o){
       ${(typeof o.totalPrice==="number"&&o.totalPrice>0)?`<div class="wo-row"><b>Total</b> $${o.totalPrice.toFixed(2)}</div>`:""}
       ${o.detailUnavailable?`<div class="wo-row" style="color:var(--steel-light)">⚠ Item-level detail unavailable for this order (only its own owner's login may see line items — job/date/status above is still accurate)</div>`:""}
       ${equipItems.length?`<div class="wo-equip-head">🏭 Equipment to deliver</div>`+equipItems.map(itemLine).join(""):""}
-      ${(o.items&&o.items.length)?`<div class="wo-cats-toggle" data-wocats="${wdEsc(o.docId)}"><span class="wo-cats-chev" id="wo-cats-chev-${wdEsc(o.docId)}">▸</span> All items by category (${o.items.length})</div>`:""}
-      <div class="wo-cats" id="wo-cats-${wdEsc(o.docId)}" style="display:none">
+      ${(o.items&&o.items.length)?`<div class="wo-cats-toggle" data-wocats="${wdEsc(o.docId)}"><span class="wo-cats-chev" id="wo-cats-chev-${wdEsc(o.docId)}">${catsOpen?"▾":"▸"}</span> All items by category (${o.items.length})</div>`:""}
+      <div class="wo-cats" id="wo-cats-${wdEsc(o.docId)}" style="display:${catsOpen?"block":"none"}">
         ${groupNames.map(g=>`<div class="wo-cat"><div class="wo-cat-name">${wdEsc(g)} (${groups[g].length})</div>${groups[g].map(itemLine).join("")}</div>`).join("")}
       </div>
     </div>
-  </div>`;
-}
-// Compact Webduct card for the day-detail (reuses equip data; no phone numbers shown).
-function wdEquipMiniCard(e){
-  const q=e.quantity!=null?` ×${wdEsc(e.quantity)}`:"";
-  const arr=ARRIVALS.find(a=>a.id===e.arrivalId);
-  const isDelivered=arr&&arr.delivered;
-  return `<div class="we-row" data-werow="${wdEsc(e.docId)}">
-    <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${isDelivered?`<span class="we-stat green">✓ Delivered${arr.deliveredDate?" "+wdEsc(longDate(arr.deliveredDate).split(",")[0]):""}</span>`:`<span class="we-stat amber">Not delivered</span>`}</div>
-    <div class="we-label">${wdEsc(e.label||"Equipment")}${q}</div>
-    ${e.notes?`<div class="we-notes">${wdEsc(e.notes)}</div>`:""}
-    <div class="we-dates">${e.orderedBy?`By ${wdEsc(String(e.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim())}`:""}${e.orderedDate?` · ordered ${wdDate(e.orderedDate)}`:""}</div>
-    ${arr?`<div class="we-linked">Linked arrival: <b>${wdEsc(arr.description||"arrival")}</b></div>`:`<div class="we-unmatched">No arrival linked. <button class="we-linkbtn" data-welinkopen="${wdEsc(e.docId)}">Link to an arrival</button><div class="we-linkwrap" id="welink-${wdEsc(e.docId)}" style="display:none"><select class="we-linksel" data-welinksel="${wdEsc(e.docId)}">${wdLinkOptions(e)}</select></div></div>`}
-    <div class="we-actions">${arr?`<div class="we-icons">${delivIconsFor(arr)}</div>`:`<button class="we-act" data-wedelivered="${wdEsc(e.docId)}">Got it (remove)</button>`}<button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
   </div>`;
 }
 function renderDeliveries(){
@@ -1804,8 +1795,8 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#ddClose")){ calSelDay=null; renderCalendar(); return; }
   const cseg=e.target.closest("[data-calseg]"); if(cseg){ calShowMine=cseg.dataset.calseg==="mine"; document.querySelectorAll("#calSeg button").forEach(b=>b.classList.toggle("on",b===cseg)); renderCalendar(); return; }
   const wstar=e.target.closest("[data-wostar]"); if(wstar){ e.stopPropagation(); const job=wstar.dataset.wostar; if(job){ if(MY_JOBS.some(j=>normJob(j)===normJob(job))) removeJob(normJob(job)); else addJob(job); renderCalendar(); } return; }
-  const wtog=e.target.closest("[data-wotoggle]"); if(wtog){ const id=wtog.dataset.wotoggle; const b=$("wo-body-"+id),c=$("wo-chev-"+id); if(b){ const open=b.style.display==="none"; b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; } return; }
-  const wcat=e.target.closest("[data-wocats]"); if(wcat){ const id=wcat.dataset.wocats; const b=$("wo-cats-"+id),c=$("wo-cats-chev-"+id); if(b){ const open=b.style.display==="none"; b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; } return; }
+  const wtog=e.target.closest("[data-wotoggle]"); if(wtog){ const id=wtog.dataset.wotoggle; const open=!EXPANDED_WO.has(id); if(open)EXPANDED_WO.add(id); else EXPANDED_WO.delete(id); const b=$("wo-body-"+id),c=$("wo-chev-"+id); if(b)b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; return; }
+  const wcat=e.target.closest("[data-wocats]"); if(wcat){ const id=wcat.dataset.wocats; const open=!EXPANDED_WO_CATS.has(id); if(open)EXPANDED_WO_CATS.add(id); else EXPANDED_WO_CATS.delete(id); const b=$("wo-cats-"+id),c=$("wo-cats-chev-"+id); if(b)b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; return; }
   if(e.target.closest("#dlToggle")){ const w=$("dlListWrap"),c=$("dlChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
   if(e.target.closest("#delFbToggle")){ const w=$("delFbWrap"),c=$("delFbChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
   if(e.target.closest("#wdTestToggle")){ const w=$("wdTestWrap"),c=$("wdTestChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
@@ -1887,8 +1878,14 @@ onActivate($("photoReplace"),()=>{ if(camTarget)startCapture(camTarget); });
 onActivate($("photoRemove"),async()=>{ if(!camTarget||!adminUnlocked)return; const id=camTarget; if(!confirm("Remove this photo?"))return; try{ await deleteDoc(doc(db,"arrivalPhotos",id)); await setDoc(doc(db,"arrivals",id),{photoBy:"",updatedAt:serverTimestamp()},{merge:true}); closeModal("photoModal"); toast("Photo removed"); }catch(e){ toast("Remove failed: "+(e.code||e.message)); } });
 
 /* ---------- Arrival new/edit ---------- */
-$("btnLog").addEventListener("click",()=>{ editing=null; $("logTitle").textContent="Log Arrival"; $("logSubmit").textContent="Save arrival"; $("logDelete").style.display="none"; $("f_date").value=todayIso(); ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_location"].forEach(i=>$(i).value=""); $("jobnameHint").textContent=""; openModal("logModal"); setTimeout(()=>$("f_job").focus(),300); });
+$("btnLog").addEventListener("click",()=>{ editing=null; $("logTitle").textContent="Log Arrival"; $("logSubmit").textContent="Save arrival"; $("logDelete").style.display="none"; $("f_date").value=todayIso(); ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_location"].forEach(i=>$(i).value=""); $("jobnameHint").textContent=""; logPhotoReset();openModal("logModal"); setTimeout(()=>$("f_job").focus(),300); });
 $("f_job").addEventListener("input",()=>{ const j=normJob($("f_job").value),h=$("jobnameHint"); if(!isRealJob(j)){h.textContent="";return;} const f=distinctJobs().get(j); if(f&&f.jobName){h.textContent="Known job: "+f.jobName; if(!$("f_jobname").value)$("f_jobname").value=f.jobName;} else h.textContent=""; });
+/* Photo attached while logging an arrival — same compression + storage as the camera button. */
+let LOG_PHOTO="";
+function logPhotoReset(){ LOG_PHOTO=""; const p=$("f_photoPrev"); if(p)p.style.display="none"; const f=$("f_photoFile"); if(f)f.value=""; const b=$("f_photoBtn"); if(b)b.textContent="📷 Add photo"; }
+onActivate($("f_photoBtn"),()=>{ $("f_photoFile").value=""; $("f_photoFile").click(); });
+$("f_photoFile").addEventListener("change",async()=>{ const f=$("f_photoFile").files[0]; if(!f)return; try{ LOG_PHOTO=await compressPhoto(f); $("f_photoImg").src=LOG_PHOTO; $("f_photoPrev").style.display="block"; $("f_photoBtn").textContent="📷 Change photo"; }catch(e){ console.error(e); toast("Couldn't read that photo"); } });
+onActivate($("f_photoClear"),()=>logPhotoReset());
 onActivate($("logSubmit"),saveArrival);
 onActivate($("logDelete"),()=>{ if(editing&&editing.type==="arrival")doDelete("arrival",editing.id,true); });
 async function saveArrival(){
@@ -1901,6 +1898,12 @@ async function saveArrival(){
     let id;
     if(editing&&editing.type==="arrival"){ id=editing.id; await setDoc(doc(db,"arrivals",id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); }
     else{ id=makeId([rec.dateReceived,rec.po,normJob(rec.jobNumber),rec.description.slice(0,80)])+"-"+Date.now().toString(36); await setDoc(doc(db,"arrivals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); }
+    if(LOG_PHOTO){
+      const by=USER?(USER.first+" "+USER.last):"";
+      await setDoc(doc(db,"arrivalPhotos",id),{photo:LOG_PHOTO,addedBy:by,addedAt:serverTimestamp()});
+      await setDoc(doc(db,"arrivals",id),{photoBy:by,updatedAt:serverTimestamp()},{merge:true});
+      logPhotoReset();
+    }
     closeModal("logModal"); renderFeed(); renderJobs();
     toast(editing?"Arrival updated":"Arrival logged");
   }catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
@@ -1943,7 +1946,7 @@ async function saveTool(){
 
 /* ---------- Edit / delete ---------- */
 async function openEdit(type,id){
-  if(type==="arrival"){ const r=ARRIVALS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; $("logTitle").textContent="Edit Arrival"; $("logSubmit").textContent="Save changes"; $("logDelete").style.display="block"; $("f_date").value=r.dateReceived||todayIso(); $("f_po").value=r.po; $("f_job").value=r.jobNumber; $("f_req").value=r.requestedBy; $("f_jobname").value=r.jobName; $("f_desc").value=r.description; $("f_supplier").value=r.supplier; $("f_location").value=r.storageLocation||""; $("jobnameHint").textContent=""; openModal("logModal"); }
+  if(type==="arrival"){ const r=ARRIVALS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; $("logTitle").textContent="Edit Arrival"; $("logSubmit").textContent="Save changes"; $("logDelete").style.display="block"; $("f_date").value=r.dateReceived||todayIso(); $("f_po").value=r.po; $("f_job").value=r.jobNumber; $("f_req").value=r.requestedBy; $("f_jobname").value=r.jobName; $("f_desc").value=r.description; $("f_supplier").value=r.supplier; $("f_location").value=r.storageLocation||""; $("jobnameHint").textContent=""; logPhotoReset();openModal("logModal"); }
   else if(type==="rental"){ const r=RENTALS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; $("rentTitle").textContent="Edit Rental"; $("rentSubmit").textContent="Save changes"; $("rentDelete").style.display="block"; $("r_date").value=r.dateRented||todayIso(); $("r_id").value=r.rentalId; $("r_job").value=r.jobNumber; $("r_by").value=r.orderedBy; $("r_jobname").value=r.jobName; $("r_equip").value=r.equipment; $("r_rate").value=r.rate; $("r_vendor").value=r.vendor; $("r_status").value=/return/i.test(r.status)?"Returned":"Renting"; $("r_returned").value=r.dateReturned||""; $("r_po").value=r.po; $("rJobnameHint").textContent=""; openModal("rentalModal"); }
   else { const r=TOOLS.find(x=>x.id===id); if(!r)return; editing={type,id:r.id,seq:r.seq}; $("toolTitle").textContent="Edit Tool Rental"; $("toolSubmit").textContent="Save changes"; $("toolDelete").style.display="block"; $("t_job").value=r.jobNumber; $("t_jobname").value=r.jobName; $("t_type").value=r.toolType; $("t_id").value=r.toolId; $("t_start").value=r.rentalStarted||todayIso(); $("t_end").value=r.rentalEnded||""; $("t_days").value=r.billingDays||""; $("t_daily").value=r.dailyRate||""; $("t_total").value=r.billingTotal||""; $("t_disc").value=r.discountedRate||""; $("t_closed").checked=!!r.jobClosed; $("tJobnameHint").textContent=""; openModal("toolModal"); }
 }
@@ -2845,10 +2848,16 @@ function wdMatchArrival(job, itemText){
   return {arrivalId:"", state:"none", score:0};
 }
 
-// Fire the whole sync. Called from signInAs after a successful token, and from the manual button.
+// Fire the whole sync. Runs on sign-in / page load and from the Refresh buttons.
 async function wdAutoSync(opts={}){
   // A manual refresh can break a stuck lock from a prior run; auto-syncs still yield if one's active.
   if(wdSyncing){ if(!opts.manual) return; wdSyncing=false; }
+  // FRESHNESS GATE: if anyone on the team synced within the last 10 minutes, auto-syncs skip —
+  // the calendar already shows that data instantly from Firebase. Manual Refresh always runs.
+  if(!opts.manual && WD_ORDERS.length){
+    const newest=WD_ORDERS.reduce((m,o)=>Math.max(m,o.syncedAt||0),0);
+    if(newest && (Date.now()-newest)<10*60*1000){ wdSyncStatus("Orders up to date — synced "+Math.max(1,Math.round((Date.now()-newest)/60000))+" min ago", false, true); return; }
+  }
   // Mint a FRESH token right now (from stored company creds), so we never use a stale saved token.
   wdSyncStatus("Signing in to Webduct…");
   let tok="";
@@ -2856,36 +2865,55 @@ async function wdAutoSync(opts={}){
   else { tok=WD_TOKEN; }   // personal fallback (Deliveries)
   if(!tok){ if(opts.manual)toast("Connect Webduct in Admin first"); wdSyncStatus("No Webduct connection — set it up in Admin", true); return; }
   wdSyncing=true; wdSyncStatus("Pulling orders…");
-  // Absolute safety net: no matter what happens below, never leave the sync "stuck" forever.
   const watchdog=setTimeout(()=>{ if(wdSyncing){ wdSyncing=false; wdSyncStatus("Sync timed out — tap Refresh to try again", true); } }, 180000);
   try{
     const H={"Accept":"application/json", "Bearer":tok};
-    async function tryList(qs){ const r=await wdFetch("GET",WD_BASE+"/orders"+qs,{headers:H}); const arr=(r.json&&Array.isArray(r.json.data))?r.json.data:null; return {r,arr}; }
-    // First, the plain list.
+    async function tryList(qs){ const r=await wdFetch("GET",WD_BASE+"/orders"+qs,{headers:H}); const arr=(r.json&&Array.isArray(r.json.data))?r.json.data:null; return {r,arr,qs}; }
     let best=await tryList("");
     if(best.r.threw){ clearTimeout(watchdog); wdSyncStatus(best.r.timedOut?"Webduct didn't respond in time — tap Refresh":"Couldn't reach Webduct (network/CORS)", true); wdSyncing=false; return; }
     if(!best.r.ok){ clearTimeout(watchdog); wdSyncStatus("Webduct rejected the request ("+(best.r.status||"?")+") — check the company login", true); wdSyncing=false; return; }
-    // Only probe scope params if the plain list looks small / user-limited.
-    if(!best.arr || best.arr.length<50){
-      for(const qs of ["?all=true","?scope=company","?scope=all"]){
-        const t=await tryList(qs);
-        if(t.arr && (!best.arr || t.arr.length>best.arr.length)) best=t;
-        if(best.arr && best.arr.length>=50) break;
+    // COVERAGE: the plain list looks page-capped (~19 rows). Probe params that ask for more,
+    // keep whichever returns the most orders.
+    const baseCount=best.arr?best.arr.length:0;
+    for(const qs of ["?limit=500","?pageSize=500","?per_page=500","?count=500","?all=true","?scope=company"]){
+      const t=await tryList(qs);
+      if(t.arr && t.arr.length>(best.arr?best.arr.length:0)) best=t;
+      if(best.arr && best.arr.length>=400) break;
+    }
+    // If no param widened it, walk pages (?page=2,3…) and keep anything new.
+    let orders=(best.arr||[]).slice();
+    const seenNums=new Set(orders.map(o=>String(o.number)));
+    if(orders.length && orders.length===baseCount){
+      const sep=best.qs?"&":"?";
+      for(let p=2;p<=8;p++){
+        const t=await tryList(best.qs+sep+"page="+p);
+        const fresh=(t.arr||[]).filter(o=>!seenNums.has(String(o.number)));
+        if(!fresh.length) break;
+        fresh.forEach(o=>{ seenNums.add(String(o.number)); orders.push(o); });
+        if(orders.length>=600) break;
       }
     }
-    let orders=best.arr||[];
     const listPeople=new Set(orders.map(o=>{ const nm=(o.orderedBy?.name||o.orderedFor?.name||{}); return (o.orderedBy?.email||o.orderedFor?.email||((nm.first||"")+" "+(nm.last||""))).toLowerCase(); }).filter(Boolean));
-    // Keep only orders whose relevant date is within the last 2 months (for the calendar).
+    // Keep only orders in the 2-month calendar window, newest first.
     const cutoff=Date.now()-1000*60*60*24*62;
     const orderDate=o=>{ const d=new Date(o.requested||o.delivery?.date||o.ordered||0).getTime(); return isNaN(d)?0:d; };
     orders=orders.filter(o=>orderDate(o)>=cutoff);
-    orders.sort((a,b)=> orderDate(b)-orderDate(a));   // newest first
-    const cap=Math.min(orders.length, 60);   // keep the run bounded so mobile doesn't choke
-    let processed=0, equipCount=0, detailOk=0, detailFail=0;
-    const failCodes={};
-    const seenOrderDocs=new Set();
-    // Shared field extraction — works on EITHER a list header record or a full detail record,
-    // since Webduct's header response carries the same top-level fields, just with items:[] empty.
+    orders.sort((a,b)=> orderDate(b)-orderDate(a));
+    // INCREMENTAL: skip any order we already hold whose dateModified hasn't changed —
+    // no detail fetch, no writes. This is what makes day-to-day refreshes near-instant.
+    const held=new Map(WD_ORDERS.map(o=>[o.docId,o]));
+    const seenOrderDocs=new Set(); const todo=[]; let skipped=0;
+    for(const o of orders){
+      if(!o.number) continue;
+      const oDocId="wo-"+wdSlug(o.number);
+      seenOrderDocs.add(oDocId);
+      const ex=held.get(oDocId);
+      if(ex && ex.dateModified && o.dateModified && ex.dateModified===o.dateModified && !ex.detailUnavailable){ skipped++; continue; }
+      todo.push({o,oDocId});
+    }
+    const run=todo.slice(0,150);
+    const capNote=todo.length>run.length?` (+${todo.length-run.length} more next refresh)`:"";
+    let equipCount=0, detailFail=0; const failCodes={};
     function wdOrderBaseFields(src, withItems){
       const ob=src.orderedBy?.name||src.orderedFor?.name||{};
       const orderedByName=[ob.first, (ob.last||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim()].filter(Boolean).join(" ");
@@ -2902,7 +2930,7 @@ async function wdAutoSync(opts={}){
       });
       return {
         number:String(src.number), job:src.job?.number||"", jobName:src.job?.name||"", jobDesc:src.job?.description||"",
-        orderedBy:orderedByName, orderedByEmail,
+        orderedBy:orderedByName, orderedByEmail, dateModified:src.dateModified||"",
         orderedDate:src.ordered||"", requestedDate:src.requested||"", deliveryDate:src.delivery?.date||"",
         shipLabel:src.delivery?.shipping?.label||"", shipStatus:src.delivery?.status?.label||"",
         prodStatus:src.production?.status?.label||"", orderStatus:src.status?.label||"",
@@ -2913,46 +2941,52 @@ async function wdAutoSync(opts={}){
         syncedAt:Date.now()
       };
     }
-    for(let i=0;i<cap;i++){
-      const o=orders[i]; const num=o.number; if(!num) continue;
-      processed++; wdSyncStatus(`Reading order ${processed}/${cap}…`);
-      const oDocId="wo-"+wdSlug(num);
-      seenOrderDocs.add(oDocId);
-      // ALWAYS write a baseline record from the list header first, so an order never
-      // silently vanishes just because the next call (detail) fails for any reason.
-      await wdWriteOrder(oDocId, wdOrderBaseFields(o, false));
-      const detR=await wdFetch("GET",WD_BASE+"/orders/"+encodeURIComponent(num),{headers:H});
-      if(detR.threw||!detR.ok||!detR.json){ detailFail++; const code=detR.status||"blocked"; failCodes[code]=(failCodes[code]||0)+1; continue; }
-      const ord=detR.json.data||{}; detailOk++;
-      // Detail succeeded — overwrite with the richer, items-inclusive record.
-      await wdWriteOrder(oDocId, wdOrderBaseFields(ord, true));
-      const items=Array.isArray(ord.items)?ord.items:[];
-      const ob=ord.orderedBy?.name||ord.orderedFor?.name||{};
-      const orderedByName=[ob.first, (ob.last||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim()].filter(Boolean).join(" ");
-      // Maintain the equipment links (for Deliveries matching) — needs full item notes, so detail-only.
-      for(const it of items){
-        const io=it.order||{}; const pid=io.id||""; if(!pid.startsWith(WD_EQUIP_PREFIX)) continue;
-        equipCount++;
-        const job=ord.job?.number||"";
-        const m=wdMatchArrival(job, io.notes||"");
-        const docId="we-"+wdSlug(num)+"-"+wdSlug(io.ddoIndex||io.id||equipCount);
-        await wdWriteEquip(docId, {
-          orderNumber:String(num), job, jobName:ord.job?.name||"",
-          label:io.label||"", notes:io.notes||"", quantity:io.quantity!=null?io.quantity:null,
-          orderedBy:orderedByName,
-          orderedDate:ord.ordered||"", requestedDate:ord.requested||"", deliveryDate:ord.delivery?.date||"",
-          shipStatus:io.shipping?.status?.label||ord.delivery?.status?.label||"", orderStatus:ord.status?.label||"",
-          arrivalId:m.arrivalId, matchState:m.state, matchScore:Math.round(m.score*100)/100,
-          syncedAt:Date.now(), syncedBy:(USER?USER.first+" "+USER.last:"")
-        });
+    // PHASE 1 — batch-write header baselines for everything new/changed. One network round trip
+    // per 400 docs, so every calendar dot appears almost immediately.
+    if(fbReady && run.length){
+      wdSyncStatus(`Saving ${run.length} order headers…`);
+      for(let i=0;i<run.length;i+=400){
+        const b=writeBatch(db);
+        run.slice(i,i+400).forEach(({o,oDocId})=>{ b.set(doc(db,"webductOrders",oDocId), wdOrderBaseFields(o,false), {merge:true}); });
+        try{ await b.commit(); }catch(e){ console.error("batch",e); }
       }
     }
-    // Prune calendar orders that fell out of the 2-month window.
+    // PHASE 2 — pull full line-item detail, 6 orders at a time in parallel (was one-by-one).
+    for(let i=0;i<run.length;i+=6){
+      const chunk=run.slice(i,i+6);
+      wdSyncStatus(`Reading orders ${Math.min(i+chunk.length,run.length)}/${run.length}…`);
+      await Promise.all(chunk.map(async({o,oDocId})=>{
+        const num=o.number;
+        const detR=await wdFetch("GET",WD_BASE+"/orders/"+encodeURIComponent(num),{headers:H});
+        if(detR.threw||!detR.ok||!detR.json){ detailFail++; const code=detR.status||"blocked"; failCodes[code]=(failCodes[code]||0)+1; return; }
+        const ord=detR.json.data||{};
+        await wdWriteOrder(oDocId, wdOrderBaseFields(ord,true));
+        const items=Array.isArray(ord.items)?ord.items:[];
+        const ob=ord.orderedBy?.name||ord.orderedFor?.name||{};
+        const orderedByName=[ob.first, (ob.last||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim()].filter(Boolean).join(" ");
+        for(const it of items){
+          const io=it.order||{}; const pid=io.id||""; if(!pid.startsWith(WD_EQUIP_PREFIX)) continue;
+          equipCount++;
+          const job=ord.job?.number||"";
+          const m=wdMatchArrival(job, io.notes||"");
+          const docId="we-"+wdSlug(num)+"-"+wdSlug(io.ddoIndex||io.id||equipCount);
+          await wdWriteEquip(docId, {
+            orderNumber:String(num), job, jobName:ord.job?.name||"",
+            label:io.label||"", notes:io.notes||"", quantity:io.quantity!=null?io.quantity:null,
+            orderedBy:orderedByName,
+            orderedDate:ord.ordered||"", requestedDate:ord.requested||"", deliveryDate:ord.delivery?.date||"",
+            shipStatus:io.shipping?.status?.label||ord.delivery?.status?.label||"", orderStatus:ord.status?.label||"",
+            arrivalId:m.arrivalId, matchState:m.state, matchScore:Math.round(m.score*100)/100,
+            syncedAt:Date.now(), syncedBy:(USER?USER.first+" "+USER.last:"")
+          });
+        }
+      }));
+    }
     await wdPruneOrders(seenOrderDocs, cutoff);
     clearTimeout(watchdog);
-    const codeStr=Object.keys(failCodes).length?(" (detail blocked: "+Object.entries(failCodes).map(([c,n])=>c+"×"+n).join(", ")+")"):"";
-    wdSyncStatus(`Synced ${processed} orders from ${listPeople.size} people · ${detailOk} full detail, ${detailFail} header-only${codeStr} · ${equipCount} equipment items`, false, true);
-    if(opts.manual) toast(`Synced ${processed} orders from ${listPeople.size} people`);
+    const codeStr=Object.keys(failCodes).length?(" · detail blocked: "+Object.entries(failCodes).map(([c,n])=>c+"×"+n).join(", ")):"";
+    wdSyncStatus(`Synced ${run.length} new/changed of ${orders.length} orders · ${listPeople.size} people · ${skipped} unchanged skipped${capNote}${codeStr} · ${equipCount} equipment items`, false, true);
+    if(opts.manual) toast(`Synced ${run.length} orders · ${listPeople.size} people`);
   }catch(e){ console.error("wdAutoSync",e); clearTimeout(watchdog); wdSyncStatus("Sync error: "+(e&&e.message?e.message:"see console"), true); }
   wdSyncing=false;
 }
