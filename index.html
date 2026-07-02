@@ -1039,8 +1039,8 @@ let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for t
 let calShowMine=false;             // calendar: false = everyone's orders, true = just mine
 // User-adjustable order window (days back / days ahead from today), shared by the calendar sync
 // AND the admin tester so both pull the same range. Persisted per-device. Tighter default.
-let WD_WIN_BACK = parseInt(localStorage.getItem("wd_win_back")||"14",10);    // days before today
-let WD_WIN_FWD  = parseInt(localStorage.getItem("wd_win_fwd") ||"42",10);    // days after today
+let WD_WIN_BACK = parseInt(localStorage.getItem("wd_win_back")||"7",10);    // days before today
+let WD_WIN_FWD  = parseInt(localStorage.getItem("wd_win_fwd") ||"7",10);    // days after today
 function wdSaveWindow(back,fwd){
   WD_WIN_BACK=Math.max(0,Math.min(370,back|0)); WD_WIN_FWD=Math.max(0,Math.min(370,fwd|0));
   localStorage.setItem("wd_win_back",WD_WIN_BACK); localStorage.setItem("wd_win_fwd",WD_WIN_FWD);
@@ -1162,7 +1162,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="3.4";
+const APP_VERSION="3.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2180,10 +2180,11 @@ async function wdMintAdminToken(force){
 function wdHasAdmin(){ return !!(WD_ADMIN_CREDS && WD_ADMIN_CREDS.email && WD_ADMIN_CREDS.password); }
 // Any usable connection at all (company creds or a personal fallback token).
 function wdConnected(){ return wdHasAdmin() || !!WD_TOKEN; }
-// Best token available right now WITHOUT minting (for header-building helpers): prefer cached admin, then personal.
-function wdSyncToken(){ return WD_ADMIN_TOKEN || WD_TOKEN; }
-// The token the SYNC should use — mints a fresh one from creds first, falls back to personal.
-async function wdActiveSyncToken(){ const t=await wdMintAdminToken(false); return t || WD_TOKEN; }
+// Best token available right now WITHOUT minting. If the company account is connected, ONLY ever
+// use its token — never fall back to a personal token (prevents showing one person's data).
+function wdSyncToken(){ if(wdHasAdmin()) return WD_ADMIN_TOKEN; return WD_TOKEN; }
+// The token the SYNC should use — mints fresh from company creds; personal only if no company login.
+async function wdActiveSyncToken(){ if(wdHasAdmin()){ return await wdMintAdminToken(false); } return WD_TOKEN; }
 
 // Red/green light everywhere + the admin box status.
 function wdUpdateLights(){
@@ -2582,13 +2583,13 @@ onActivate($("wd_send"),async()=>{
   if(path==="/orders"){ path="/orders"+wdWindow().qs; }
   const url=base+path;
   const btn=$("wd_send"); btn.disabled=true; btn.textContent="Sending…";
-  // Mint a fresh token from the saved company login (same as the calendar), falling back to a
-  // personal tester login if one was done. This makes the tester a true mirror of production.
-  let tok=""; if(wdHasAdmin()) tok=await wdMintAdminToken(true); if(!tok) tok=wdActiveToken();
-  if(!tok){ $("wd_tokenHint").textContent="No Webduct connection — set up the company login in the Connection box above, or sign in below."; }
-  const headers={"Accept":"application/json", ...(tok?{"Bearer":tok}:{})};
+  // Use ONLY the shared company login (minted fresh). No fallback to any personal token, so the
+  // tester can never accidentally show one person's data in place of the company account's.
+  let tok=""; if(wdHasAdmin()){ tok=await wdMintAdminToken(true); }
+  if(!tok){ btn.disabled=false; btn.textContent="Send request"; $("wd_tokenHint").innerHTML="<span style='color:#c0341a'>No company login connected. Set it up in the Connection box above — the tester only uses the shared company account.</span>"; toast("Connect the company login first"); return; }
+  const headers={"Accept":"application/json", "Bearer":tok};
   let body=null;
-  if(/POST|PUT/.test(method)){ const raw=$("wd_body").value.trim(); if(raw){ try{ JSON.parse(raw); }catch(e){ toast("Body isn't valid JSON"); return; } headers["Content-Type"]="application/json"; body=raw; } }
+  if(/POST|PUT/.test(method)){ const raw=$("wd_body").value.trim(); if(raw){ try{ JSON.parse(raw); }catch(e){ btn.disabled=false; btn.textContent="Send request"; toast("Body isn't valid JSON"); return; } headers["Content-Type"]="application/json"; body=raw; } }
   const r=await wdFetch(method,url,{headers,body});
   wdShowResult(method+" "+path, r);
   btn.disabled=false; btn.textContent="Send request";
