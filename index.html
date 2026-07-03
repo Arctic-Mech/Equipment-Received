@@ -472,7 +472,7 @@
   .cal-cell.blank{background:transparent;border:none}
   .cal-cell.today{border-color:var(--hivis);border-width:2px}
   .cal-cell.has{cursor:pointer}
-  .cal-cell.sel{background:var(--ink);grid-column:span 2;grid-row:span 2;aspect-ratio:auto;align-items:stretch;justify-content:flex-start;padding:8px 9px;z-index:2}
+  .cal-cell.sel{background:var(--ink);grid-column:span 2;grid-row:span 4;aspect-ratio:auto;align-items:stretch;justify-content:flex-start;padding:10px 11px;z-index:2;overflow-y:auto}
   .cal-cell.sel .cal-num{color:#fff;font-size:20px;align-self:flex-start;margin-bottom:4px}
   .cal-cell.sel .cal-dots{margin-top:0;margin-bottom:6px;justify-content:flex-start}
   .cal-cell.sel .cal-jobnames{margin-top:2px}
@@ -521,6 +521,9 @@
   .wo-head-btns .wo-star{margin-left:0}
   .wo-card.hl{background:#fffbea;border-color:#f0d98a}
   .wo-notechips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 8px 30px}
+  .wo-catprev{display:flex;gap:5px;flex-wrap:wrap;padding:0 12px 9px 30px;cursor:pointer}
+  .wo-catprev-pill{font-size:10.5px;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;color:var(--steel);background:var(--surface);border:1px solid var(--line-soft);border-radius:5px;padding:2px 7px}
+  .wo-catprev-pill b{color:var(--ink);font-weight:700;margin-left:1px}
   .wo-notechip{font-size:11.5px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:2px 9px;color:var(--ink)}
   .wo-extranote{margin:0 12px 10px 30px;padding:8px 10px;background:#fffbea;border:1px solid #f0d98a;border-radius:8px;font-size:12.5px;color:var(--ink);line-height:1.4;white-space:pre-wrap}
   .wo-cat-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
@@ -1253,7 +1256,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="3.9";
+const APP_VERSION="4.0";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1837,14 +1840,17 @@ function renderCalendar(){
     if(pickupN)  marks+=`<span class="cal-mk"><span class="cal-emoji">🆙</span><span class="cal-mkn">${pickupN}</span></span>`;
     if(hasArrReq) marks+=`<span class="cal-mk"><span class="cal-dot req"></span><span class="cal-mkn">${hasArrReq}</span></span>`;
     if(hasDone) marks+='<span class="cal-dot done"></span>';
-    // Job names only render on the currently-selected day (keeps other cells clean).
+    // Job names only render on the currently-selected day, in the SAME order as the list below
+    // (equipment first, then job-site deliveries, then pickups).
     let nameRows=[];
     if(isSel){
+      const tier=o=>o.hasEquip?0:(o.shipType==="jobsite"?1:2);
       const seen=new Set();
-      orders.slice().sort((a,b)=>(a.shipType==="jobsite"?0:1)-(b.shipType==="jobsite"?0:1)).forEach(o=>{
+      orders.slice().sort((a,b)=>tier(a)-tier(b)).forEach(o=>{
         const nm=(o.jobName||o.job||"").trim(); if(!nm||seen.has(nm.toLowerCase()))return; seen.add(nm.toLowerCase());
         const n=wdNotesFor(o.docId); const t=n.deliveryTime||"";
-        nameRows.push(`<span class="cal-jobname">${o.shipType==="jobsite"?"🚚":"🆙"} ${wdEsc(nm)}${t?`<span class="cal-jobtime">${wdEsc(t)}</span>`:""}</span>`);
+        const ic=o.hasEquip?"📦":(o.shipType==="jobsite"?"🚚":"🆙");
+        nameRows.push(`<span class="cal-jobname">${ic} ${wdEsc(nm)}${t?`<span class="cal-jobtime">${wdEsc(t)}</span>`:""}</span>`);
       });
     }
     html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''} ${isSel?'sel':''}" ${has?`data-calday="${key}"`:""}>
@@ -1935,6 +1941,7 @@ function wdOrderCard(o){
       </span>
     </div>
     <div class="wo-sub" data-wotoggle="${wdEsc(o.docId)}">${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}${orderedByClean?` · by ${wdEsc(orderedByClean)}`:""}${o.orderedDate?` · placed ${wdEsc(wdDate(o.orderedDate))}`:""}</div>
+    ${groupNames.length?`<div class="wo-catprev" data-wotoggle="${wdEsc(o.docId)}">${groupNames.map(g=>`<span class="wo-catprev-pill">${wdEsc(g)} <b>${groups[g].length}</b></span>`).join("")}</div>`:""}
     ${wdHasDisplayNotes(n)?`<div class="wo-notechips">${n.deliveryTime?`<span class="wo-notechip">🕒 ${wdEsc(n.deliveryTime)}</span>`:""}${n.truck?`<span class="wo-notechip">🚚 ${wdEsc(n.truck)}</span>`:""}</div>`:""}
     ${wdHasExtraNotes(n)?`<div class="wo-extranote" id="wo-extra-${wdEsc(o.docId)}" style="display:${notesOpen?'block':'none'}">📝 ${wdEsc(n.extra)}</div>`:""}
     <div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:${open?"block":"none"}">
