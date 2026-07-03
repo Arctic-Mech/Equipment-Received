@@ -473,13 +473,21 @@
   .cal-cell.today{border-color:var(--hivis);border-width:2px}
   .cal-cell.has{cursor:pointer}
   .cal-cell.sel{background:var(--ink);grid-column:1 / -1;grid-row:auto;aspect-ratio:auto;height:auto;min-height:0;align-items:stretch;justify-content:flex-start;padding:12px 14px;z-index:2}
-  .cal-cell.sel .cal-num{color:#fff;font-size:20px;align-self:flex-start;margin-bottom:8px}
+  .cal-day-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .cal-day-head .cal-num{color:#fff;font-size:22px}
+  .cal-day-close{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:#fff;background:rgba(255,255,255,.16);padding:5px 12px;border-radius:7px}
   .cal-cell.sel .cal-dots{margin:0 0 10px;justify-content:flex-start}
-  .cal-cell.sel .cal-jobnames{margin-top:0;gap:0}
-  .cal-cell.sel .cal-jobname{display:flex;justify-content:space-between;align-items:baseline;gap:14px;font-size:14px;line-height:1.5;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.14);white-space:normal;overflow:visible;max-width:none}
-  .cal-cell.sel .cal-jobname:last-child{border-bottom:none}
-  .cal-cell.sel .cal-jn-name{flex:1;min-width:0}
-  .cal-cell.sel .cal-jobtime{flex:none;background:rgba(255,255,255,.16);color:#fff;font-family:'JetBrains Mono';font-size:12px;font-weight:600;padding:2px 9px;border-radius:20px;margin-left:0}
+  .cal-cell.sel .cal-jobnames{display:flex;flex-direction:column;gap:0}
+  .cal-jobrow{border-bottom:1px solid rgba(255,255,255,.14)}
+  .cal-jobrow:last-child{border-bottom:none}
+  .cal-jobline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
+  .cal-jn-name{flex:1;min-width:0;color:#fff;font-size:14px;line-height:1.4;cursor:pointer;display:flex;align-items:center;gap:5px}
+  .cal-jn-chev{color:rgba(255,255,255,.6);font-size:11px}
+  .cal-jn-btns{flex:none;display:flex;gap:6px}
+  .cal-jn-time,.cal-jn-truck{font-family:'JetBrains Mono';font-size:11.5px;font-weight:600;color:#fff;background:rgba(255,255,255,.18);padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .cal-jn-add{font-size:15px;background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.35);border-radius:20px;padding:2px 9px;line-height:1.2}
+  .cal-jobcard{margin:2px 0 10px;background:var(--surface);border-radius:11px;padding:2px}
+  .cal-jobcard .wo-card{margin:0;box-shadow:none;border:none}
   .cal-num{font-family:'Barlow Condensed';font-weight:600;font-size:15px;color:var(--ink);line-height:1}
   .cal-mk{display:inline-flex;align-items:center;gap:1px}
   .cal-mkn{font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel)}
@@ -1273,7 +1281,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.2";
+const APP_VERSION="4.3";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1806,6 +1814,7 @@ function deliveryRow(r){ const job=normJob(r.jobNumber); return `<div class="aca
 
 /* ---------- Deliveries calendar ---------- */
 let calYear, calMonth, calSelDay=null;   // selected day = "YYYY-MM-DD"
+let calDayOpenJob=null;                  // docId of the one order expanded inside the day cell (only one at a time)
 function dateKeyLocal(iso){ if(!iso)return ""; const d=new Date(iso); if(isNaN(d))return ""; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 // Build a map of day-key → {req:[arrivals], done:[arrivals], wd:[equip]} for the visible month.
 // Is this order/job "mine"? (ordered by my email, or on a job I've starred.)
@@ -1858,23 +1867,39 @@ function renderCalendar(){
     if(hasArrReq) marks+=`<span class="cal-mk"><span class="cal-dot req"></span><span class="cal-mkn">${hasArrReq}</span></span>`;
     if(hasDone) marks+='<span class="cal-dot done"></span>';
     // Job names only render on the currently-selected day, in the SAME order as the list below
-    // (equipment first, then job-site deliveries, then pickups).
-    let nameRows=[];
+    // (equipment first, then job-site deliveries, then pickups). Each row has editable time + truck,
+    // and clicking the name expands the full order card inline (one open at a time).
+    let dayInner="";
     if(isSel){
       const tier=o=>o.hasEquip?0:(o.shipType==="jobsite"?1:2);
-      const seen=new Set();
+      const seen=new Set(); const rows=[];
       orders.slice().sort((a,b)=>tier(a)-tier(b)).forEach(o=>{
         const nm=(o.jobName||o.job||"").trim(); if(!nm||seen.has(nm.toLowerCase()))return; seen.add(nm.toLowerCase());
-        const n=wdNotesFor(o.docId); const t=n.deliveryTime||"";
+        const nn=wdNotesFor(o.docId); const t=nn.deliveryTime||""; const tk=nn.truck||"";
         const ic=o.hasEquip?"📦":(o.shipType==="jobsite"?"🚚":"🆙");
-        nameRows.push(`<span class="cal-jobname"><span class="cal-jn-name">${ic} ${wdEsc(nm)}</span>${t?`<span class="cal-jobtime">${wdEsc(t)}</span>`:""}</span>`);
+        const isOpen=calDayOpenJob===o.docId;
+        const timeBtn=t?`<button class="cal-jn-time" data-caltime="${wdEsc(o.docId)}">⏱ ${wdEsc(t)}</button>`:`<button class="cal-jn-add" data-caltime="${wdEsc(o.docId)}" title="Add delivery time">⏰</button>`;
+        const truckBtn=tk?`<button class="cal-jn-truck" data-caltruck="${wdEsc(o.docId)}">🚚 ${wdEsc(tk)}</button>`:`<button class="cal-jn-add" data-caltruck="${wdEsc(o.docId)}" title="Add truck #">🚚</button>`;
+        rows.push(`<div class="cal-jobrow ${isOpen?'open':''}">
+          <div class="cal-jobline">
+            <span class="cal-jn-name" data-caljob="${wdEsc(o.docId)}">${ic} ${wdEsc(nm)} <span class="cal-jn-chev">${isOpen?"▾":"▸"}</span></span>
+            <span class="cal-jn-btns">${timeBtn}${truckBtn}</span>
+          </div>
+          ${isOpen?`<div class="cal-jobcard">${wdOrderCard(o)}</div>`:""}
+        </div>`);
       });
+      dayInner=`<div class="cal-day-head"><span class="cal-num">${day}</span><button class="cal-day-close" data-calclose="1">✕ Close</button></div>
+        <span class="cal-dots">${marks}</span>
+        <div class="cal-jobnames">${rows.join("")}</div>`;
     }
-    html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''} ${isSel?'sel':''}" ${has?`data-calday="${key}"`:""}>
-      <span class="cal-num">${day}</span>
-      ${nameRows.length?`<div class="cal-jobnames">${nameRows.join("")}</div>`:""}
-      <span class="cal-dots">${marks}</span>
-    </div>`;
+    if(isSel){
+      html+=`<div class="cal-cell today-${key===todayKey?'1':'0'} has sel" data-calday="${key}">${dayInner}</div>`;
+    } else {
+      html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''}" ${has?`data-calday="${key}"`:""}>
+        <span class="cal-num">${day}</span>
+        <span class="cal-dots">${marks}</span>
+      </div>`;
+    }
   }
   grid.innerHTML=html;
   renderDayDetail();
@@ -1911,6 +1936,16 @@ function wdDetectShipType(src){
   return "pickup";
 }
 function wdNotesFor(docId){ return WD_NOTES[docId]||{}; }
+// Quick inline edit of a single note field (delivery time or truck) via prompt. Writes to the
+// shared notes doc, so both the calendar day view AND the list below update together.
+async function wdQuickNote(docId, field, label){
+  if(!fbReady){ toast("No connection — can't save"); return; }
+  const cur=wdNotesFor(docId)[field]||"";
+  const val=prompt(label, cur);
+  if(val===null) return;   // cancelled
+  try{ await setDoc(doc(db,"webductOrderNotes",docId),{[field]:val.trim(),updatedAt:serverTimestamp()},{merge:true}); toast(val.trim()?"Saved":"Cleared"); }
+  catch(e){ console.error("quicknote save",e); toast("Couldn't save — add the webductOrderNotes Firestore rule"); }
+}
 // Find the synced WD_EQUIP entry that corresponds to a given order line item (same order #, same label).
 function wdEquipEntryFor(orderNumber, it){
   const num=String(orderNumber);
@@ -2050,9 +2085,13 @@ async function wdLoadArrivalThumbs(){
 document.addEventListener("click",e=>{
   if(e.target.closest("#calPrev")){ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); return; }
   if(e.target.closest("#calNext")){ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); return; }
-  if(e.target.closest("#calToday")){ const n=new Date(); calYear=n.getFullYear(); calMonth=n.getMonth(); calSelDay=dateKeyLocal(n.toISOString()); renderCalendar(); return; }
-  const cd=e.target.closest("[data-calday]"); if(cd){ calSelDay=(calSelDay===cd.dataset.calday)?null:cd.dataset.calday; renderCalendar(); return; }
-  if(e.target.closest("#ddClose")){ calSelDay=null; renderCalendar(); return; }
+  if(e.target.closest("#calToday")){ const n=new Date(); calYear=n.getFullYear(); calMonth=n.getMonth(); calSelDay=dateKeyLocal(n.toISOString()); calDayOpenJob=null; renderCalendar(); return; }
+  if(e.target.closest("[data-calclose]")){ calSelDay=null; calDayOpenJob=null; renderCalendar(); return; }
+  const caltime=e.target.closest("[data-caltime]"); if(caltime){ e.stopPropagation(); wdQuickNote(caltime.dataset.caltime,"deliveryTime","Delivery time (e.g. 7:30 AM)"); return; }
+  const caltruck=e.target.closest("[data-caltruck]"); if(caltruck){ e.stopPropagation(); wdQuickNote(caltruck.dataset.caltruck,"truck","Truck # / name"); return; }
+  const caljob=e.target.closest("[data-caljob]"); if(caljob){ e.stopPropagation(); const id=caljob.dataset.caljob; calDayOpenJob=(calDayOpenJob===id)?null:id; renderCalendar(); return; }
+  const cd=e.target.closest("[data-calday]"); if(cd){ if(calSelDay===cd.dataset.calday){ /* already open — clicks inside handled above; ignore */ return; } calSelDay=cd.dataset.calday; calDayOpenJob=null; renderCalendar(); return; }
+  if(e.target.closest("#ddClose")){ calSelDay=null; calDayOpenJob=null; renderCalendar(); return; }
   const cseg=e.target.closest("[data-calseg]"); if(cseg){ calShowMine=cseg.dataset.calseg==="mine"; document.querySelectorAll("#calSeg button").forEach(b=>b.classList.toggle("on",b===cseg)); renderCalendar(); return; }
   const wstar=e.target.closest("[data-wostar]"); if(wstar){ e.stopPropagation(); const job=wstar.dataset.wostar; if(job){ if(MY_JOBS.some(j=>normJob(j)===normJob(job))) removeJob(normJob(job)); else addJob(job); renderDeliveries(); } return; }
   const whl=e.target.closest("[data-wohl]"); if(whl){ e.stopPropagation(); wdToggleHighlight(whl.dataset.wohl); return; }
