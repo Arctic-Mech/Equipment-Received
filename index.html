@@ -563,6 +563,10 @@
   .wia-badge{font-family:'Barlow Condensed';font-weight:700;font-size:10px;letter-spacing:.03em;padding:2px 7px;border-radius:5px}
   .wia-badge.green{background:#cdeede;color:#0d7a73} .wia-badge.amber{background:#fdecd8;color:#8a4b00}
   .wia-badge.partial{background:#ffe4c2;color:#8a4b00}
+  .wia-badge.complete{background:#cdeede;color:#0d7a73}
+  .ptoggle{cursor:pointer;border:none}
+  .ac-copy{background:none;font-size:15px;padding:2px 4px;line-height:1;opacity:.65}
+  .ac-copy:active{opacity:1}
   .wia-note{margin-top:8px}
   .wia-notebtn{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;font-size:11.5px;color:var(--steel);background:var(--card);border:1px solid var(--line);border-radius:7px;padding:5px 11px}
   .wia-notebtn.on{background:#fffbea;border-color:#f0d98a;color:#8a4b00}
@@ -594,6 +598,8 @@
   .dl-sf{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;font-size:12.5px;color:var(--steel);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 14px}
   .dl-sf.on{background:var(--blue);color:#fff;border-color:var(--blue)}
   .cal-layout{display:block}
+  .cal-lastsync{font-size:11px;color:var(--steel-light);margin-bottom:8px}
+  .arr-viewseg button{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em}
   .cal-cnt{position:absolute;top:3px;right:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel-light)}
   .cal-cell.sel .cal-cnt{color:#fff}
   .cal-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px;font-size:11.5px;color:var(--steel)}
@@ -725,6 +731,7 @@
   .we-stat{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px;padding:2px 8px;border-radius:6px;background:var(--line-soft);color:var(--steel)}
   .we-stat.green{background:var(--teal-soft);color:var(--teal)} .we-stat.amber{background:#fff4e5;color:#8a4b00} .we-stat.blue{background:#e7e7fb;color:#2a2a9e}
   .we-stat.partial{background:#ffe4c2;color:#8a4b00}
+  .we-stat.complete{background:var(--teal-soft);color:var(--teal)}
   .we-usernote{margin-top:6px;padding:7px 10px;background:#fffbea;border:1px solid #f0d98a;border-radius:8px;font-size:12.5px;color:var(--ink);line-height:1.4;white-space:pre-wrap}
   .ac-wd-stat.partial{color:#8a4b00}
   .we-label{font-weight:700;font-size:14px;color:var(--ink)}
@@ -773,6 +780,9 @@
   /* Webduct strip on arrival cards */
   .ac-wd{margin:2px 0 4px;display:flex;flex-direction:column;gap:6px}
   .ac-wd-row{display:flex;gap:9px;background:#f4f0ff;border:1px solid #ded4ff;border-radius:9px;padding:8px 10px}
+  .wo-jump{cursor:pointer;align-items:center}
+  .wo-jump:active{background:#ebe3ff}
+  .wo-jump-arrow{margin-left:auto;color:#5b3fd6;font-weight:700;font-size:16px}
   .ac-wd-tag{flex:none;font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;font-size:10px;color:#5b3fd6;background:#e7dfff;padding:2px 6px;border-radius:5px;height:fit-content}
   .ac-wd-body{flex:1;min-width:0;font-size:12.5px;color:var(--ink);line-height:1.45}
   .ac-wd-stat{font-weight:600;color:#8a4b00}
@@ -802,12 +812,24 @@
 <main>
   <!-- ARRIVALS -->
   <section class="view active" id="view-feed">
+    <div class="seg arr-viewseg" id="arrViewSeg" style="margin:0 14px 10px"><button data-arrview="list" class="on">List</button><button data-arrview="cal">Calendar</button></div>
+    <div id="arrListWrap">
     <div class="controls">
       <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="feedSearch" type="search" placeholder="Search job #, item, supplier…" autocomplete="off"><button class="clr" id="feedClr" style="display:none">Clear</button></div>
       <div class="selwrap"><select class="filter" id="monthSel"><option value="">All months</option></select></div>
     </div>
     <div class="meta-row"><span id="feedMeta">Loading…</span><span>Newest first</span></div>
     <div id="feedList" class="rows"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+    </div>
+    <div id="arrCalWrap" style="display:none">
+      <div class="cal-wrap">
+        <div class="cal-nav"><button class="cal-arrow" id="arrPrev">‹</button><div class="cal-title" id="arrTitle">—</div><button class="cal-arrow" id="arrNext">›</button></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px"><button class="cal-today" id="arrToday" style="margin:0">Today</button></div>
+        <div class="cal-grid" id="arrGrid"></div>
+        <div class="cal-legend"><span><i class="lg-dot req"></i> Delivery wanted</span><span><i class="lg-dot done"></i> Delivered</span></div>
+      </div>
+      <div id="arrDayDetail" class="day-detail" style="display:none"></div>
+    </div>
   </section>
 
   <!-- RENTALS -->
@@ -846,6 +868,7 @@
         <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px;flex-wrap:wrap"><button class="cal-today" id="calToday" style="margin:0">Today</button><div class="seg" id="calSeg" style="box-shadow:none"><button data-calseg="all" class="on">Everyone</button><button data-calseg="mine">Just mine</button></div><button class="cal-refresh" id="calRefreshBtn">⟳ Refresh</button></div>
         <div class="wd-winbar"><span class="wd-winbar-lab">Pull orders:</span><input id="calWinBack" class="wd-win-in" type="number" min="0" max="370" inputmode="numeric"> <span class="wd-win-unit">days back →</span> <input id="calWinFwd" class="wd-win-in" type="number" min="0" max="370" inputmode="numeric"> <span class="wd-win-unit">days ahead</span><button id="calWinApply" class="wd-win-apply">Apply</button></div>
         <div class="wd-sync-msg" id="calSyncMsg" style="text-align:center;margin-bottom:8px"></div>
+        <div class="cal-lastsync" id="calLastSync" style="text-align:center"></div>
         <div class="cal-grid" id="calGrid"></div>
         <div class="cal-legend"><span>📦 Equipment</span><span>🚚 Job site</span><span>🆙 Pickup</span><span><i class="lg-dot done"></i> Delivered</span></div>
       </div>
@@ -1080,9 +1103,9 @@
   <div class="modal-body">
     <div id="signStep1">
       <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 16px">Your name links the jobs you request and lets others share with you. Saved to your account so it carries across devices.</p>
-      <div class="field-2"><div class="field"><label>First name <span class="req">*</span></label><input id="n_first" type="text" placeholder="e.g. Pete" autocomplete="off"></div><div class="field"><label>Last name <span class="req">*</span></label><input id="n_last" type="text" placeholder="e.g. Martin" autocomplete="off"></div></div>
+      <div class="field-2"><div class="field"><label>First name <span class="req">*</span></label><input id="n_first" type="text" placeholder="e.g. Jerry" autocomplete="off"></div><div class="field"><label>Last name <span class="req">*</span></label><input id="n_last" type="text" placeholder="e.g. Rose" autocomplete="off"></div></div>
       <div class="people-sug" id="nameSug"></div>
-      <div class="field"><label>Email <span class="req">*</span></label><input id="si_email" type="email" placeholder="[email protected]" autocomplete="email" spellcheck="false"><div class="hint" id="n_emailHint"></div></div>
+      <div class="field"><label>Email <span style="color:var(--steel-light);font-weight:400">(optional)</span></label><input id="si_email" type="email" placeholder="[email protected]" autocomplete="email" spellcheck="false"><div class="hint" id="n_emailHint"></div></div>
       <button class="submit" id="nameSubmit">Save &amp; continue</button>
       <button class="del-link" id="nameCancel" style="display:none;color:var(--steel)">Cancel</button>
     </div>
@@ -1201,6 +1224,14 @@ let SHARES=[];                      // pending shares addressed to me
 let WD_EQUIP=[];                    // Webduct shop-equipment order items (synced) {docId, order#, job, dates, status, notes, label, arrivalId, matchState}
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
 let WD_NOTES={};                    // per-order notes keyed by order docId {deliveryTime, truck, extra, highlight}
+let WD_LAST_SYNC=null;              // {by, at, summary} — who forced the last refresh and when
+function wdRenderLastSync(){
+  if(!WD_LAST_SYNC) return;
+  const el=$("calLastSync"); if(!el) return;
+  const ago=Math.max(0,Math.round((Date.now()-(WD_LAST_SYNC.at||0))/60000));
+  const when=ago<1?"just now":ago<60?`${ago} min ago`:`${Math.round(ago/60)} hr ago`;
+  el.textContent=`Last synced ${when} by ${WD_LAST_SYNC.by||"someone"}`;
+}
 let WD_EQNOTES={};                  // per-equipment notes keyed by equipment docId {text} — synced across pages
 let calShipFilter="all";           // list filter: all | jobsite | pickup
 const WD_ORDER_SCHEMA=2;           // bump to force a one-time re-sync of all orders (e.g. shipType change)
@@ -1208,7 +1239,7 @@ let calShowMine=false;             // calendar: false = everyone's orders, true 
 // User-adjustable order window (days back / days ahead from today), shared by the calendar sync
 // AND the admin tester so both pull the same range. Persisted per-device. Tighter default.
 let WD_WIN_BACK = parseInt(localStorage.getItem("wd_win_back")||"7",10);    // days before today
-let WD_WIN_FWD  = parseInt(localStorage.getItem("wd_win_fwd") ||"7",10);    // days after today
+let WD_WIN_FWD  = parseInt(localStorage.getItem("wd_win_fwd") ||"30",10);   // days after today
 function wdSaveWindow(back,fwd){
   WD_WIN_BACK=Math.max(0,Math.min(370,back|0)); WD_WIN_FWD=Math.max(0,Math.min(370,fwd|0));
   localStorage.setItem("wd_win_back",WD_WIN_BACK); localStorage.setItem("wd_win_fwd",WD_WIN_FWD);
@@ -1345,7 +1376,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="5.2";
+const APP_VERSION="5.3";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1357,8 +1388,9 @@ function startSync(){
   onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>console.error("shares",e));
   onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>console.error("webductEquip",e));
   onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>console.error("webductOrders",e));
+  onSnapshot(doc(db,"config","lastSync"),snap=>{ if(snap.exists()){ WD_LAST_SYNC=snap.data(); wdRenderLastSync(); } }, e=>console.error("lastSync",e));
   onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>console.error("webductOrderNotes",e));
-  onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); }, e=>console.error("webductEquipNotes",e));
+  onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>console.error("webductEquipNotes",e));
   wdWatchAdminKey();
 }
 let lastJobEdit=0;
@@ -1398,7 +1430,8 @@ function arrivalRow(r,opts={}){
     const stat = r.delivered ? "Delivered" : (e.shipStatus||"");
     const statCls = r.delivered ? "ac-wd-stat delivered" : "ac-wd-stat";
     const partialTag = e.partial ? ` · <span class="ac-wd-stat partial">◑ PARTIAL</span>` : "";
-    return `<div class="ac-wd-row"><span class="ac-wd-tag">WEBDUCT</span><div class="ac-wd-body"><b>Order ${esc(e.orderNumber)}</b>${e.orderedDate?` · ordered ${esc(wdDate(e.orderedDate))}`:""}${e.requestedDate?`<br>Field wants delivered: <b>${esc(wdDate(e.requestedDate))}</b>`:""}${stat?` · <span class="${statCls}">${esc(stat)}</span>`:""}${partialTag}</div></div>`;
+    const noteBlock = (typeof wdEquipNoteBlock==="function") ? wdEquipNoteBlock(e) : "";
+    return `<div class="ac-wd-wrap"><div class="ac-wd-row wo-jump" data-wojump="${esc(e.orderNumber)}" title="View in Deliveries"><span class="ac-wd-tag">WEBDUCT</span><div class="ac-wd-body"><b>Order ${esc(e.orderNumber)}</b>${e.orderedDate?` · ordered ${esc(wdDate(e.orderedDate))}`:""}${e.requestedDate?`<br>Field wants delivered: <b>${esc(wdDate(e.requestedDate))}</b>`:""}${stat?` · <span class="${statCls}">${esc(stat)}</span>`:""}${partialTag}</div><span class="wo-jump-arrow">→</span></div>${noteBlock}</div>`;
   }).join("")}</div>` : "";
   const extra=`<div class="acard-extra">
       <div class="extra-chips">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">Req: ${esc(r.requestedBy)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}${!r.supplier&&!r.po&&!r.requestedBy?'<span class="m none">No extra details</span>':""}</div>
@@ -1409,7 +1442,7 @@ function arrivalRow(r,opts={}){
     <div class="acard-head" data-expand="${esc(r.id)}">
       <div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
       <div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div>
-      <div class="ac-icons">${opts.star!==false?starMini(job):""}${cam}${deliv}<span class="ac-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+      <div class="ac-icons">${opts.star!==false?starMini(job):""}<button class="ac-copy" data-copyname="${esc(r.description||"")}" title="Copy arrival name">📋</button>${cam}${deliv}<span class="ac-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
       <div class="ac-desc">${esc(r.description)||"<span style='color:var(--steel-light)'>No description</span>"}</div>
       <div class="ac-foot"><span class="ac-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></span>${place}${partial}${newTag}</div>
     </div>
@@ -1460,6 +1493,7 @@ function refreshMonths(){
 
 /* ---------- Render: Arrivals ---------- */
 function renderFeed(){
+  if(arrViewMode==="cal" && typeof renderArrCalendar==="function") renderArrCalendar();
   const q=$("feedSearch").value.trim().toLowerCase(),month=$("monthSel").value;
   $("feedClr").style.display=q?"block":"none";
   let rows=ARRIVALS;
@@ -1703,7 +1737,24 @@ function setView(name,fromHash){
   if(!fromHash){ const h="#"+hashForView(name); if(location.hash!==h) history.replaceState(null,"",h); }
 }
 document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>setView(t.dataset.view)));
-window.addEventListener("hashchange",()=>{ const v=viewForHash(location.hash.replace("#","")); if(v)setView(v,true); });
+// Jump from a WEBDUCT order strip (Arrivals / My Jobs) straight to that order in Deliveries.
+function wdJumpToOrder(orderNumber){
+  const o=WD_ORDERS.find(x=>String(x.number)===String(orderNumber));
+  if(!o){ setView("deliveries"); toast("Order not on the calendar (outside the pull window)"); return; }
+  const iso=o.requestedDate||o.deliveryDate||o.orderedDate||"";
+  const key=iso?dateKeyLocal(iso):"";
+  if(key){ const d=new Date(iso); calYear=d.getFullYear(); calMonth=d.getMonth(); calSelDay=key; calDayOpenJob="job|"+String(o.jobName||o.job||"").trim().toLowerCase(); }
+  setView("deliveries");
+  toast(`Order ${orderNumber} · ${o.jobName||o.job||""}`);
+}
+window.addEventListener("hashchange",()=>{
+  const raw=location.hash.replace("#","");
+  const v=viewForHash(raw);
+  if(v){ setView(v,true); }
+  // If the hash points at a person not yet loaded, remember it and resolve once PEOPLE arrives.
+  else if(raw && raw!=="arrivals" && !VALID_VIEWS.includes(raw)){ PENDING_VIEWAS_HASH=raw; }
+});
+let PENDING_VIEWAS_HASH="";
 function resolvePendingHash(){ const h=location.hash.replace("#",""); if(!h)return; const v=viewForHash(h); if(v)setView(v,true); }
 
 /* ---------- Filters ---------- */
@@ -1813,7 +1864,8 @@ onActivate($("vabBack"),()=>{ VIEW_AS=null; setView("jobs"); });
 onActivate($("nameSubmit"),async()=>{
   const f=$("n_first").value.trim(),l=$("n_last").value.trim(),em=$("si_email").value.trim();
   if(!f||!l){toast("Enter first and last name");return;}
-  if(!em||!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");$("si_email").focus();return;}
+  // Email is optional, but if provided it must be valid.
+  if(em&&!/^\S+@\S+\.\S+$/.test(em)){toast("That email doesn't look right");$("si_email").focus();return;}
   await signInAs(f,l,em,"");
 });
 
@@ -1905,11 +1957,59 @@ function delivIconsFor(r){
   const cam=`<button class="mini-btn cam ${hasPhoto?'has':''}" data-cam="${esc(r.id)}" title="${hasPhoto?'Photo by '+esc(r.photoBy):'Add photo'}"><svg width="17" height="17" viewBox="0 0 24 24" fill="${hasPhoto?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></button>`;
   const shr=`<button class="mini-btn" data-share="${esc(r.id)}" title="Share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"></line></svg></button>`;
   const deliv=`<button class="mini-btn deliv-btn ${r.delivered?'set':''}" data-deliv="${esc(r.id)}" title="Edit delivery"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></button>`;
-  return cam+shr+deliv;
+  const cpy=`<button class="mini-btn" data-copyname="${esc(r.description||"")}" title="Copy arrival name"><span style="font-size:15px">📋</span></button>`;
+  return cam+cpy+shr+deliv;
 }
 function deliveryRow(r){ const job=normJob(r.jobNumber); return `<div class="acard open" data-type="arrival" data-id="${esc(r.id)}"><div class="acard-head" style="cursor:default"><div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div><div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div><div class="ac-icons">${delivIconsFor(r)}</div><div class="ac-desc">${esc(r.description)||""}</div><div class="ac-foot">${r.delivered?`<span class="m deliv">✓ Delivered${r.deliveredDate?" "+esc(longDate(r.deliveredDate).split(",")[0]):""}</span>`:`<span class="m reqd">Requested ${esc(longDate(r.reqDeliv).split(",")[0])}</span>`}${r.partial?'<span class="m partial">⚠ Partial</span>':""}${r.storageLocation?`<span class="m loc">📍 ${esc(r.storageLocation)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}</div></div></div>`; }
 
 /* ---------- Deliveries calendar ---------- */
+let arrCalYear, arrCalMonth, arrCalSelDay=null, arrViewMode="list";
+// Build & render the Arrivals-tab calendar (arrivals by requested-delivery date).
+function renderArrCalendar(){
+  const grid=$("arrGrid"); if(!grid) return;
+  if(arrCalYear===undefined){ const n=new Date(); arrCalYear=n.getFullYear(); arrCalMonth=n.getMonth(); }
+  const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  $("arrTitle").textContent=MONTHS[arrCalMonth]+" "+arrCalYear;
+  const first=new Date(arrCalYear,arrCalMonth,1), startDow=first.getDay(), daysIn=new Date(arrCalYear,arrCalMonth+1,0).getDate();
+  const todayKey=dateKeyLocal(new Date().toISOString());
+  // Map arrivals to their delivery-wanted / delivered dates.
+  const map={};
+  ARRIVALS.forEach(r=>{
+    const reqKey=r.reqDeliv?dateKeyLocal(r.reqDeliv):"";
+    const delKey=r.delivered&&r.deliveredDate?dateKeyLocal(r.deliveredDate):"";
+    if(reqKey && !r.delivered){ (map[reqKey]=map[reqKey]||{req:[],done:[]}).req.push(r); }
+    if(delKey){ (map[delKey]=map[delKey]||{req:[],done:[]}).done.push(r); }
+  });
+  let html=`<div class="cal-dow">${["S","M","T","W","T","F","S"].map(d=>`<span>${d}</span>`).join("")}</div><div class="cal-cells">`;
+  for(let i=0;i<startDow;i++) html+=`<div class="cal-cell blank"></div>`;
+  for(let day=1;day<=daysIn;day++){
+    const key=arrCalYear+"-"+String(arrCalMonth+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+    const m=map[key];
+    const reqN=m?m.req.length:0, doneN=m?m.done.length:0;
+    const has=reqN||doneN;
+    const isSel=key===arrCalSelDay;
+    let marks="";
+    if(reqN) marks+=`<span class="cal-mk"><span class="cal-dot req"></span><span class="cal-mkn">${reqN}</span></span>`;
+    if(doneN) marks+=`<span class="cal-mk"><span class="cal-dot done"></span><span class="cal-mkn">${doneN}</span></span>`;
+    if(isSel){
+      const rows=[...(m?m.req:[]),...(m?m.done:[])].map(r=>deliveryRow(r)).join("");
+      html+=`<div class="cal-cell has sel" data-arrday="${key}"><div class="cal-day-head"><span class="cal-num">${day}</span><button class="cal-day-close" data-arrclose="1">✕ Close</button></div><span class="cal-dots">${marks}</span><div class="cal-jobnames" style="gap:6px">${rows||'<div class="cal-day-empty">No arrivals this day.</div>'}</div></div>`;
+    } else {
+      html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''}" ${has?`data-arrday="${key}"`:""}><span class="cal-num">${day}</span><span class="cal-dots">${marks}</span></div>`;
+    }
+  }
+  html+=`</div>`;
+  grid.innerHTML=html;
+}
+function setArrView(mode){
+  arrViewMode=mode;
+  document.querySelectorAll("#arrViewSeg button").forEach(b=>b.classList.toggle("on",b.dataset.arrview===mode));
+  $("arrListWrap").style.display=mode==="list"?"block":"none";
+  $("arrCalWrap").style.display=mode==="cal"?"block":"none";
+  if(mode==="cal") renderArrCalendar();
+}
+
+/* ---------- Deliveries calendar (main) ---------- */
 let calYear, calMonth, calSelDay=null;   // selected day = "YYYY-MM-DD"
 let calDayOpenJob=null;                  // docId of the one order expanded inside the day cell (only one at a time)
 let calSortByTime=false;                 // day view: sort deliveries by earliest delivery time
@@ -2123,7 +2223,7 @@ function wdItemArrivalBlock(o, it){
   if(arr && (e.matchState==="exact"||e.matchState==="confirmed")){
     const delivered=arr.delivered;
     const statusBadge=delivered?`<span class="wia-badge green">✓ Delivered${arr.deliveredDate?" "+wdEsc(longDate(arr.deliveredDate).split(",")[0]):""}</span>`:`<span class="wia-badge amber">On site · not delivered</span>`;
-    const partialBadge=e.partial?`<span class="wia-badge partial">◑ PARTIAL</span>`:"";
+    const partialBadge=e.partial?`<button class="wia-badge partial ptoggle" data-wepartial="${wdEsc(e.docId)}" title="Tap to mark complete">◑ PARTIAL</button>`:`<button class="wia-badge complete ptoggle" data-wepartial="${wdEsc(e.docId)}" title="Tap to mark partial">✓ COMPLETE</button>`;
     const hasPhoto=!!arr.photoBy;
     return `<div class="wia linked">
       <div class="wia-head">🔗 Paired arrival ${statusBadge}${partialBadge}<button class="wia-unlink" data-weunlink="${wdEsc(e.docId)}">Unlink</button></div>
@@ -2237,7 +2337,12 @@ function wdOrderCard(o, compact){
   // (an equipment item counts as checked if its linked arrival is delivered). Not clickable.
   const allItems=(o.items||[]);
   const itemGathered=it=>{ const ik=itemKey(it); if(gathered[ik])return true; if(it.isEquip){ const eq=wdEquipEntryFor(o.number,it); if(eq&&eq.arrivalId){ const ar=ARRIVALS.find(a=>a.id===eq.arrivalId); if(ar&&ar.delivered)return true; } } return false; };
-  const allGathered=allItems.length>0 && allItems.every(itemGathered);
+  // Equipment lines tracked for this order that are linked to a delivered arrival.
+  const orderEquip=WD_EQUIP.filter(x=>String(x.orderNumber)===String(o.number));
+  const equipAllDelivered = orderEquip.length>0 && orderEquip.every(x=>{ const ar=x.arrivalId?ARRIVALS.find(a=>a.id===x.arrivalId):null; return ar&&ar.delivered; });
+  // Order counts as done when every listed item is gathered, OR (when there are no line items but
+  // there are tracked equipment entries) when all of those equipment arrivals are delivered.
+  const allGathered = (allItems.length>0 && allItems.every(itemGathered)) || (allItems.length===0 && equipAllDelivered) || (allItems.length>0 && allItems.every(itemGathered) && equipAllDelivered);
   return `<div class="wo-card ${highlighted?'hl':''} ${compact?'compact':''}" data-wocard="${wdEsc(o.docId)}">
     <div class="wo-head" ${tog}>
       ${compact?"":`<span class="wo-chev" id="wo-chev-${wdEsc(o.docId)}">${open?"▾":"▸"}</span>`}
@@ -2276,6 +2381,7 @@ function renderDeliveries(){
   if(typeof renderWdEquip==="function") renderWdEquip();
   renderCalendar();
   if(typeof wdSyncWindowInputs==="function") wdSyncWindowInputs();
+  if(typeof wdRenderLastSync==="function") wdRenderLastSync();
   // List view (inside the collapsible)
   const q=$("delSearch").value.trim().toLowerCase(); $("delClr").style.display=q?"block":"none";
   const list=$("delList"); if(!list) return;
@@ -2340,7 +2446,7 @@ document.addEventListener("click",e=>{
   const cjc=e.target.closest("[data-caljobclose]"); if(cjc){
     // Only close on a click of the card's dead space — never when a button/input/link or any
     // element carrying an action attribute was clicked (those are handled by other listeners).
-    const interactive=e.target.closest("button, input, textarea, select, a, [data-wocatchip], [data-wowt], [data-woitemchk], [data-wostar], [data-wohl], [data-wonotes], [data-welinkopen], [data-wepick], [data-wepickopen], [data-welinksearch], [data-weunlink], [data-weqnote], [data-wiaddphoto], [data-wiaphoto], [data-caltime], [data-caltruck]");
+    const interactive=e.target.closest("button, input, textarea, select, a, [data-wocatchip], [data-wowt], [data-woitemchk], [data-wostar], [data-wohl], [data-wonotes], [data-welinkopen], [data-wepick], [data-wepickopen], [data-welinksearch], [data-weunlink], [data-weqnote], [data-wepartial], [data-wiaddphoto], [data-wiaphoto], [data-caltime], [data-caltruck]");
     if(interactive) return;   // let the other handler deal with it; don't close
     e.stopPropagation(); if(calDayOpenJob===cjc.dataset.caljobclose){ calDayOpenJob=null; renderCalendar(); } return;
   }
@@ -3426,15 +3532,37 @@ async function wdAutoSync(opts={}){
     }
     clearTimeout(watchdog);
     const codeStr=Object.keys(failCodes).length?(" · detail blocked: "+Object.entries(failCodes).map(([c,n])=>c+"×"+n).join(", ")):"";
-    wdSyncStatus(`Synced ${run.length} new/changed of ${orders.length} orders · ${listPeople.size} people · ${skipped} unchanged skipped${capNote}${codeStr} · ${equipCount} equipment items`, false, true);
+    const summary=`Synced ${run.length} new/changed of ${orders.length} orders · ${listPeople.size} people · ${skipped} unchanged skipped${capNote}${codeStr} · ${equipCount} equipment items`;
+    wdSyncStatus(summary, false, true);
+    // Record who forced this refresh + when, shared with everyone (the person's app login — NOT the
+    // company API account we used to pull).
+    if(fbReady){ try{ await setDoc(doc(db,"config","lastSync"),{ by:(USER?(USER.first+" "+USER.last):"someone"), at:Date.now(), summary }, {merge:true}); }catch(_){} }
     if(opts.manual) toast(`Synced ${run.length} orders · ${listPeople.size} people`);
   }catch(e){ console.error("wdAutoSync",e); clearTimeout(watchdog); wdSyncStatus("Sync error: "+(e&&e.message?e.message:"see console"), true); }
   wdSyncing=false;
 }
 // Extract fitting dimensions as a readable string (e.g. "W 12 × H 8 × L 48").
 function wdFittingDims(it){
-  const dims=it.engine?.inputs?.user?.dimensions; if(!Array.isArray(dims)||!dims.length) return "";
-  return dims.map(d=>{ const lbl=d.label||d.id||d.key||""; const v=d.value; return (lbl&&v!=null&&v!=="")?`${lbl} ${v}`:""; }).filter(Boolean).join(" × ");
+  const eng=it.engine||{}; const inp=eng.inputs?.user||{};
+  // HVAC fittings expose an explicit dimensions array.
+  const dims=inp.dimensions;
+  if(Array.isArray(dims)&&dims.length){
+    return dims.map(d=>{ const lbl=d.label||d.id||d.key||""; const v=d.value; return (lbl&&v!=null&&v!=="")?`${lbl} ${v}`:""; }).filter(Boolean).join(" × ");
+  }
+  // Otherwise scan the user inputs for size-like fields (diameter, length, size, gauge) — covers
+  // spiral pipe / round duct and similar stock products that don't use the dimensions array.
+  const parts=[];
+  Object.keys(inp).forEach(k=>{
+    if(k==="dimensions") return;
+    const val=inp[k];
+    const v=(val&&typeof val==="object")?(val.value ?? val.label ?? "") : val;
+    if(v==null||v==="") return;
+    if(/diam|dia\b|length|len\b|size|width|height|depth|gauge|ga\b|round|spiral/i.test(k)){
+      const lbl=k.replace(/([A-Z])/g," $1").replace(/_/g," ").trim();
+      parts.push(`${lbl.charAt(0).toUpperCase()+lbl.slice(1)} ${v}`);
+    }
+  });
+  return parts.join(" × ");
 }
 // Build a short "what to tell the laser/CAD" string from a fitting item.
 function wdFittingBuild(it){
@@ -3560,7 +3688,7 @@ function renderWdEquip(){
     const arr=ARRIVALS.find(a=>a.id===e.arrivalId);
     const isDelivered=arr&&arr.delivered;
     const badge = arr ? (isDelivered?`<span class="we-stat green">✓ Delivered${arr.deliveredDate?" "+wdEsc(longDate(arr.deliveredDate).split(",")[0]):""}</span>`:`<span class="we-stat amber">Not delivered</span>`) : "";
-    const partBadge = e.partial ? `<span class="we-stat partial">◑ PARTIAL</span>` : "";
+    const partBadge = e.partial ? `<button class="we-stat partial ptoggle" data-wepartial="${wdEsc(e.docId)}" title="Tap to mark complete">◑ PARTIAL</button>` : (e.arrivalId?`<button class="we-stat complete ptoggle" data-wepartial="${wdEsc(e.docId)}" title="Tap to mark partial">✓ COMPLETE</button>`:"");
     // Linked → same camera / share / delivery icons as every arrival, all wired together.
     // Unmatched → just a way to clear it from the list.
     const actBtn = arr
@@ -3598,7 +3726,16 @@ document.addEventListener("click",e=>{
   const d=e.target.closest("[data-wedetach]"); if(d){ wdSetMatch(d.dataset.wedetach,"none",""); return; }
   const lo=e.target.closest("[data-welinkopen]"); if(lo){ const w=$("welink-"+lo.dataset.welinkopen); if(w){ w.style.display=w.style.display==="none"?"block":"none"; if(w.style.display==="block"){ const s=w.querySelector("[data-welinksearch]"); if(s)setTimeout(()=>s.focus(),100); } } return; }
   const po=e.target.closest("[data-wepickopen]"); if(po){ e.stopPropagation(); const [docId,arrivalId]=po.dataset.wepickopen.split("|||"); WD_PICK_OPEN[docId]=(WD_PICK_OPEN[docId]===arrivalId)?"":arrivalId; const e2=WD_EQUIP.find(x=>x.docId===docId); const res=$("welinkres-"+docId); if(e2&&res){ const sInput=document.querySelector(`[data-welinksearch="${CSS.escape(docId)}"]`); res.innerHTML=wdArrivalPickList(e2, sInput?sInput.value:""); wdLoadArrivalThumbs(); } return; }
+  const woj=e.target.closest("[data-wojump]"); if(woj){ e.stopPropagation(); wdJumpToOrder(woj.dataset.wojump); return; }
+  const av=e.target.closest("[data-arrview]"); if(av){ setArrView(av.dataset.arrview); return; }
+  if(e.target.closest("#arrPrev")){ arrCalMonth--; if(arrCalMonth<0){arrCalMonth=11;arrCalYear--;} arrCalSelDay=null; renderArrCalendar(); return; }
+  if(e.target.closest("#arrNext")){ arrCalMonth++; if(arrCalMonth>11){arrCalMonth=0;arrCalYear++;} arrCalSelDay=null; renderArrCalendar(); return; }
+  if(e.target.closest("#arrToday")){ const n=new Date(); arrCalYear=n.getFullYear(); arrCalMonth=n.getMonth(); arrCalSelDay=dateKeyLocal(n.toISOString()); renderArrCalendar(); return; }
+  if(e.target.closest("[data-arrclose]")){ arrCalSelDay=null; renderArrCalendar(); return; }
+  const ad=e.target.closest("[data-arrday]"); if(ad){ if(arrCalSelDay===ad.dataset.arrday){ if(!e.target.closest(".cal-day-head")){} return; } arrCalSelDay=ad.dataset.arrday; renderArrCalendar(); return; }
+  const cpn=e.target.closest("[data-copyname]"); if(cpn){ e.stopPropagation(); const nm=cpn.dataset.copyname||""; if(!nm){ toast("No name"); return; } navigator.clipboard.writeText(nm).then(()=>{ toast("Name copied"); }).catch(()=>toast("Copy failed")); return; }
   const eqn=e.target.closest("[data-weqnote]"); if(eqn){ e.stopPropagation(); wdSaveEqNote(eqn.dataset.weqnote); return; }
+  const wpart=e.target.closest("[data-wepartial]"); if(wpart){ e.stopPropagation(); const id=wpart.dataset.wepartial; const eq=WD_EQUIP.find(x=>x.docId===id); if(eq&&fbReady){ setDoc(doc(db,"webductEquip",id),{partial:!eq.partial,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast(!eq.partial?"Marked partial":"Marked complete")).catch(()=>toast("Couldn't update")); } return; }
   const pick=e.target.closest("[data-wepick]"); if(pick){ e.stopPropagation(); const [docId,arrivalId]=pick.dataset.wepick.split("|||"); wdOpenPairKind(docId,arrivalId); return; }
   const del=e.target.closest("[data-wedelivered]"); if(del){ wdMarkEquip(del.dataset.wedelivered,{deliveredMark:true}); toast("Marked delivered"); return; }
   const dis=e.target.closest("[data-wedismiss]"); if(dis){ wdMarkEquip(dis.dataset.wedismiss,{dismissed:true}); toast("Dismissed"); return; }
