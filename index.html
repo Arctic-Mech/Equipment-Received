@@ -1337,7 +1337,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="5.0";
+const APP_VERSION="5.1";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1951,15 +1951,37 @@ function renderCalendar(){
     let dayInner="";
     if(isSel){
       const tier=o=>o.hasEquip?0:(o.shipType==="jobsite"?1:2);
-      let sorted=orders.slice();
-      if(calSortByTime){ sorted.sort((a,b)=>{ const ta=wdParseTime(wdNotesFor(a.docId).deliveryTime), tb=wdParseTime(wdNotesFor(b.docId).deliveryTime); if(ta==null&&tb==null) return tier(a)-tier(b); if(ta==null) return 1; if(tb==null) return -1; return ta-tb; }); }
-      else { sorted.sort((a,b)=>tier(a)-tier(b)); }
-      // Group orders by job name so each job shows once. Clicking the name expands ALL of that
-      // job's orders that day as separate cards.
+      const cleanName=o=>String(o.orderedBy||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim();
+      // Group orders by job name first (each job shows once; its orders open together).
       const byJob=new Map();
-      sorted.forEach(o=>{ const nm=(o.jobName||o.job||"").trim(); if(!nm)return; if(!byJob.has(nm))byJob.set(nm,[]); byJob.get(nm).push(o); });
+      orders.forEach(o=>{ const nm=(o.jobName||o.job||"").trim(); if(!nm)return; if(!byJob.has(nm))byJob.set(nm,[]); byJob.get(nm).push(o); });
+      // Determine the ROW ORDER of jobs.
+      let jobOrder=[...byJob.keys()];
+      if(calSortByTime){
+        // Earliest delivery time first (jobs with no time sink to bottom).
+        const jobTime=nm=>{ const times=byJob.get(nm).map(o=>wdParseTime(wdNotesFor(o.docId).deliveryTime)).filter(t=>t!=null); return times.length?Math.min(...times):null; };
+        jobOrder.sort((a,b)=>{ const ta=jobTime(a),tb=jobTime(b); if(ta==null&&tb==null) return a.localeCompare(b); if(ta==null)return 1; if(tb==null)return -1; return ta-tb; });
+      } else {
+        // Alphabetical by orderer, but keep people who co-ordered a job clustered together.
+        // Build connected components of orderers linked through shared jobs (union-find).
+        const parent={}; const find=x=>{ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; };
+        const union=(a,b)=>{ parent[a]=parent[a]||a; parent[b]=parent[b]||b; const ra=find(a),rb=find(b); if(ra!==rb)parent[ra]=rb; };
+        const jobOrderers={};
+        byJob.forEach((list,nm)=>{ const names=[...new Set(list.map(cleanName).filter(Boolean))]; jobOrderers[nm]=names; names.forEach(n=>{ parent[n]=parent[n]||n; }); for(let i=1;i<names.length;i++) union(names[0],names[i]); });
+        // Each job's cluster = the component of its (alphabetically first) orderer.
+        const jobKeyName=nm=>{ const names=jobOrderers[nm].slice().sort((a,b)=>a.localeCompare(b)); return names[0]||"zzz"; };
+        const clusterOf=nm=>{ const kn=jobKeyName(nm); return (parent[kn]?find(kn):kn); };
+        // Rank clusters by the alphabetically-smallest orderer name they contain.
+        const clusterMin={}; jobOrder.forEach(nm=>{ const c=clusterOf(nm); const kn=jobKeyName(nm); if(clusterMin[c]===undefined||kn.localeCompare(clusterMin[c])<0) clusterMin[c]=kn; });
+        jobOrder.sort((a,b)=>{
+          const ca=clusterOf(a), cb=clusterOf(b);
+          if(ca!==cb){ const cmp=(clusterMin[ca]||"").localeCompare(clusterMin[cb]||""); if(cmp!==0)return cmp; }
+          // within a cluster: by this job's key orderer, then job name
+          const ka=jobKeyName(a), kb=jobKeyName(b); return ka.localeCompare(kb) || a.localeCompare(b);
+        });
+      }
       const rows=[];
-      byJob.forEach((list,nm)=>{
+      jobOrder.forEach(nm=>{ const list=byJob.get(nm);
         const first=list[0];
         const nn=wdNotesFor(first.docId); const t=nn.deliveryTime||""; const tk=nn.truck||"";
         const isPickup=!first.hasEquip && first.shipType!=="jobsite";
@@ -2134,7 +2156,12 @@ async function wdToggleItemGathered(docId, ik){
   const eq=wdEquipEntryFor(o.number, it); if(!eq||!eq.arrivalId) return;
   const arr=ARRIVALS.find(a=>a.id===eq.arrivalId); if(!arr) return;
   try{
-    const patch=nowChecked?{delivered:true, deliveredDate:(new Date()).toISOString().slice(0,10)}:{delivered:false, deliveredDate:""};
+    // Use the order's SCHEDULED delivery date (requested/delivery), not today — deliveries are often
+    // checked off the day before while prepping. Fall back to today only if the order has no date.
+    const schedIso=o.requestedDate||o.deliveryDate||o.orderedDate||"";
+    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=d.toISOString().slice(0,10); }
+    if(!schedDate) schedDate=(new Date()).toISOString().slice(0,10);
+    const patch=nowChecked?{delivered:true, deliveredDate:schedDate}:{delivered:false, deliveredDate:""};
     await setDoc(doc(db,"arrivals",eq.arrivalId),{...patch,updatedAt:serverTimestamp()},{merge:true});
     toast(nowChecked?"Marked delivered":"Delivery cleared");
   }catch(e){ console.error("arrival delivered propagate",e); }
@@ -2195,7 +2222,7 @@ function wdOrderCard(o, compact){
     <div class="wo-sub" ${tog}>${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}${orderedByClean?` · by ${wdEsc(orderedByClean)}`:""}${o.orderedDate?` · placed ${wdEsc(wdDate(o.orderedDate))}`:""}</div>
     ${groupNames.length?`<div class="wo-catprev">${groupNames.map(g=>`<button class="wo-catprev-pill ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} <b>${groups[g].length}</b></button>`).join("")}${wt?`<button class="wo-wtpill" data-wowt="${wdEsc(o.docId)}">${Math.round(wt).toLocaleString()} lb</button>`:""}</div>
     ${wt?`<div class="wo-wtmath" data-wowtbox="${wdEsc(o.docId)}" style="display:${EXPANDED_WO_WT.has(o.docId)?'block':'none'}">${wdWeightMath(o)}</div>`:""}
-    ${groupNames.map(g=>`<div class="wo-cat" data-wocatbox="${wdEsc(o.docId)}|||${wdEsc(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(it=>itemLine(it)+(it.isEquip?wdItemArrivalBlock(o,it):"")).join("")}</div>`).join("")}`:""}
+    ${groupNames.map(g=>`<div class="wo-cat" data-wocatbox="${wdEsc(o.docId)}|||${wdEsc(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}">${groups[g].map(it=>itemLine(it)+(it.isEquip?wdItemArrivalBlock(o,it):"")).join("")}</div>`).join("")}`:""}
     ${wdHasDisplayNotes(n)?`<div class="wo-notechips">${n.deliveryTime?`<span class="wo-notechip">🕒 ${wdEsc(n.deliveryTime)}</span>`:""}${n.truck?`<span class="wo-notechip">🚚 ${wdEsc(n.truck)}</span>`:""}</div>`:""}
     ${wdHasExtraNotes(n)?`<div class="wo-extranote" id="wo-extra-${wdEsc(o.docId)}" style="display:${notesOpen?'block':'none'}">📝 ${wdEsc(n.extra)}</div>`:""}
     ${compact?"":`<div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:${open?"block":"none"}">
