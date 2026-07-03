@@ -1980,7 +1980,7 @@ function renderArrCalendar(){
     if(reqKey && !r.delivered){ (map[reqKey]=map[reqKey]||{req:[],done:[]}).req.push(r); }
     if(delKey){ (map[delKey]=map[delKey]||{req:[],done:[]}).done.push(r); }
   });
-  let html=`<div class="cal-dow">${["S","M","T","W","T","F","S"].map(d=>`<span>${d}</span>`).join("")}</div><div class="cal-cells">`;
+  let html=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<div class="cal-dow">${d}</div>`).join("");
   for(let i=0;i<startDow;i++) html+=`<div class="cal-cell blank"></div>`;
   for(let day=1;day<=daysIn;day++){
     const key=arrCalYear+"-"+String(arrCalMonth+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
@@ -1998,7 +1998,6 @@ function renderArrCalendar(){
       html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''}" ${has?`data-arrday="${key}"`:""}><span class="cal-num">${day}</span><span class="cal-dots">${marks}</span></div>`;
     }
   }
-  html+=`</div>`;
   grid.innerHTML=html;
 }
 function setArrView(mode){
