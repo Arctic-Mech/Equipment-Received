@@ -529,6 +529,17 @@
   .wo-catprev-pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .wo-catprev-pill b{color:var(--ink);font-weight:700;margin-left:1px}
   .wo-catprev-pill.on b{color:#fff}
+  .wia{margin:6px 0 6px 8px;padding:9px 11px;border-radius:9px;font-size:12.5px}
+  .wia.linked{background:#eefaf3;border:1px solid #bfe6d0}
+  .wia.unlinked{background:var(--surface);border:1px dashed var(--line)}
+  .wia-head{display:flex;align-items:center;gap:7px;font-weight:600;color:var(--ink);margin-bottom:5px;flex-wrap:wrap}
+  .wia-badge{font-family:'Barlow Condensed';font-weight:700;font-size:10px;letter-spacing:.03em;padding:2px 7px;border-radius:5px}
+  .wia-badge.green{background:#cdeede;color:#0d7a73} .wia-badge.amber{background:#fdecd8;color:#8a4b00}
+  .wia-unlink{margin-left:auto;font-size:11px;color:var(--red);background:none;text-decoration:underline}
+  .wia-desc{font-weight:600;color:var(--ink);font-size:13px}
+  .wia-meta{font-size:11.5px;color:var(--steel);margin-top:2px;line-height:1.4}
+  .wia-photo{display:block;margin-top:8px;max-width:160px;width:100%;border-radius:8px;border:1px solid var(--line);cursor:pointer}
+  .wia-addphoto{margin-top:8px;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;font-size:11.5px;color:var(--blue);background:none;border:1px dashed var(--line);border-radius:7px;padding:6px 12px}
   .wo-card .wo-cat{margin:0 12px 8px 30px}
   .wo-notechip{font-size:11.5px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:2px 9px;color:var(--ink)}
   .wo-extranote{margin:0 12px 10px 30px;padding:8px 10px;background:#fffbea;border:1px solid #f0d98a;border-radius:8px;font-size:12.5px;color:var(--ink);line-height:1.4;white-space:pre-wrap}
@@ -1262,7 +1273,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.1";
+const APP_VERSION="4.2";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1887,6 +1898,7 @@ function renderDayDetail(){
   if(m.req.length){ html+=`<div class="we-sec">🚚 Arrival deliveries wanted (${m.req.length})</div>`+m.req.map(deliveryRow).join(""); }
   if(m.done.length){ html+=`<div class="we-sec">✓ Delivered (${m.done.length})</div>`+m.done.map(deliveryRow).join(""); }
   box.innerHTML=html; box.style.display="block";
+  if(typeof wdLoadArrivalThumbs==="function") wdLoadArrivalThumbs();
 }
 // Detect whether an order is going to the job site vs shop pickup. Webduct's exact labels vary,
 // so we scan every plausible field for job-site / delivery keywords, falling back to pickup.
@@ -1899,6 +1911,39 @@ function wdDetectShipType(src){
   return "pickup";
 }
 function wdNotesFor(docId){ return WD_NOTES[docId]||{}; }
+// Find the synced WD_EQUIP entry that corresponds to a given order line item (same order #, same label).
+function wdEquipEntryFor(orderNumber, it){
+  const num=String(orderNumber);
+  const lbl=(it.label||"").toLowerCase().trim();
+  return WD_EQUIP.find(e=>String(e.orderNumber)===num && (e.label||"").toLowerCase().trim()===lbl)
+      || WD_EQUIP.find(e=>String(e.orderNumber)===num && lbl && (e.notes||"").toLowerCase().includes(lbl));
+}
+// Render the arrival-link state for a single equipment/buyout item: linked → full arrival info + photo;
+// unlinked → a button that opens the same searchable picker used in the equipment list.
+function wdItemArrivalBlock(o, it){
+  const e=wdEquipEntryFor(o.number, it);
+  if(!e) return "";   // this item isn't a tracked shop-equipment line
+  const arr=e.arrivalId?ARRIVALS.find(a=>a.id===e.arrivalId):null;
+  if(arr && (e.matchState==="exact"||e.matchState==="confirmed")){
+    const delivered=arr.delivered;
+    const statusBadge=delivered?`<span class="wia-badge green">✓ Delivered${arr.deliveredDate?" "+wdEsc(longDate(arr.deliveredDate).split(",")[0]):""}</span>`:`<span class="wia-badge amber">On site · not delivered</span>`;
+    const hasPhoto=!!arr.photoBy;
+    return `<div class="wia linked">
+      <div class="wia-head">🔗 Paired arrival ${statusBadge}<button class="wia-unlink" data-weunlink="${wdEsc(e.docId)}">Unlink</button></div>
+      <div class="wia-desc">${wdEsc(arr.description||"Arrival")}</div>
+      <div class="wia-meta">${arr.supplier?`Supplier: ${wdEsc(arr.supplier)}`:""}${arr.storageLocation?`${arr.supplier?" · ":""}📍 ${wdEsc(arr.storageLocation)}`:""}${arr.dateReceived?` · received ${wdDate(arr.dateReceived)}`:""}</div>
+      ${hasPhoto?`<img class="wia-photo" data-wiaphoto="${wdEsc(arr.id)}" alt="arrival photo" loading="lazy">`:`<button class="wia-addphoto" data-wiaddphoto="${wdEsc(arr.id)}">📷 Add photo</button>`}
+    </div>`;
+  }
+  // Not linked → offer to pair, with the searchable same-job picker.
+  return `<div class="wia unlinked">
+    <button class="we-linkbtn" data-welinkopen="${wdEsc(e.docId)}">🔗 Pair with an arrival →</button>
+    <div class="we-linkwrap" id="welink-${wdEsc(e.docId)}" style="display:none">
+      <input class="we-linksearch" data-welinksearch="${wdEsc(e.docId)}" type="search" placeholder="Search arrivals on job ${wdEsc(e.job||o.job||"")}…" autocomplete="off">
+      <div class="we-linkresults" id="welinkres-${wdEsc(e.docId)}">${wdArrivalPickList(e,"")}</div>
+    </div>
+  </div>`;
+}
 async function wdToggleHighlight(docId){
   if(!fbReady){ toast("No connection — can't save"); return; }
   const n=wdNotesFor(docId);
@@ -1948,7 +1993,7 @@ function wdOrderCard(o){
     </div>
     <div class="wo-sub" data-wotoggle="${wdEsc(o.docId)}">${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}${orderedByClean?` · by ${wdEsc(orderedByClean)}`:""}${o.orderedDate?` · placed ${wdEsc(wdDate(o.orderedDate))}`:""}</div>
     ${groupNames.length?`<div class="wo-catprev">${groupNames.map(g=>`<button class="wo-catprev-pill ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} <b>${groups[g].length}</b></button>`).join("")}</div>
-    ${groupNames.map(g=>`<div class="wo-cat" id="wo-cat-${wdEsc(o.docId)}-${wdSlug(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(itemLine).join("")}</div>`).join("")}`:""}
+    ${groupNames.map(g=>`<div class="wo-cat" id="wo-cat-${wdEsc(o.docId)}-${wdSlug(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(it=>itemLine(it)+(it.isEquip?wdItemArrivalBlock(o,it):"")).join("")}</div>`).join("")}`:""}
     ${wdHasDisplayNotes(n)?`<div class="wo-notechips">${n.deliveryTime?`<span class="wo-notechip">🕒 ${wdEsc(n.deliveryTime)}</span>`:""}${n.truck?`<span class="wo-notechip">🚚 ${wdEsc(n.truck)}</span>`:""}</div>`:""}
     ${wdHasExtraNotes(n)?`<div class="wo-extranote" id="wo-extra-${wdEsc(o.docId)}" style="display:${notesOpen?'block':'none'}">📝 ${wdEsc(n.extra)}</div>`:""}
     <div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:${open?"block":"none"}">
@@ -1989,6 +2034,17 @@ function renderDeliveries(){
   if(req.length) html+=`<div class="del-section"><h3>Arrival deliveries requested <span class="cnt">${req.length}</span></h3>${req.map(deliveryRow).join("")}</div>`;
   if(done.length) html+=`<div class="del-section"><h3>Delivered <span class="cnt">${done.length}</span></h3>${done.map(deliveryRow).join("")}</div>`;
   list.innerHTML=html;
+  wdLoadArrivalThumbs();
+}
+// Fill in inline arrival photo thumbnails (stored in Firestore) after render.
+const WD_THUMB_CACHE={};
+async function wdLoadArrivalThumbs(){
+  const imgs=document.querySelectorAll("img[data-wiaphoto]:not([data-loaded])");
+  for(const img of imgs){
+    const id=img.getAttribute("data-wiaphoto"); img.setAttribute("data-loaded","1");
+    if(WD_THUMB_CACHE[id]){ img.src=WD_THUMB_CACHE[id]; continue; }
+    try{ const snap=await getDoc(doc(db,"arrivalPhotos",id)); if(snap.exists()){ const d=snap.data(); WD_THUMB_CACHE[id]=d.photo; img.src=d.photo; } }catch(_){}
+  }
 }
 // Calendar controls
 document.addEventListener("click",e=>{
@@ -2003,6 +2059,9 @@ document.addEventListener("click",e=>{
   const wnotes=e.target.closest("[data-wonotes]"); if(wnotes){ e.stopPropagation(); const id=wnotes.dataset.wonotes; const n=wdNotesFor(id); if(wdHasExtraNotes(n) && !e.target.closest("[data-wonotes-edit]")){ /* toggle extra note display */ const open=!EXPANDED_WO_NOTES.has(id); if(open)EXPANDED_WO_NOTES.add(id); else EXPANDED_WO_NOTES.delete(id); const b=$("wo-extra-"+id); if(b)b.style.display=open?"block":"none"; } else { wdOpenNotes(id); } return; }
   const wcatchip=e.target.closest("[data-wocatchip]"); if(wcatchip){ e.stopPropagation(); const [docId,g]=wcatchip.dataset.wocatchip.split("|||"); const key=docId+"|"+g; const open=!EXPANDED_WO_CATS.has(key); if(open)EXPANDED_WO_CATS.add(key); else EXPANDED_WO_CATS.delete(key); const b=$("wo-cat-"+docId+"-"+wdSlug(g)); if(b)b.style.display=open?"block":"none"; wcatchip.classList.toggle("on",open); return; }
   const witemchk=e.target.closest("[data-woitemchk]"); if(witemchk){ e.stopPropagation(); const [docId,ik]=witemchk.dataset.woitemchk.split("|||"); wdToggleItemGathered(docId,ik); return; }
+  const weunlink=e.target.closest("[data-weunlink]"); if(weunlink){ e.stopPropagation(); if(confirm("Unlink this arrival from the equipment?")) wdSetMatch(weunlink.dataset.weunlink,"none",""); return; }
+  const wiadd=e.target.closest("[data-wiaddphoto]"); if(wiadd){ e.stopPropagation(); startCapture(wiadd.dataset.wiaddphoto); return; }
+  const wiaphoto=e.target.closest("[data-wiaphoto]"); if(wiaphoto){ e.stopPropagation(); openPhotoViewer(wiaphoto.dataset.wiaphoto); return; }
   const wtog=e.target.closest("[data-wotoggle]"); if(wtog){ const id=wtog.dataset.wotoggle; const open=!EXPANDED_WO.has(id); if(open)EXPANDED_WO.add(id); else EXPANDED_WO.delete(id); const b=$("wo-body-"+id),c=$("wo-chev-"+id); if(b)b.style.display=open?"block":"none"; if(c)c.textContent=open?"▾":"▸"; return; }
   if(e.target.closest("#dlToggle")){ const w=$("dlListWrap"),c=$("dlChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
   const sf=e.target.closest("[data-shipfilter]"); if(sf){ calShipFilter=sf.dataset.shipfilter; document.querySelectorAll(".dl-sf").forEach(b=>b.classList.toggle("on",b===sf)); renderDeliveries(); return; }
