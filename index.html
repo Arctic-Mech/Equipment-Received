@@ -489,7 +489,7 @@
   .cal-jn-btns{flex:none;display:flex;gap:6px}
   .cal-jn-time,.cal-jn-truck{font-family:'JetBrains Mono';font-size:11.5px;font-weight:600;color:#fff;background:rgba(255,255,255,.18);padding:3px 9px;border-radius:20px;white-space:nowrap}
   .cal-jn-add{font-size:15px;background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.35);border-radius:20px;padding:2px 9px;line-height:1.2}
-  .cal-jobcard{margin:2px 0 10px;background:var(--surface);border-radius:11px;padding:2px}
+  .cal-jobcard{margin:2px 0 10px;background:var(--surface);border-radius:11px;padding:2px;cursor:pointer}
   .cal-jobcard .wo-card{margin:0;box-shadow:none;border:none}
   .cal-num{font-family:'Barlow Condensed';font-weight:600;font-size:15px;color:var(--ink);line-height:1}
   .cal-mk{display:inline-flex;align-items:center;gap:1px}
@@ -1298,7 +1298,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.5";
+const APP_VERSION="4.6";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1914,7 +1914,7 @@ function renderCalendar(){
             <span class="cal-jn-name" data-caljob="${wdEsc(o.docId)}">${ic} ${wdEsc(nm)} <span class="cal-jn-chev">${isOpen?"▾":"▸"}</span></span>
             <span class="cal-jn-btns">${btns}</span>
           </div>
-          ${isOpen?`<div class="cal-jobcard">${wdOrderCard(o)}</div>`:""}
+          ${isOpen?`<div class="cal-jobcard" data-caljobclose="${wdEsc(o.docId)}">${wdOrderCard(o)}</div>`:""}
         </div>`);
       });
       const sortToggle=`<button class="cal-sort ${calSortByTime?'on':''}" data-calsort="1">${calSortByTime?"✓ ":""}Sort deliveries by time</button>`;
@@ -2158,6 +2158,9 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#wdTestToggle")){ const w=$("wdTestWrap"),c=$("wdTestChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); if(open&&typeof wdRenderToken==="function")wdRenderToken(); return; }
   if(e.target.closest("#wdKeyReveal")){ const b=$("wdKeyRevealBox"); const show=b.style.display==="none"; b.style.display=show?"block":"none"; if(show)$("wdKeyValue").textContent=wdHasAdmin()?("Connected as "+WD_ADMIN_CREDS.email+" (password stored, token minted fresh each sync)"):"(no company login saved)"; $("wdKeyReveal").textContent=show?"Hide":"Show details"; return; }
   if(e.target.closest("#ddClose")){ calSelDay=null; calDayOpenJob=null; renderCalendar(); return; }
+  // Clicking anywhere on an expanded day-view card (that wasn't an interactive control handled
+  // above) collapses it. Runs after all card-internal handlers, before the day catch-all.
+  const cjc=e.target.closest("[data-caljobclose]"); if(cjc){ e.stopPropagation(); if(calDayOpenJob===cjc.dataset.caljobclose){ calDayOpenJob=null; renderCalendar(); } return; }
   // Catch-all LAST: clicking an empty part of a day cell selects it. Card-internal controls above
   // (pills, checkmarks, star, time/truck, job expand) are handled first and return before this.
   const cd=e.target.closest("[data-calday]"); if(cd){ if(calSelDay===cd.dataset.calday){ return; } calSelDay=cd.dataset.calday; calDayOpenJob=null; renderCalendar(); return; }
