@@ -540,6 +540,7 @@
   .wo-catprev-pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .wo-catprev-pill b{color:var(--ink);font-weight:700;margin-left:1px}
   .wo-catprev-pill.on b{color:#fff}
+  .wo-wtpill{font-size:11px;font-family:'JetBrains Mono';font-weight:600;color:var(--steel);background:var(--line-soft);border-radius:6px;padding:3px 9px}
   .wia{margin:6px 0 6px 8px;padding:9px 11px;border-radius:9px;font-size:12.5px}
   .wia.linked{background:#eefaf3;border:1px solid #bfe6d0}
   .wia.unlinked{background:var(--surface);border:1px dashed var(--line)}
@@ -1298,7 +1299,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.6";
+const APP_VERSION="4.7";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1914,7 +1915,7 @@ function renderCalendar(){
             <span class="cal-jn-name" data-caljob="${wdEsc(o.docId)}">${ic} ${wdEsc(nm)} <span class="cal-jn-chev">${isOpen?"▾":"▸"}</span></span>
             <span class="cal-jn-btns">${btns}</span>
           </div>
-          ${isOpen?`<div class="cal-jobcard" data-caljobclose="${wdEsc(o.docId)}">${wdOrderCard(o)}</div>`:""}
+          ${isOpen?`<div class="cal-jobcard" data-caljobclose="${wdEsc(o.docId)}">${wdOrderCard(o,true)}</div>`:""}
         </div>`);
       });
       const sortToggle=`<button class="cal-sort ${calSortByTime?'on':''}" data-calsort="1">${calSortByTime?"✓ ":""}Sort deliveries by time</button>`;
@@ -2049,7 +2050,9 @@ function wdHasDisplayNotes(n){ return !!(n && (n.deliveryTime||n.truck)); }
 function wdHasExtraNotes(n){ return !!(n && n.extra && n.extra.trim()); }
 
 // Full order card — whole header is tappable to expand. Collapsed by default.
-function wdOrderCard(o){
+// compact=true (day view): no expandable body, no header toggle — just header + pills, so the
+// only dropdowns are the category pills and clicking the card elsewhere closes it.
+function wdOrderCard(o, compact){
   const starred=o.job && MY_JOBS.some(j=>normJob(j)===normJob(o.job));
   const open=EXPANDED_WO.has(o.docId), catsOpen=EXPANDED_WO_CATS.has(o.docId);
   const notesOpen=EXPANDED_WO_NOTES.has(o.docId);
@@ -2061,12 +2064,14 @@ function wdOrderCard(o){
   const groupNames=Object.keys(groups);
   const jobsite=o.shipType==="jobsite";
   const gathered=n.gathered||{};
+  const wt=(typeof o.totalWeight==="number"&&o.totalWeight>0)?o.totalWeight:0;
+  const tog=compact?"":`data-wotoggle="${wdEsc(o.docId)}"`;
   const itemKey=it=>wdSlug((it.label||"")+"|"+(it.sku||"")+"|"+(it.quantity!=null?it.quantity:""));
   const itemLine=it=>{ const ik=itemKey(it); const got=!!gathered[ik]; return `<div class="wo-item ${got?'got':''}"><button class="wo-item-chk ${got?'on':''}" data-woitemchk="${wdEsc(o.docId)}|||${wdEsc(ik)}" title="${got?'Gathered':'Mark gathered'}">${got?'✅':'⬜'}</button><div class="wo-item-main2"><div class="wo-item-top"><span class="wo-item-name">${wdEsc(it.label||"Item")}</span>${it.quantity!=null?`<span class="wo-item-qty">×${wdEsc(it.quantity)}</span>`:""}</div>${it.notes?`<div class="wo-item-notes">${wdEsc(it.notes)}</div>`:""}${it.build?`<div class="wo-item-build">🔧 Laser/CAD: ${wdEsc(it.build)}</div>`:(it.dims?`<div class="wo-item-build">${wdEsc(it.dims)}</div>`:"")}${it.shipStatus?`<span class="wo-item-ship">${wdEsc(it.shipStatus)}</span>`:""}</div></div>`; };
   const orderedByClean=o.orderedBy?String(o.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim():"";
-  return `<div class="wo-card ${highlighted?'hl':''}" data-wocard="${wdEsc(o.docId)}">
-    <div class="wo-head" data-wotoggle="${wdEsc(o.docId)}">
-      <span class="wo-chev" id="wo-chev-${wdEsc(o.docId)}">${open?"▾":"▸"}</span>
+  return `<div class="wo-card ${highlighted?'hl':''} ${compact?'compact':''}" data-wocard="${wdEsc(o.docId)}">
+    <div class="wo-head" ${tog}>
+      ${compact?"":`<span class="wo-chev" id="wo-chev-${wdEsc(o.docId)}">${open?"▾":"▸"}</span>`}
       <span class="wo-job">${wdEsc(o.job||"—")}</span>
       <span class="wo-num">#${wdEsc(o.number)}</span>
       <span class="wo-ship" title="${jobsite?'Send to job site':'Shop pickup'}">${jobsite?'🚚':'🆙'}</span>
@@ -2077,12 +2082,12 @@ function wdOrderCard(o){
         <button class="wo-star ${starred?'on':''}" data-wostar="${wdEsc(o.job||"")}" title="${starred?'In My Jobs':'Add to My Jobs'}">${starred?'★':'☆'}</button>
       </span>
     </div>
-    <div class="wo-sub" data-wotoggle="${wdEsc(o.docId)}">${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}${orderedByClean?` · by ${wdEsc(orderedByClean)}`:""}${o.orderedDate?` · placed ${wdEsc(wdDate(o.orderedDate))}`:""}</div>
-    ${groupNames.length?`<div class="wo-catprev">${groupNames.map(g=>`<button class="wo-catprev-pill ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} <b>${groups[g].length}</b></button>`).join("")}</div>
+    <div class="wo-sub" ${tog}>${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}${orderedByClean?` · by ${wdEsc(orderedByClean)}`:""}${o.orderedDate?` · placed ${wdEsc(wdDate(o.orderedDate))}`:""}</div>
+    ${groupNames.length?`<div class="wo-catprev">${groupNames.map(g=>`<button class="wo-catprev-pill ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} <b>${groups[g].length}</b></button>`).join("")}${wt?`<span class="wo-wtpill">⚖ ${wt.toLocaleString()} lb</span>`:""}</div>
     ${groupNames.map(g=>`<div class="wo-cat" data-wocatbox="${wdEsc(o.docId)}|||${wdEsc(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(it=>itemLine(it)+(it.isEquip?wdItemArrivalBlock(o,it):"")).join("")}</div>`).join("")}`:""}
     ${wdHasDisplayNotes(n)?`<div class="wo-notechips">${n.deliveryTime?`<span class="wo-notechip">🕒 ${wdEsc(n.deliveryTime)}</span>`:""}${n.truck?`<span class="wo-notechip">🚚 ${wdEsc(n.truck)}</span>`:""}</div>`:""}
     ${wdHasExtraNotes(n)?`<div class="wo-extranote" id="wo-extra-${wdEsc(o.docId)}" style="display:${notesOpen?'block':'none'}">📝 ${wdEsc(n.extra)}</div>`:""}
-    <div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:${open?"block":"none"}">
+    ${compact?"":`<div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:${open?"block":"none"}">
       ${orderedByClean?`<div class="wo-row"><b>Ordered by</b> ${wdEsc(orderedByClean)}</div>`:""}
       ${o.orderedDate?`<div class="wo-row"><b>Ordered</b> ${wdEsc(wdDate(o.orderedDate))}</div>`:""}
       ${o.requestedDate?`<div class="wo-row"><b>Field wants</b> ${wdEsc(wdDate(o.requestedDate))}</div>`:""}
@@ -2090,10 +2095,11 @@ function wdOrderCard(o){
       ${o.shipLabel?`<div class="wo-row"><b>Ship</b> ${wdEsc(o.shipLabel)}</div>`:""}
       ${o.orderStatus?`<div class="wo-row"><b>Order status</b> ${wdEsc(o.orderStatus)}</div>`:""}
       ${o.instructions?`<div class="wo-row"><b>Instructions</b> ${wdEsc(o.instructions)}</div>`:""}
+      ${wt?`<div class="wo-row"><b>Total weight</b> ${wt.toLocaleString()} lb</div>`:""}
       ${(typeof o.totalPrice==="number"&&o.totalPrice>0)?`<div class="wo-row"><b>Total</b> $${o.totalPrice.toFixed(2)}</div>`:""}
       ${o.detailUnavailable?`<div class="wo-row" style="color:var(--steel-light)">⚠ Item-level detail unavailable for this order</div>`:""}
       ${equipItems.length?`<div class="wo-equip-head">📦 Equipment to deliver</div>`+equipItems.map(itemLine).join(""):""}
-    </div>
+    </div>`}
   </div>`;
 }
 function renderDeliveries(){
