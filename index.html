@@ -507,9 +507,10 @@
   .wo-cat-name{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:var(--ink);margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--line-soft)}
   /* new order-card bits */
   .wo-truck{font-size:14px}
+  .wo-ship{font-size:14px;margin-left:1px}
   .wo-tag.equip{display:inline-flex;align-items:center;gap:3px}
-  .wo-head-btns{margin-left:auto;display:flex;align-items:center;gap:2px}
-  .wo-ibtn{font-size:15px;line-height:1;padding:3px 4px;background:none;border-radius:6px;opacity:.55}
+  .wo-head-btns{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .wo-ibtn{font-size:16px;line-height:1;padding:4px 5px;background:none;border-radius:6px;opacity:.5}
   .wo-ibtn.on{opacity:1;background:var(--line-soft)}
   .wo-head-btns .wo-star{margin-left:0}
   .wo-card.hl{background:#fffbea;border-color:#f0d98a}
@@ -775,7 +776,7 @@
         <div class="wd-winbar"><span class="wd-winbar-lab">Pull orders:</span><input id="calWinBack" class="wd-win-in" type="number" min="0" max="370" inputmode="numeric"> <span class="wd-win-unit">days back →</span> <input id="calWinFwd" class="wd-win-in" type="number" min="0" max="370" inputmode="numeric"> <span class="wd-win-unit">days ahead</span><button id="calWinApply" class="wd-win-apply">Apply</button></div>
         <div class="wd-sync-msg" id="calSyncMsg" style="text-align:center;margin-bottom:8px"></div>
         <div class="cal-grid" id="calGrid"></div>
-        <div class="cal-legend"><span>📦 Equipment</span><span>🚚 Job site</span><span><i class="lg-dot blue"></i> Order</span><span><i class="lg-dot done"></i> Delivered</span></div>
+        <div class="cal-legend"><span>📦 Equipment</span><span>🚚 Job site</span><span>🆙 Pickup</span><span><i class="lg-dot done"></i> Delivered</span></div>
       </div>
       <div id="dayDetail" class="day-detail" style="display:none"></div>
     </div>
@@ -785,7 +786,7 @@
       <div class="controls" style="position:static">
         <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="delSearch" type="search" placeholder="Search job #, item…" autocomplete="off"><button class="clr" id="delClr" style="display:none">Clear</button></div>
       </div>
-      <div class="dl-shipfilter"><button class="dl-sf on" data-shipfilter="all">All</button><button class="dl-sf" data-shipfilter="jobsite">🚚 Job site</button><button class="dl-sf" data-shipfilter="pickup">📦 Pickup</button></div>
+      <div class="dl-shipfilter"><button class="dl-sf on" data-shipfilter="all">All</button><button class="dl-sf" data-shipfilter="jobsite">🚚 Job site</button><button class="dl-sf" data-shipfilter="pickup">🆙 Pickup</button></div>
       <div id="delList"></div>
     </div>
     </div>
@@ -1105,6 +1106,7 @@ let WD_EQUIP=[];                    // Webduct shop-equipment order items (synce
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
 let WD_NOTES={};                    // per-order notes keyed by order docId {deliveryTime, truck, extra, highlight}
 let calShipFilter="all";           // list filter: all | jobsite | pickup
+const WD_ORDER_SCHEMA=2;           // bump to force a one-time re-sync of all orders (e.g. shipType change)
 let calShowMine=false;             // calendar: false = everyone's orders, true = just mine
 // User-adjustable order window (days back / days ahead from today), shared by the calendar sync
 // AND the admin tester so both pull the same range. Persisted per-device. Tighter default.
@@ -1245,7 +1247,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="3.7";
+const APP_VERSION="3.8";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1818,17 +1820,21 @@ function renderCalendar(){
     const orders=m?m.orders:[];
     const anyEquip=orders.some(o=>o.hasEquip);
     const anyJobsite=orders.some(o=>o.shipType==="jobsite");
+    const anyPickup=orders.some(o=>o.shipType!=="jobsite");
     const hasArrReq=m&&m.req.length, hasDone=m&&m.done.length;
     const has=orders.length||hasArrReq||hasDone;
-    // Job-site orders: list unique job names (with delivery time if set) stacked above the dots.
-    const jobsiteOrders=orders.filter(o=>o.shipType==="jobsite");
+    // Stack unique job names for this day's orders (job-site first), with delivery time if set.
     const seenNames=new Set(); const nameRows=[];
-    jobsiteOrders.forEach(o=>{ const nm=(o.jobName||o.job||"").trim(); if(!nm||seenNames.has(nm.toLowerCase()))return; seenNames.add(nm.toLowerCase()); const n=wdNotesFor(o.docId); const t=n.deliveryTime?` ${n.deliveryTime}`:""; nameRows.push(`<span class="cal-jobname">${wdEsc(nm)}${t?`<span class="cal-jobtime">${wdEsc(t.trim())}</span>`:""}</span>`); });
+    orders.slice().sort((a,b)=>(a.shipType==="jobsite"?0:1)-(b.shipType==="jobsite"?0:1)).forEach(o=>{
+      const nm=(o.jobName||o.job||"").trim(); if(!nm||seenNames.has(nm.toLowerCase()))return; seenNames.add(nm.toLowerCase());
+      const n=wdNotesFor(o.docId); const t=n.deliveryTime||"";
+      nameRows.push(`<span class="cal-jobname">${o.shipType==="jobsite"?"🚚":"🆙"} ${wdEsc(nm)}${t?`<span class="cal-jobtime">${wdEsc(t)}</span>`:""}</span>`);
+    });
     let marks="";
     if(anyEquip) marks+='<span class="cal-emoji">📦</span>';
     if(anyJobsite) marks+='<span class="cal-emoji">🚚</span>';
-    if(!anyEquip && orders.length) marks+='<span class="cal-dot blue"></span>';
-    if(hasArrReq && !anyEquip) marks+='<span class="cal-dot req"></span>';
+    if(anyPickup) marks+='<span class="cal-emoji">🆙</span>';
+    if(hasArrReq) marks+='<span class="cal-dot req"></span>';
     if(hasDone) marks+='<span class="cal-dot done"></span>';
     const cnt=orders.length+(hasArrReq||0);
     html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''} ${key===calSelDay?'sel':''}" ${has?`data-calday="${key}"`:""}>
@@ -1858,15 +1864,24 @@ function renderDayDetail(){
   if(m.done.length){ html+=`<div class="we-sec">✓ Delivered (${m.done.length})</div>`+m.done.map(deliveryRow).join(""); }
   box.innerHTML=html; box.style.display="block";
 }
-// Normalize Webduct's "Shipped/Picked up" into the one that fits this order's ship type.
-function wdShipStatusText(o){
-  const s=o.shipStatus||"";
-  if(/shipped\s*\/\s*picked\s*up/i.test(s)) return o.shipType==="jobsite"?"Shipped":"Picked up";
-  return s;
+// Detect whether an order is going to the job site vs shop pickup. Webduct's exact labels vary,
+// so we scan every plausible field for job-site / delivery keywords, falling back to pickup.
+function wdDetectShipType(src){
+  const d=src.delivery||{};
+  const hay=[d.shipping?.label, d.shipping?.value, d.option, d.method, d.type,
+    d.shipping?.type, d.shipping?.code].filter(Boolean).join(" ").toLowerCase();
+  if(/job\s*site|jobsite|deliver|delivery|field|site|truck|ship/.test(hay)) return "jobsite";
+  if(/pick\s*up|pickup|shop|will\s*call|warehouse|counter/.test(hay)) return "pickup";
+  return "pickup";
 }
 function wdNotesFor(docId){ return WD_NOTES[docId]||{}; }
-async function wdToggleHighlight(docId){ if(!fbReady)return; const n=wdNotesFor(docId); try{ await setDoc(doc(db,"webductOrderNotes",docId),{highlight:!n.highlight,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error(e); } }
-async function wdToggleItemGathered(docId, ik){ if(!fbReady)return; const n=wdNotesFor(docId); const g=Object.assign({}, n.gathered||{}); g[ik]=!g[ik]; try{ await setDoc(doc(db,"webductOrderNotes",docId),{gathered:g,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error(e); } }
+async function wdToggleHighlight(docId){
+  if(!fbReady){ toast("No connection — can't save"); return; }
+  const n=wdNotesFor(docId);
+  try{ await setDoc(doc(db,"webductOrderNotes",docId),{highlight:!n.highlight,updatedAt:serverTimestamp()},{merge:true}); }
+  catch(e){ console.error("highlight save failed",e); toast("Couldn't save — add the webductOrderNotes Firestore rule"); }
+}
+async function wdToggleItemGathered(docId, ik){ if(!fbReady){ toast("No connection — can't save"); return; } const n=wdNotesFor(docId); const g=Object.assign({}, n.gathered||{}); g[ik]=!g[ik]; try{ await setDoc(doc(db,"webductOrderNotes",docId),{gathered:g,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error("gathered save failed",e); toast("Couldn't save — add the webductOrderNotes Firestore rule"); } }
 let WD_NOTES_TARGET="";
 function wdOpenNotes(docId){
   WD_NOTES_TARGET=docId; const n=wdNotesFor(docId);
@@ -1899,7 +1914,7 @@ function wdOrderCard(o){
       <span class="wo-chev" id="wo-chev-${wdEsc(o.docId)}">${open?"▾":"▸"}</span>
       <span class="wo-job">${wdEsc(o.job||"—")}</span>
       <span class="wo-num">#${wdEsc(o.number)}</span>
-      ${jobsite?`<span class="wo-truck" title="Send to job site">🚚</span>`:""}
+      <span class="wo-ship" title="${jobsite?'Send to job site':'Shop pickup'}">${jobsite?'🚚':'🆙'}</span>
       ${o.hasEquip?`<span class="wo-tag equip">📦 EQUIP</span>`:""}
       <span class="wo-head-btns">
         <button class="wo-ibtn ${wdHasDisplayNotes(n)||wdHasExtraNotes(n)?'on':''}" data-wonotes="${wdEsc(o.docId)}" title="Delivery notes">📝</button>
@@ -1916,7 +1931,6 @@ function wdOrderCard(o){
       ${o.requestedDate?`<div class="wo-row"><b>Field wants</b> ${wdEsc(wdDate(o.requestedDate))}</div>`:""}
       ${o.po?`<div class="wo-row"><b>PO #</b> ${wdEsc(o.po)}</div>`:""}
       ${o.shipLabel?`<div class="wo-row"><b>Ship</b> ${wdEsc(o.shipLabel)}</div>`:""}
-      ${o.shipStatus?`<div class="wo-row"><b>Delivery status</b> ${wdEsc(wdShipStatusText(o))}</div>`:""}
       ${o.orderStatus?`<div class="wo-row"><b>Order status</b> ${wdEsc(o.orderStatus)}</div>`:""}
       ${o.instructions?`<div class="wo-row"><b>Instructions</b> ${wdEsc(o.instructions)}</div>`:""}
       ${(typeof o.totalPrice==="number"&&o.totalPrice>0)?`<div class="wo-row"><b>Total</b> $${o.totalPrice.toFixed(2)}</div>`:""}
@@ -2515,7 +2529,7 @@ function wdShowView(which){
 onActivate($("wd_tabReadable"),()=>wdShowView("readable"));
 onActivate($("wd_tabRaw"),()=>wdShowView("raw"));
 
-function wdEsc(x){ return esc(x==null?"":String(x)); }function wdDate(s){ if(!s)return""; const d=new Date(s); if(isNaN(d))return String(s); return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }
+function wdEsc(x){ return esc(x==null?"":String(x)); }function wdDate(s){ if(!s)return""; const d=new Date(s); if(isNaN(d))return String(s); return (d.getMonth()+1)+"/"+d.getDate(); }
 function wdRow(k,v){ if(v==null||v==="")return ""; return `<div class="wd-kv"><span class="k">${wdEsc(k)}</span><span class="v">${v}</span></div>`; }
 function wdBadge(txt,tone){ return `<span class="wd-rec-badge ${tone||""}">${wdEsc(txt)}</span>`; }
 
@@ -2954,7 +2968,7 @@ async function wdAutoSync(opts={}){
       const oDocId="wo-"+wdSlug(o.number);
       seenOrderDocs.add(oDocId);
       const ex=held.get(oDocId);
-      if(ex && ex.dateModified && o.dateModified && ex.dateModified===o.dateModified && !ex.detailUnavailable){ skipped++; continue; }
+      if(ex && ex.dateModified && o.dateModified && ex.dateModified===o.dateModified && !ex.detailUnavailable && ex.schema===WD_ORDER_SCHEMA){ skipped++; continue; }
       todo.push({o,oDocId});
     }
     const run=todo.slice(0,150);
@@ -2979,12 +2993,14 @@ async function wdAutoSync(opts={}){
         orderedBy:orderedByName, orderedByEmail, dateModified:src.dateModified||"",
         orderedDate:src.ordered||"", requestedDate:src.requested||"", deliveryDate:src.delivery?.date||"",
         shipLabel:src.delivery?.shipping?.label||"", shipStatus:src.delivery?.status?.label||"",
-        shipType:(src.delivery?.shipping?.value||src.delivery?.option||"").toLowerCase().includes("job")?"jobsite":(src.delivery?.shipping?.label||src.delivery?.option||"").toLowerCase().includes("job")?"jobsite":"pickup",
+        shipRaw:JSON.stringify({label:src.delivery?.shipping?.label||"", value:src.delivery?.shipping?.value||"", option:src.delivery?.option||"", method:src.delivery?.method||""}),
+        shipType:wdDetectShipType(src),
         prodStatus:src.production?.status?.label||"", orderStatus:src.status?.label||"",
         po:src.poNumber||"", tag:src.tag||"", instructions:(src.specialInstructions&&src.specialInstructions!=="n/a")?src.specialInstructions:"",
         totalPrice:src.calculations?.totals?.current?.price?.value ?? null,
         totalWeight:src.calculations?.totals?.current?.weight?.value ?? null,
         hasEquip, items:liteItems, itemCount:liteItems.length, detailUnavailable:!withItems,
+        schema:WD_ORDER_SCHEMA,
         syncedAt:Date.now()
       };
     }
