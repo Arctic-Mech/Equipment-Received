@@ -573,10 +573,6 @@
   .dl-sf{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;font-size:12.5px;color:var(--steel);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 14px}
   .dl-sf.on{background:var(--blue);color:#fff;border-color:var(--blue)}
   .cal-layout{display:block}
-  @media(min-width:900px){
-    .cal-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
-    .cal-layout .day-detail{margin:0;position:sticky;top:12px;max-height:calc(100vh - 40px);overflow-y:auto}
-  }
   .cal-cnt{position:absolute;top:3px;right:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel-light)}
   .cal-cell.sel .cal-cnt{color:#fff}
   .cal-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px;font-size:11.5px;color:var(--steel)}
@@ -730,12 +726,20 @@
   .we-linkbtn{color:var(--blue);text-decoration:underline;font-weight:600}
   .we-linkwrap{margin-top:8px}
   .we-linksearch{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;margin-bottom:8px;background:var(--surface)}
-  .we-linkresults{display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto}
-  .we-pick{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;background:var(--card);border:1px solid var(--line);border-radius:8px;width:100%}
-  .we-pick:active{background:var(--surface)}
+  .we-linkresults{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto}
+  .we-pick{background:var(--card);border:1px solid var(--line);border-radius:8px;width:100%;overflow:hidden}
+  .we-pick.open{border-color:var(--blue)}
+  .we-pick-head{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;width:100%;background:none}
+  .we-pick-head:active{background:var(--surface)}
   .we-pick-sug{font-family:'Barlow Condensed';font-weight:700;font-size:9px;letter-spacing:.05em;background:#0d7a73;color:#fff;padding:1px 6px;border-radius:4px}
   .we-pick-desc{font-size:13px;color:var(--ink);font-weight:600}
-  .we-pick-loc{font-size:11.5px;color:var(--steel)}
+  .we-pick-sub{font-size:11.5px;color:var(--steel)}
+  .we-pick-body{padding:2px 10px 10px;border-top:1px solid var(--line-soft)}
+  .we-pick-meta{font-size:12px;color:var(--steel);line-height:1.5;margin:6px 0}
+  .we-pick-photo{display:block;max-width:200px;width:100%;border-radius:8px;border:1px solid var(--line);margin-bottom:8px}
+  .we-pick-nophoto{font-size:11.5px;color:var(--steel-light);font-style:italic;margin-bottom:8px}
+  .we-pick-pair{display:block;width:100%;font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:13px;color:#fff;background:var(--teal);padding:9px;border-radius:8px}
+  .we-pick-pair:active{opacity:.85}
   .we-pick-empty{font-size:12.5px;color:var(--steel-light);padding:8px 2px}
   .we-linksel{width:100%;font-size:13px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
   /* Webduct strip on arrival cards */
@@ -1299,7 +1303,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.7";
+const APP_VERSION="4.8";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2166,7 +2170,13 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#ddClose")){ calSelDay=null; calDayOpenJob=null; renderCalendar(); return; }
   // Clicking anywhere on an expanded day-view card (that wasn't an interactive control handled
   // above) collapses it. Runs after all card-internal handlers, before the day catch-all.
-  const cjc=e.target.closest("[data-caljobclose]"); if(cjc){ e.stopPropagation(); if(calDayOpenJob===cjc.dataset.caljobclose){ calDayOpenJob=null; renderCalendar(); } return; }
+  const cjc=e.target.closest("[data-caljobclose]"); if(cjc){
+    // Only close on a click of the card's dead space — never when a button/input/link or any
+    // element carrying an action attribute was clicked (those are handled by other listeners).
+    const interactive=e.target.closest("button, input, textarea, select, a, [data-wocatchip], [data-woitemchk], [data-wostar], [data-wohl], [data-wonotes], [data-welinkopen], [data-wepick], [data-wepickopen], [data-welinksearch], [data-weunlink], [data-wiaddphoto], [data-wiaphoto], [data-caltime], [data-caltruck]");
+    if(interactive) return;   // let the other handler deal with it; don't close
+    e.stopPropagation(); if(calDayOpenJob===cjc.dataset.caljobclose){ calDayOpenJob=null; renderCalendar(); } return;
+  }
   // Catch-all LAST: clicking an empty part of a day cell selects it. Card-internal controls above
   // (pills, checkmarks, star, time/truck, job expand) are handled first and return before this.
   const cd=e.target.closest("[data-calday]"); if(cd){ if(calSelDay===cd.dataset.calday){ return; } calSelDay=cd.dataset.calday; calDayOpenJob=null; renderCalendar(); return; }
@@ -3314,16 +3324,32 @@ function wdLinkOptions(e){
     (rest.length?`<optgroup label="Other jobs">${rest.slice(0,200).map(opt).join("")}</optgroup>`:"");
 }
 // Searchable pick list, restricted to the SAME job, suggested (best text match) first.
+let WD_PICK_OPEN={};   // { equipDocId: arrivalId } — which arrival is expanded in a picker
 function wdArrivalPickList(e, query){
   const q=(query||"").trim().toLowerCase();
   let cands=ARRIVALS.filter(a=>normJob(a.jobNumber)===normJob(e.job));
   if(!cands.length) return `<div class="we-pick-empty">No arrivals logged on job ${wdEsc(e.job||"?")} yet.</div>`;
   if(q) cands=cands.filter(a=>[a.description,a.supplier,a.storageLocation].some(v=>(v||"").toLowerCase().includes(q)));
-  // Suggested first: rank by text similarity to the equipment notes/label.
   const target=(e.notes||e.label||"");
   cands=cands.map(a=>({a,score:wdSimilarity(target, a.description||"")})).sort((x,y)=>y.score-x.score).map(x=>x.a);
   if(!cands.length) return `<div class="we-pick-empty">No matches — clear the search to see all arrivals on this job.</div>`;
-  return cands.slice(0,25).map((a,i)=>`<button class="we-pick" data-wepick="${wdEsc(e.docId)}|||${wdEsc(a.id)}">${i===0&&!q?'<span class="we-pick-sug">SUGGESTED</span>':""}<span class="we-pick-desc">${wdEsc(a.description||"No description")}</span>${a.storageLocation?`<span class="we-pick-loc">📍 ${wdEsc(a.storageLocation)}</span>`:""}</button>`).join("");
+  const openId=WD_PICK_OPEN[e.docId]||"";
+  return cands.slice(0,25).map((a,i)=>{
+    const arrivedDate=a.dateReceived?wdDate(a.dateReceived):"";
+    const isOpen=openId===a.id;
+    const hasPhoto=!!a.photoBy;
+    const head=`<button class="we-pick-head" data-wepickopen="${wdEsc(e.docId)}|||${wdEsc(a.id)}">
+      ${i===0&&!q?'<span class="we-pick-sug">SUGGESTED</span>':""}
+      <span class="we-pick-desc">${wdEsc(a.description||"No description")}</span>
+      <span class="we-pick-sub">${arrivedDate?`📅 arrived ${wdEsc(arrivedDate)}`:""}${a.storageLocation?`${arrivedDate?" · ":""}📍 ${wdEsc(a.storageLocation)}`:""}</span>
+    </button>`;
+    const body=isOpen?`<div class="we-pick-body">
+      <div class="we-pick-meta">${a.supplier?`Supplier: ${wdEsc(a.supplier)}<br>`:""}${a.po?`PO: ${wdEsc(a.po)}<br>`:""}${arrivedDate?`Received: ${wdEsc(arrivedDate)}`:""}${a.delivered?" · ✓ delivered":""}</div>
+      ${hasPhoto?`<img class="we-pick-photo" data-wiaphoto="${wdEsc(a.id)}" alt="arrival photo" loading="lazy">`:`<div class="we-pick-nophoto">No photo on this arrival</div>`}
+      <button class="we-pick-pair" data-wepick="${wdEsc(e.docId)}|||${wdEsc(a.id)}">🔗 Pair this arrival</button>
+    </div>`:"";
+    return `<div class="we-pick ${isOpen?'open':''}">${head}${body}</div>`;
+  }).join("");
 }
 
 function renderWdEquip(){
@@ -3378,7 +3404,8 @@ document.addEventListener("click",e=>{
   const r=e.target.closest("[data-wereject]"); if(r){ wdSetMatch(r.dataset.wereject,"none",""); return; }
   const d=e.target.closest("[data-wedetach]"); if(d){ wdSetMatch(d.dataset.wedetach,"none",""); return; }
   const lo=e.target.closest("[data-welinkopen]"); if(lo){ const w=$("welink-"+lo.dataset.welinkopen); if(w){ w.style.display=w.style.display==="none"?"block":"none"; if(w.style.display==="block"){ const s=w.querySelector("[data-welinksearch]"); if(s)setTimeout(()=>s.focus(),100); } } return; }
-  const pick=e.target.closest("[data-wepick]"); if(pick){ const [docId,arrivalId]=pick.dataset.wepick.split("|||"); wdSetMatch(docId,"confirmed",arrivalId); toast("Paired with arrival"); return; }
+  const po=e.target.closest("[data-wepickopen]"); if(po){ e.stopPropagation(); const [docId,arrivalId]=po.dataset.wepickopen.split("|||"); WD_PICK_OPEN[docId]=(WD_PICK_OPEN[docId]===arrivalId)?"":arrivalId; const e2=WD_EQUIP.find(x=>x.docId===docId); const res=$("welinkres-"+docId); if(e2&&res){ const sInput=document.querySelector(`[data-welinksearch="${CSS.escape(docId)}"]`); res.innerHTML=wdArrivalPickList(e2, sInput?sInput.value:""); wdLoadArrivalThumbs(); } return; }
+  const pick=e.target.closest("[data-wepick]"); if(pick){ e.stopPropagation(); const [docId,arrivalId]=pick.dataset.wepick.split("|||"); WD_PICK_OPEN[docId]=""; wdSetMatch(docId,"confirmed",arrivalId); toast("Paired with arrival"); return; }
   const del=e.target.closest("[data-wedelivered]"); if(del){ wdMarkEquip(del.dataset.wedelivered,{deliveredMark:true}); toast("Marked delivered"); return; }
   const dis=e.target.closest("[data-wedismiss]"); if(dis){ wdMarkEquip(dis.dataset.wedismiss,{dismissed:true}); toast("Dismissed"); return; }
   const s=e.target.closest("#wdSyncBtn"); if(s){ if(wdConnected()){ wdAutoSync({manual:true}); } else { toast("Connect Webduct in Admin first"); } return; }
