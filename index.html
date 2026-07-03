@@ -416,6 +416,8 @@
   .sharelink-row{display:flex;gap:8px}
   .sharelink-row input{flex:1;min-width:0;font-family:'JetBrains Mono';font-size:12px;color:var(--steel);background:var(--surface)}
   .share-link-copy{flex:none;background:var(--blue);color:#fff;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:13px;padding:0 16px;border-radius:10px;white-space:nowrap}
+  .share-copyname{display:block;width:100%;background:var(--teal);color:#fff;font-family:'Barlow Condensed';font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:14px;padding:11px;border-radius:10px}
+  .share-copyname:active{opacity:.85}
   .share-link-copy:active{background:#19198a}
   .share-link-copy.copied{background:var(--teal)}
   @keyframes flashHighlight{0%,100%{box-shadow:0 0 0 3px var(--hivis), var(--shadow);}50%{box-shadow:0 0 0 0px var(--hivis), var(--shadow);}}
@@ -540,13 +542,26 @@
   .wo-catprev-pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .wo-catprev-pill b{color:var(--ink);font-weight:700;margin-left:1px}
   .wo-catprev-pill.on b{color:#fff}
-  .wo-wtpill{font-size:11px;font-family:'JetBrains Mono';font-weight:600;color:var(--steel);background:var(--line-soft);border-radius:6px;padding:3px 9px}
+  .wo-wtpill{font-size:11px;font-family:'JetBrains Mono';font-weight:600;color:var(--steel);background:var(--line-soft);border-radius:6px;padding:3px 9px;cursor:pointer}
+  .wo-wtpill:active{background:var(--line)}
+  .wo-wtmath{margin:0 12px 8px 30px;padding:9px 11px;background:var(--surface);border:1px solid var(--line);border-radius:9px;font-size:12px}
+  .wtm-title{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:11px;color:var(--steel);margin-bottom:5px}
+  .wtm-row{display:flex;justify-content:space-between;gap:12px;padding:2px 0;color:var(--ink)}
+  .wtm-row b{font-family:'JetBrains Mono'}
+  .wtm-row.total{border-top:1px solid var(--line);margin-top:4px;padding-top:5px;font-weight:700}
+  .wtm-note{font-size:11px;color:var(--steel-light);font-style:italic;margin-top:4px}
   .wia{margin:6px 0 6px 8px;padding:9px 11px;border-radius:9px;font-size:12.5px}
   .wia.linked{background:#eefaf3;border:1px solid #bfe6d0}
   .wia.unlinked{background:var(--surface);border:1px dashed var(--line)}
   .wia-head{display:flex;align-items:center;gap:7px;font-weight:600;color:var(--ink);margin-bottom:5px;flex-wrap:wrap}
   .wia-badge{font-family:'Barlow Condensed';font-weight:700;font-size:10px;letter-spacing:.03em;padding:2px 7px;border-radius:5px}
   .wia-badge.green{background:#cdeede;color:#0d7a73} .wia-badge.amber{background:#fdecd8;color:#8a4b00}
+  .wia-badge.partial{background:#ffe4c2;color:#8a4b00}
+  .wia-note{margin-top:8px}
+  .wia-notebtn{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;font-size:11.5px;color:var(--steel);background:var(--card);border:1px solid var(--line);border-radius:7px;padding:5px 11px}
+  .wia-notebtn.on{background:#fffbea;border-color:#f0d98a;color:#8a4b00}
+  .wia-notetext{margin-top:6px;padding:7px 10px;background:#fffbea;border:1px solid #f0d98a;border-radius:8px;font-size:12.5px;color:var(--ink);line-height:1.4;white-space:pre-wrap}
+  .we-pick-partial{background:#ffe4c2;color:#8a4b00;font-family:'Barlow Condensed';font-weight:700;font-size:9px;padding:1px 6px;border-radius:4px;margin-left:5px}
   .wia-unlink{margin-left:auto;font-size:11px;color:var(--red);background:none;text-decoration:underline}
   .wia-desc{font-weight:600;color:var(--ink);font-size:13px}
   .wia-meta{font-size:11.5px;color:var(--steel);margin-top:2px;line-height:1.4}
@@ -703,6 +718,8 @@
   .we-ord{font-family:'JetBrains Mono';font-size:11.5px;color:var(--steel)}
   .we-stat{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px;padding:2px 8px;border-radius:6px;background:var(--line-soft);color:var(--steel)}
   .we-stat.green{background:var(--teal-soft);color:var(--teal)} .we-stat.amber{background:#fff4e5;color:#8a4b00} .we-stat.blue{background:#e7e7fb;color:#2a2a9e}
+  .we-stat.partial{background:#ffe4c2;color:#8a4b00}
+  .ac-wd-stat.partial{color:#8a4b00}
   .we-label{font-weight:700;font-size:14px;color:var(--ink)}
   .we-notes{font-size:13px;color:var(--steel);margin-top:2px;line-height:1.4;white-space:pre-wrap}
   .we-dates{font-size:12px;color:var(--steel-light);margin-top:5px}
@@ -748,6 +765,7 @@
   .ac-wd-tag{flex:none;font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;font-size:10px;color:#5b3fd6;background:#e7dfff;padding:2px 6px;border-radius:5px;height:fit-content}
   .ac-wd-body{flex:1;min-width:0;font-size:12.5px;color:var(--ink);line-height:1.45}
   .ac-wd-stat{font-weight:600;color:#8a4b00}
+  .ac-wd-stat.delivered{color:#0d7a73}
 </style>
 </head>
 <body>
@@ -1063,6 +1081,16 @@
 <!-- hidden legacy fields kept for code compatibility -->
 
 <!-- ORDER NOTES MODAL -->
+<!-- PAIR KIND (FULL / PARTIAL) MODAL -->
+<div class="modal-back" id="pairModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3>Pair arrival</h3><button class="x" id="pk_x">✕</button></div>
+  <div class="modal-body">
+    <p style="color:var(--steel);font-size:13px;margin:0 0 16px">Is this the full order, or just part of it?</p>
+    <button class="submit" id="pk_full" style="margin-bottom:10px">✓ Full delivery</button>
+    <button class="submit" id="pk_partial" style="background:#8a4b00">◑ Partial delivery</button>
+  </div>
+</div></div>
+
 <!-- DELIVERY TIME PICKER MODAL -->
 <div class="modal-back" id="timeModal"><div class="modal"><div class="modal-grip"></div>
   <div class="modal-head"><h3 id="tp_title">Delivery time</h3><button class="x" id="tp_x">✕</button></div>
@@ -1091,8 +1119,9 @@
 <div class="modal-back" id="shareModal"><div class="modal"><div class="modal-grip"></div>
   <div class="modal-head"><h3>Share arrival</h3><button class="x" data-close="shareModal">✕</button></div>
   <div class="modal-body">
-    <p id="shareItem" style="color:var(--steel);font-size:13px;line-height:1.45;margin:0 0 14px"></p>
-    <div class="field"><label>Share with someone in My Jobs</label><input id="shareTo" type="text" placeholder="Start typing a name…" autocomplete="off"><div class="people-sug" id="shareSug"></div></div>
+    <p id="shareItem" style="color:var(--steel);font-size:13px;line-height:1.45;margin:0 0 10px"></p>
+    <button class="share-copyname" id="shareCopyName">📋 Copy arrival name</button>
+    <div class="field" style="margin-top:14px"><label>Share with someone in My Jobs</label><input id="shareTo" type="text" placeholder="Start typing a name…" autocomplete="off"><div class="people-sug" id="shareSug"></div></div>
     <div class="hint" id="shareHint" style="margin-top:2px"></div>
     <div class="share-divider"><span>or</span></div>
     <div class="field"><label>Direct link to this arrival</label>
@@ -1161,6 +1190,7 @@ let SHARES=[];                      // pending shares addressed to me
 let WD_EQUIP=[];                    // Webduct shop-equipment order items (synced) {docId, order#, job, dates, status, notes, label, arrivalId, matchState}
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
 let WD_NOTES={};                    // per-order notes keyed by order docId {deliveryTime, truck, extra, highlight}
+let WD_EQNOTES={};                  // per-equipment notes keyed by equipment docId {text} — synced across pages
 let calShipFilter="all";           // list filter: all | jobsite | pickup
 const WD_ORDER_SCHEMA=2;           // bump to force a one-time re-sync of all orders (e.g. shipType change)
 let calShowMine=false;             // calendar: false = everyone's orders, true = just mine
@@ -1192,7 +1222,8 @@ function wdSyncWindowInputs(){
 const EXPANDED_WO=new Set();       // order cards left open — survives the constant Firebase re-renders
 const EXPANDED_WO_CATS=new Set();  // per-order-per-group category chips that are open (key: docId|group)
 const EXPANDED_WO_NOTES=new Set(); // order cards whose extra-note is expanded
-let shareJob=null, shareArrivalId=null;
+const EXPANDED_WO_WT=new Set();    // order cards whose weight breakdown is shown
+let shareJob=null, shareArrivalId=null, shareArrivalName="";
 let VIEW_AS=null;                   // {id,first,last} — viewing someone else's My Jobs page read-only (null = viewing your own)
 let PENDING_ARRIVAL=null;           // arrival id to scroll to + expand once the Arrivals tab is showing
 let REMOVED_JOBS=new Set();         // jobs the user manually removed (auto-link won't re-add) — Firebase-synced
@@ -1303,7 +1334,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.8";
+const APP_VERSION="4.9";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1316,6 +1347,7 @@ function startSync(){
   onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>console.error("webductEquip",e));
   onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>console.error("webductOrders",e));
   onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>console.error("webductOrderNotes",e));
+  onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); }, e=>console.error("webductEquipNotes",e));
   wdWatchAdminKey();
 }
 let lastJobEdit=0;
@@ -1351,7 +1383,12 @@ function arrivalRow(r,opts={}){
   const partial = r.partial?'<span class="m partial">⚠ Partial</span>':"";
   const newTag = opts.isNew?`<span class="m new-tag">NEW<button class="newx" data-clearone="${esc(r.id)}" title="Clear this alert">✕</button></span>`:"";
   const wdInfo=(typeof wdEquipForArrival==="function")?wdEquipForArrival(r.id):[];
-  const wdStrip = wdInfo.length ? `<div class="ac-wd">${wdInfo.map(e=>`<div class="ac-wd-row"><span class="ac-wd-tag">WEBDUCT</span><div class="ac-wd-body"><b>Order ${esc(e.orderNumber)}</b>${e.orderedDate?` · ordered ${esc(longDate(e.orderedDate).split(",")[0])}`:""}${e.requestedDate?`<br>Field wants delivered: <b>${esc(longDate(e.requestedDate).split(",")[0])}</b>`:""}${e.shipStatus?` · <span class="ac-wd-stat">${esc(e.shipStatus)}</span>`:""}</div></div>`).join("")}</div>` : "";
+  const wdStrip = wdInfo.length ? `<div class="ac-wd">${wdInfo.map(e=>{
+    const stat = r.delivered ? "Delivered" : (e.shipStatus||"");
+    const statCls = r.delivered ? "ac-wd-stat delivered" : "ac-wd-stat";
+    const partialTag = e.partial ? ` · <span class="ac-wd-stat partial">◑ PARTIAL</span>` : "";
+    return `<div class="ac-wd-row"><span class="ac-wd-tag">WEBDUCT</span><div class="ac-wd-body"><b>Order ${esc(e.orderNumber)}</b>${e.orderedDate?` · ordered ${esc(wdDate(e.orderedDate))}`:""}${e.requestedDate?`<br>Field wants delivered: <b>${esc(wdDate(e.requestedDate))}</b>`:""}${stat?` · <span class="${statCls}">${esc(stat)}</span>`:""}${partialTag}</div></div>`;
+  }).join("")}</div>` : "";
   const extra=`<div class="acard-extra">
       <div class="extra-chips">${r.supplier?`<span class="m sup">${esc(r.supplier)}</span>`:""}${r.po?`<span class="m po">PO ${esc(r.po)}</span>`:""}${r.requestedBy?`<span class="m req">Req: ${esc(r.requestedBy)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}${!r.supplier&&!r.po&&!r.requestedBy?'<span class="m none">No extra details</span>':""}</div>
       ${wdStrip}
@@ -1790,6 +1827,7 @@ function buildArrivalLink(id){ return location.origin+location.pathname+"#arriva
 function openShare(arrivalId){
   const r=ARRIVALS.find(x=>x.id===arrivalId); if(!r){toast("Arrival not found");return;}
   shareArrivalId=arrivalId; shareJob=isRealJob(r.jobNumber)?normJob(r.jobNumber):null;
+  shareArrivalName=r.description||"";
   $("shareItem").innerHTML=`${shareJob?`Sharing job <b>${esc(shareJob)}</b>${r.jobName?" · "+esc(r.jobName):""}<br>`:""}${esc(r.description||"")}`;
   $("shareTo").value=""; $("shareHint").textContent=""; $("shareSug").className="people-sug";
   const canShareToPerson=!!(shareJob && USER);
@@ -1799,6 +1837,21 @@ function openShare(arrivalId){
   $("shareLinkCopy").textContent="Copy"; $("shareLinkCopy").classList.remove("copied");
   openModal("shareModal");
   if(canShareToPerson) setTimeout(()=>$("shareTo").focus(),300);
+}
+onActivate($("shareCopyName"),async()=>{
+  const name=shareArrivalName||"";
+  if(!name){ toast("No name to copy"); return; }
+  try{ await navigator.clipboard.writeText(name); toast("Name copied"); const b=$("shareCopyName"); b.textContent="Copied ✓"; setTimeout(()=>{ b.textContent="📋 Copy arrival name"; },1600); }
+  catch(e){ toast("Copy failed — tap and hold to select"); }
+});
+let WD_PAIR_TARGET={docId:"",arrivalId:""};
+function wdOpenPairKind(docId, arrivalId){ WD_PAIR_TARGET={docId,arrivalId}; openModal("pairModal"); }
+function wdDoPair(partial){
+  const {docId,arrivalId}=WD_PAIR_TARGET; if(!docId){ closeModal("pairModal"); return; }
+  WD_PICK_OPEN[docId]="";
+  wdSetMatch(docId,"confirmed",arrivalId,partial);
+  closeModal("pairModal");
+  toast(partial?"Paired (partial)":"Paired with arrival");
 }
 onActivate($("shareLinkCopy"),async()=>{
   const url=$("shareLinkUrl").value;
@@ -2018,12 +2071,14 @@ function wdItemArrivalBlock(o, it){
   if(arr && (e.matchState==="exact"||e.matchState==="confirmed")){
     const delivered=arr.delivered;
     const statusBadge=delivered?`<span class="wia-badge green">✓ Delivered${arr.deliveredDate?" "+wdEsc(longDate(arr.deliveredDate).split(",")[0]):""}</span>`:`<span class="wia-badge amber">On site · not delivered</span>`;
+    const partialBadge=e.partial?`<span class="wia-badge partial">◑ PARTIAL</span>`:"";
     const hasPhoto=!!arr.photoBy;
     return `<div class="wia linked">
-      <div class="wia-head">🔗 Paired arrival ${statusBadge}<button class="wia-unlink" data-weunlink="${wdEsc(e.docId)}">Unlink</button></div>
+      <div class="wia-head">🔗 Paired arrival ${statusBadge}${partialBadge}<button class="wia-unlink" data-weunlink="${wdEsc(e.docId)}">Unlink</button></div>
       <div class="wia-desc">${wdEsc(arr.description||"Arrival")}</div>
       <div class="wia-meta">${arr.supplier?`Supplier: ${wdEsc(arr.supplier)}`:""}${arr.storageLocation?`${arr.supplier?" · ":""}📍 ${wdEsc(arr.storageLocation)}`:""}${arr.dateReceived?` · received ${wdDate(arr.dateReceived)}`:""}</div>
       ${hasPhoto?`<img class="wia-photo" data-wiaphoto="${wdEsc(arr.id)}" alt="arrival photo" loading="lazy">`:`<button class="wia-addphoto" data-wiaddphoto="${wdEsc(arr.id)}">📷 Add photo</button>`}
+      ${wdEquipNoteBlock(e)}
     </div>`;
   }
   // Not linked → offer to pair, with the searchable same-job picker.
@@ -2034,6 +2089,23 @@ function wdItemArrivalBlock(o, it){
       <div class="we-linkresults" id="welinkres-${wdEsc(e.docId)}">${wdArrivalPickList(e,"")}</div>
     </div>
   </div>`;
+}
+// Equipment-level note (syncs across all pages), shown in the paired-arrival view.
+function wdEqNoteFor(docId){ return (WD_EQNOTES[docId]&&WD_EQNOTES[docId].text)||""; }
+function wdEquipNoteBlock(e){
+  const note=wdEqNoteFor(e.docId);
+  return `<div class="wia-note">
+    <button class="wia-notebtn ${note?'on':''}" data-weqnote="${wdEsc(e.docId)}">📝 ${note?"Note":"Add note"}</button>
+    ${note?`<div class="wia-notetext">${wdEsc(note)}</div>`:""}
+  </div>`;
+}
+async function wdSaveEqNote(docId){
+  if(!fbReady){ toast("No connection"); return; }
+  const cur=wdEqNoteFor(docId);
+  const val=prompt("Note for this equipment (syncs everywhere)", cur);
+  if(val===null) return;
+  try{ await setDoc(doc(db,"webductEquipNotes",docId),{text:val.trim(),updatedAt:serverTimestamp()},{merge:true}); toast(val.trim()?"Note saved":"Note cleared"); }
+  catch(e){ console.error("eqnote save",e); toast("Couldn't save — add the webductEquipNotes Firestore rule"); }
 }
 async function wdToggleHighlight(docId){
   if(!fbReady){ toast("No connection — can't save"); return; }
@@ -2053,6 +2125,15 @@ function wdOpenNotes(docId){
 function wdHasDisplayNotes(n){ return !!(n && (n.deliveryTime||n.truck)); }
 function wdHasExtraNotes(n){ return !!(n && n.extra && n.extra.trim()); }
 
+// Breakdown of an order's total weight: each item's weight × qty, summed. Falls back to just the
+// total if per-item weights didn't come through from Webduct.
+function wdWeightMath(o){
+  const items=(o.items||[]).filter(it=>typeof it.weight==="number" && it.weight>0);
+  const total=Math.round(o.totalWeight||0);
+  if(!items.length){ return `<div class="wtm-row"><span>Order total</span><b>${total.toLocaleString()} lb</b></div><div class="wtm-note">Per-item weights weren't provided by Webduct for this order.</div>`; }
+  const rows=items.map(it=>{ const q=it.quantity!=null?it.quantity:1; const line=it.weight*q; return `<div class="wtm-row"><span>${wdEsc((it.label||"Item").slice(0,40))} ${q>1?`(${it.weight}×${q})`:""}</span><b>${Math.round(line).toLocaleString()} lb</b></div>`; }).join("");
+  return `<div class="wtm-title">Weight breakdown</div>${rows}<div class="wtm-row total"><span>Total</span><b>${total.toLocaleString()} lb</b></div>`;
+}
 // Full order card — whole header is tappable to expand. Collapsed by default.
 // compact=true (day view): no expandable body, no header toggle — just header + pills, so the
 // only dropdowns are the category pills and clicking the card elsewhere closes it.
@@ -2087,7 +2168,8 @@ function wdOrderCard(o, compact){
       </span>
     </div>
     <div class="wo-sub" ${tog}>${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}${orderedByClean?` · by ${wdEsc(orderedByClean)}`:""}${o.orderedDate?` · placed ${wdEsc(wdDate(o.orderedDate))}`:""}</div>
-    ${groupNames.length?`<div class="wo-catprev">${groupNames.map(g=>`<button class="wo-catprev-pill ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} <b>${groups[g].length}</b></button>`).join("")}${wt?`<span class="wo-wtpill">⚖ ${wt.toLocaleString()} lb</span>`:""}</div>
+    ${groupNames.length?`<div class="wo-catprev">${groupNames.map(g=>`<button class="wo-catprev-pill ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} <b>${groups[g].length}</b></button>`).join("")}${wt?`<button class="wo-wtpill" data-wowt="${wdEsc(o.docId)}">${Math.round(wt).toLocaleString()} lb</button>`:""}</div>
+    ${wt?`<div class="wo-wtmath" data-wowtbox="${wdEsc(o.docId)}" style="display:${EXPANDED_WO_WT.has(o.docId)?'block':'none'}">${wdWeightMath(o)}</div>`:""}
     ${groupNames.map(g=>`<div class="wo-cat" data-wocatbox="${wdEsc(o.docId)}|||${wdEsc(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(it=>itemLine(it)+(it.isEquip?wdItemArrivalBlock(o,it):"")).join("")}</div>`).join("")}`:""}
     ${wdHasDisplayNotes(n)?`<div class="wo-notechips">${n.deliveryTime?`<span class="wo-notechip">🕒 ${wdEsc(n.deliveryTime)}</span>`:""}${n.truck?`<span class="wo-notechip">🚚 ${wdEsc(n.truck)}</span>`:""}</div>`:""}
     ${wdHasExtraNotes(n)?`<div class="wo-extranote" id="wo-extra-${wdEsc(o.docId)}" style="display:${notesOpen?'block':'none'}">📝 ${wdEsc(n.extra)}</div>`:""}
@@ -2156,6 +2238,7 @@ document.addEventListener("click",e=>{
   const wstar=e.target.closest("[data-wostar]"); if(wstar){ e.stopPropagation(); const job=wstar.dataset.wostar; if(job){ if(MY_JOBS.some(j=>normJob(j)===normJob(job))) removeJob(normJob(job)); else addJob(job); renderDeliveries(); } return; }
   const whl=e.target.closest("[data-wohl]"); if(whl){ e.stopPropagation(); wdToggleHighlight(whl.dataset.wohl); return; }
   const wnotes=e.target.closest("[data-wonotes]"); if(wnotes){ e.stopPropagation(); const id=wnotes.dataset.wonotes; const n=wdNotesFor(id); if(wdHasExtraNotes(n) && !e.target.closest("[data-wonotes-edit]")){ /* toggle extra note display */ const open=!EXPANDED_WO_NOTES.has(id); if(open)EXPANDED_WO_NOTES.add(id); else EXPANDED_WO_NOTES.delete(id); const b=$("wo-extra-"+id); if(b)b.style.display=open?"block":"none"; } else { wdOpenNotes(id); } return; }
+  const wowt=e.target.closest("[data-wowt]"); if(wowt){ e.stopPropagation(); const id=wowt.dataset.wowt; const open=!EXPANDED_WO_WT.has(id); if(open)EXPANDED_WO_WT.add(id); else EXPANDED_WO_WT.delete(id); document.querySelectorAll(`[data-wowtbox="${CSS.escape(id)}"]`).forEach(b=>b.style.display=open?"block":"none"); return; }
   const wcatchip=e.target.closest("[data-wocatchip]"); if(wcatchip){ e.stopPropagation(); const combo=wcatchip.dataset.wocatchip; const [docId,g]=combo.split("|||"); const key=docId+"|"+g; const open=!EXPANDED_WO_CATS.has(key); if(open)EXPANDED_WO_CATS.add(key); else EXPANDED_WO_CATS.delete(key); document.querySelectorAll(`[data-wocatbox="${CSS.escape(combo)}"]`).forEach(b=>b.style.display=open?"block":"none"); document.querySelectorAll(`[data-wocatchip="${CSS.escape(combo)}"]`).forEach(p=>p.classList.toggle("on",open)); return; }
   const witemchk=e.target.closest("[data-woitemchk]"); if(witemchk){ e.stopPropagation(); const [docId,ik]=witemchk.dataset.woitemchk.split("|||"); wdToggleItemGathered(docId,ik); return; }
   const weunlink=e.target.closest("[data-weunlink]"); if(weunlink){ e.stopPropagation(); if(confirm("Unlink this arrival from the equipment?")) wdSetMatch(weunlink.dataset.weunlink,"none",""); return; }
@@ -2173,7 +2256,7 @@ document.addEventListener("click",e=>{
   const cjc=e.target.closest("[data-caljobclose]"); if(cjc){
     // Only close on a click of the card's dead space — never when a button/input/link or any
     // element carrying an action attribute was clicked (those are handled by other listeners).
-    const interactive=e.target.closest("button, input, textarea, select, a, [data-wocatchip], [data-woitemchk], [data-wostar], [data-wohl], [data-wonotes], [data-welinkopen], [data-wepick], [data-wepickopen], [data-welinksearch], [data-weunlink], [data-wiaddphoto], [data-wiaphoto], [data-caltime], [data-caltruck]");
+    const interactive=e.target.closest("button, input, textarea, select, a, [data-wocatchip], [data-wowt], [data-woitemchk], [data-wostar], [data-wohl], [data-wonotes], [data-welinkopen], [data-wepick], [data-wepickopen], [data-welinksearch], [data-weunlink], [data-weqnote], [data-wiaddphoto], [data-wiaphoto], [data-caltime], [data-caltruck]");
     if(interactive) return;   // let the other handler deal with it; don't close
     e.stopPropagation(); if(calDayOpenJob===cjc.dataset.caljobclose){ calDayOpenJob=null; renderCalendar(); } return;
   }
@@ -3178,8 +3261,10 @@ async function wdAutoSync(opts={}){
       const liteItems=items.map(it=>{
         const io=it.order||{}; const pid=io.id||"";
         const isEquip=pid.startsWith(WD_EQUIP_PREFIX); if(isEquip)hasEquip=true;
+        const iwt=(io.weight?.value ?? io.weight ?? it.weight?.value ?? it.weight ?? io.calculations?.weight?.value);
         return { label:io.label||"", notes:io.notes||"", quantity:io.quantity!=null?io.quantity:null,
           sku:(io.sku&&io.sku!=="___")?io.sku:"", type:io.type||"", productId:pid,
+          weight:(typeof iwt==="number"?iwt:null),
           group:io.fulfillmentGroup?.label||"Other", groupCode:io.fulfillmentGroup?.code||"",
           shipStatus:io.shipping?.status?.label||"", isEquip, dims:wdFittingDims(it), build:wdFittingBuild(it) };
       });
@@ -3307,9 +3392,11 @@ function wdSyncStatus(msg, isErr, ok){
 }
 
 // Confirm / reject a guessed match, or manually detach.
-async function wdSetMatch(docId, state, arrivalId){
+async function wdSetMatch(docId, state, arrivalId, partial){
   if(!fbReady) return;
   const patch={matchState:state, userSet:true}; if(arrivalId!==undefined) patch.arrivalId=arrivalId;
+  if(partial!==undefined) patch.partial=!!partial;
+  if(state==="none") patch.partial=false;   // clearing a link clears partial too
   try{ await setDoc(doc(db,"webductEquip",docId), patch, {merge:true}); }catch(e){ console.error(e); }
 }
 
@@ -3338,10 +3425,11 @@ function wdArrivalPickList(e, query){
     const arrivedDate=a.dateReceived?wdDate(a.dateReceived):"";
     const isOpen=openId===a.id;
     const hasPhoto=!!a.photoBy;
+    const isPartial=WD_EQUIP.some(x=>x.arrivalId===a.id && x.partial);
     const head=`<button class="we-pick-head" data-wepickopen="${wdEsc(e.docId)}|||${wdEsc(a.id)}">
       ${i===0&&!q?'<span class="we-pick-sug">SUGGESTED</span>':""}
       <span class="we-pick-desc">${wdEsc(a.description||"No description")}</span>
-      <span class="we-pick-sub">${arrivedDate?`📅 arrived ${wdEsc(arrivedDate)}`:""}${a.storageLocation?`${arrivedDate?" · ":""}📍 ${wdEsc(a.storageLocation)}`:""}</span>
+      <span class="we-pick-sub">${arrivedDate?`📅 arrived ${wdEsc(arrivedDate)}`:""}${isPartial?`<span class="we-pick-partial">◑ PARTIAL</span>`:""}${a.storageLocation?`${arrivedDate?" · ":""}📍 ${wdEsc(a.storageLocation)}`:""}</span>
     </button>`;
     const body=isOpen?`<div class="we-pick-body">
       <div class="we-pick-meta">${a.supplier?`Supplier: ${wdEsc(a.supplier)}<br>`:""}${a.po?`PO: ${wdEsc(a.po)}<br>`:""}${arrivedDate?`Received: ${wdEsc(arrivedDate)}`:""}${a.delivered?" · ✓ delivered":""}</div>
@@ -3369,13 +3457,14 @@ function renderWdEquip(){
     const arr=ARRIVALS.find(a=>a.id===e.arrivalId);
     const isDelivered=arr&&arr.delivered;
     const badge = arr ? (isDelivered?`<span class="we-stat green">✓ Delivered${arr.deliveredDate?" "+wdEsc(longDate(arr.deliveredDate).split(",")[0]):""}</span>`:`<span class="we-stat amber">Not delivered</span>`) : "";
+    const partBadge = e.partial ? `<span class="we-stat partial">◑ PARTIAL</span>` : "";
     // Linked → same camera / share / delivery icons as every arrival, all wired together.
     // Unmatched → just a way to clear it from the list.
     const actBtn = arr
       ? `<div class="we-icons">${delivIconsFor(arr)}</div>`
       : `<button class="we-act" data-wedelivered="${wdEsc(e.docId)}">Got it (remove)</button>`;
     return `<div class="we-row" data-werow="${wdEsc(e.docId)}">
-      <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${badge}</div>
+      <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${badge}${partBadge}</div>
       <div class="we-label">${wdEsc(e.label||"Equipment")}${q}</div>
       ${e.notes?`<div class="we-notes">${wdEsc(e.notes)}</div>`:""}
       <div class="we-dates">${e.orderedBy?`By ${wdEsc(String(e.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim())}`:""}${e.orderedDate?` · ordered ${wdDate(e.orderedDate)}`:""}${e.requestedDate?` · field wants ${wdDate(e.requestedDate)}`:""}</div>
@@ -3405,7 +3494,8 @@ document.addEventListener("click",e=>{
   const d=e.target.closest("[data-wedetach]"); if(d){ wdSetMatch(d.dataset.wedetach,"none",""); return; }
   const lo=e.target.closest("[data-welinkopen]"); if(lo){ const w=$("welink-"+lo.dataset.welinkopen); if(w){ w.style.display=w.style.display==="none"?"block":"none"; if(w.style.display==="block"){ const s=w.querySelector("[data-welinksearch]"); if(s)setTimeout(()=>s.focus(),100); } } return; }
   const po=e.target.closest("[data-wepickopen]"); if(po){ e.stopPropagation(); const [docId,arrivalId]=po.dataset.wepickopen.split("|||"); WD_PICK_OPEN[docId]=(WD_PICK_OPEN[docId]===arrivalId)?"":arrivalId; const e2=WD_EQUIP.find(x=>x.docId===docId); const res=$("welinkres-"+docId); if(e2&&res){ const sInput=document.querySelector(`[data-welinksearch="${CSS.escape(docId)}"]`); res.innerHTML=wdArrivalPickList(e2, sInput?sInput.value:""); wdLoadArrivalThumbs(); } return; }
-  const pick=e.target.closest("[data-wepick]"); if(pick){ e.stopPropagation(); const [docId,arrivalId]=pick.dataset.wepick.split("|||"); WD_PICK_OPEN[docId]=""; wdSetMatch(docId,"confirmed",arrivalId); toast("Paired with arrival"); return; }
+  const eqn=e.target.closest("[data-weqnote]"); if(eqn){ e.stopPropagation(); wdSaveEqNote(eqn.dataset.weqnote); return; }
+  const pick=e.target.closest("[data-wepick]"); if(pick){ e.stopPropagation(); const [docId,arrivalId]=pick.dataset.wepick.split("|||"); wdOpenPairKind(docId,arrivalId); return; }
   const del=e.target.closest("[data-wedelivered]"); if(del){ wdMarkEquip(del.dataset.wedelivered,{deliveredMark:true}); toast("Marked delivered"); return; }
   const dis=e.target.closest("[data-wedismiss]"); if(dis){ wdMarkEquip(dis.dataset.wedismiss,{dismissed:true}); toast("Dismissed"); return; }
   const s=e.target.closest("#wdSyncBtn"); if(s){ if(wdConnected()){ wdAutoSync({manual:true}); } else { toast("Connect Webduct in Admin first"); } return; }
@@ -3413,6 +3503,9 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#calWinApply")){ wdSaveWindow(parseInt($("calWinBack").value||"0",10), parseInt($("calWinFwd").value||"0",10)); wdSyncWindowInputs(); toast("Window set: "+wdWindowLabel()+" — refreshing"); if(wdConnected()) wdAutoSync({manual:true}); return; }
   if(e.target.closest("#wn_x")){ closeModal("notesModal"); return; }
   if(e.target.closest("#tp_x")){ closeModal("timeModal"); return; }
+  if(e.target.closest("#pk_x")){ closeModal("pairModal"); return; }
+  if(e.target.closest("#pk_full")){ wdDoPair(false); return; }
+  if(e.target.closest("#pk_partial")){ wdDoPair(true); return; }
   if(e.target.closest("#tp_save")){ wdSaveTime(false); return; }
   if(e.target.closest("#tp_clear")){ wdSaveTime(true); return; }
   if(e.target.closest("#wdWinApply")){ wdSaveWindow(parseInt($("wdWinBack").value||"0",10), parseInt($("wdWinFwd").value||"0",10)); wdSyncWindowInputs(); toast("/orders window set: "+wdWindowLabel()); return; }
