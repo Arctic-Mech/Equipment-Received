@@ -472,11 +472,14 @@
   .cal-cell.blank{background:transparent;border:none}
   .cal-cell.today{border-color:var(--hivis);border-width:2px}
   .cal-cell.has{cursor:pointer}
-  .cal-cell.sel{background:var(--ink);grid-column:span 2;grid-row:span 4;aspect-ratio:auto;align-items:stretch;justify-content:flex-start;padding:10px 11px;z-index:2;overflow-y:auto}
-  .cal-cell.sel .cal-num{color:#fff;font-size:20px;align-self:flex-start;margin-bottom:4px}
-  .cal-cell.sel .cal-dots{margin-top:0;margin-bottom:6px;justify-content:flex-start}
-  .cal-cell.sel .cal-jobnames{margin-top:2px}
-  .cal-cell.sel .cal-jobname{font-size:12px;line-height:1.4;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+  .cal-cell.sel{background:var(--ink);grid-column:1 / -1;grid-row:auto;aspect-ratio:auto;height:auto;min-height:0;align-items:stretch;justify-content:flex-start;padding:12px 14px;z-index:2}
+  .cal-cell.sel .cal-num{color:#fff;font-size:20px;align-self:flex-start;margin-bottom:8px}
+  .cal-cell.sel .cal-dots{margin:0 0 10px;justify-content:flex-start}
+  .cal-cell.sel .cal-jobnames{margin-top:0;gap:0}
+  .cal-cell.sel .cal-jobname{display:flex;justify-content:space-between;align-items:baseline;gap:14px;font-size:14px;line-height:1.5;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.14);white-space:normal;overflow:visible;max-width:none}
+  .cal-cell.sel .cal-jobname:last-child{border-bottom:none}
+  .cal-cell.sel .cal-jn-name{flex:1;min-width:0}
+  .cal-cell.sel .cal-jobtime{flex:none;background:rgba(255,255,255,.16);color:#fff;font-family:'JetBrains Mono';font-size:12px;font-weight:600;padding:2px 9px;border-radius:20px;margin-left:0}
   .cal-num{font-family:'Barlow Condensed';font-weight:600;font-size:15px;color:var(--ink);line-height:1}
   .cal-mk{display:inline-flex;align-items:center;gap:1px}
   .cal-mkn{font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel)}
@@ -521,9 +524,12 @@
   .wo-head-btns .wo-star{margin-left:0}
   .wo-card.hl{background:#fffbea;border-color:#f0d98a}
   .wo-notechips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 8px 30px}
-  .wo-catprev{display:flex;gap:5px;flex-wrap:wrap;padding:0 12px 9px 30px;cursor:pointer}
-  .wo-catprev-pill{font-size:10.5px;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;color:var(--steel);background:var(--surface);border:1px solid var(--line-soft);border-radius:5px;padding:2px 7px}
+  .wo-catprev{display:flex;gap:5px;flex-wrap:wrap;padding:0 12px 9px 30px}
+  .wo-catprev-pill{font-size:11px;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;color:var(--steel);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:3px 9px;cursor:pointer}
+  .wo-catprev-pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .wo-catprev-pill b{color:var(--ink);font-weight:700;margin-left:1px}
+  .wo-catprev-pill.on b{color:#fff}
+  .wo-card .wo-cat{margin:0 12px 8px 30px}
   .wo-notechip{font-size:11.5px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:2px 9px;color:var(--ink)}
   .wo-extranote{margin:0 12px 10px 30px;padding:8px 10px;background:#fffbea;border:1px solid #f0d98a;border-radius:8px;font-size:12.5px;color:var(--ink);line-height:1.4;white-space:pre-wrap}
   .wo-cat-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
@@ -1256,7 +1262,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.0";
+const APP_VERSION="4.1";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1850,7 +1856,7 @@ function renderCalendar(){
         const nm=(o.jobName||o.job||"").trim(); if(!nm||seen.has(nm.toLowerCase()))return; seen.add(nm.toLowerCase());
         const n=wdNotesFor(o.docId); const t=n.deliveryTime||"";
         const ic=o.hasEquip?"📦":(o.shipType==="jobsite"?"🚚":"🆙");
-        nameRows.push(`<span class="cal-jobname">${ic} ${wdEsc(nm)}${t?`<span class="cal-jobtime">${wdEsc(t)}</span>`:""}</span>`);
+        nameRows.push(`<span class="cal-jobname"><span class="cal-jn-name">${ic} ${wdEsc(nm)}</span>${t?`<span class="cal-jobtime">${wdEsc(t)}</span>`:""}</span>`);
       });
     }
     html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''} ${isSel?'sel':''}" ${has?`data-calday="${key}"`:""}>
@@ -1941,7 +1947,8 @@ function wdOrderCard(o){
       </span>
     </div>
     <div class="wo-sub" data-wotoggle="${wdEsc(o.docId)}">${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}${orderedByClean?` · by ${wdEsc(orderedByClean)}`:""}${o.orderedDate?` · placed ${wdEsc(wdDate(o.orderedDate))}`:""}</div>
-    ${groupNames.length?`<div class="wo-catprev" data-wotoggle="${wdEsc(o.docId)}">${groupNames.map(g=>`<span class="wo-catprev-pill">${wdEsc(g)} <b>${groups[g].length}</b></span>`).join("")}</div>`:""}
+    ${groupNames.length?`<div class="wo-catprev">${groupNames.map(g=>`<button class="wo-catprev-pill ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} <b>${groups[g].length}</b></button>`).join("")}</div>
+    ${groupNames.map(g=>`<div class="wo-cat" id="wo-cat-${wdEsc(o.docId)}-${wdSlug(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(itemLine).join("")}</div>`).join("")}`:""}
     ${wdHasDisplayNotes(n)?`<div class="wo-notechips">${n.deliveryTime?`<span class="wo-notechip">🕒 ${wdEsc(n.deliveryTime)}</span>`:""}${n.truck?`<span class="wo-notechip">🚚 ${wdEsc(n.truck)}</span>`:""}</div>`:""}
     ${wdHasExtraNotes(n)?`<div class="wo-extranote" id="wo-extra-${wdEsc(o.docId)}" style="display:${notesOpen?'block':'none'}">📝 ${wdEsc(n.extra)}</div>`:""}
     <div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:${open?"block":"none"}">
@@ -1955,8 +1962,6 @@ function wdOrderCard(o){
       ${(typeof o.totalPrice==="number"&&o.totalPrice>0)?`<div class="wo-row"><b>Total</b> $${o.totalPrice.toFixed(2)}</div>`:""}
       ${o.detailUnavailable?`<div class="wo-row" style="color:var(--steel-light)">⚠ Item-level detail unavailable for this order</div>`:""}
       ${equipItems.length?`<div class="wo-equip-head">📦 Equipment to deliver</div>`+equipItems.map(itemLine).join(""):""}
-      ${groupNames.length?`<div class="wo-cat-chips">${groupNames.map(g=>`<button class="wo-cat-chip ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} (${groups[g].length})</button>`).join("")}</div>`:""}
-      ${groupNames.map(g=>`<div class="wo-cat" id="wo-cat-${wdEsc(o.docId)}-${wdSlug(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(itemLine).join("")}</div>`).join("")}
     </div>
   </div>`;
 }
