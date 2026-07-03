@@ -480,6 +480,8 @@
   .cal-day-close{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:#fff;background:rgba(255,255,255,.16);padding:5px 12px;border-radius:7px}
   .cal-sort{display:block;width:100%;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);padding:7px;border-radius:8px;margin-bottom:8px}
   .cal-sort.on{background:var(--hivis);border-color:var(--hivis)}
+  .cal-sec-lbl{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:12px;color:rgba(255,255,255,.7);margin:10px 0 4px;padding-bottom:3px;border-bottom:1px solid rgba(255,255,255,.15)}
+  .cal-day-empty{color:rgba(255,255,255,.6);font-size:13px;padding:8px 0}
   .tp-tap{display:block;text-align:center;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;color:var(--blue);margin-bottom:6px}
   .cal-cell.sel .cal-dots{margin:0 0 10px;justify-content:flex-start}
   .cal-cell.sel .cal-jobnames{display:flex;flex-direction:column;gap:0}
@@ -537,6 +539,8 @@
   .wo-ibtn{font-size:16px;line-height:1;padding:4px 5px;background:none;border-radius:6px;opacity:.5}
   .wo-ibtn.on{opacity:1;background:var(--line-soft)}
   .wo-head-btns .wo-star{margin-left:0}
+  .wo-donechk{font-size:16px;line-height:1;opacity:.5;cursor:default}
+  .wo-donechk.on{opacity:1}
   .wo-card.hl{background:#fffbea;border-color:#f0d98a}
   .wo-notechips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 8px 30px}
   .wo-catprev{display:flex;gap:5px;flex-wrap:wrap;padding:0 12px 9px 30px}
@@ -755,6 +759,10 @@
   .we-pick-desc{font-size:13px;color:var(--ink);font-weight:600}
   .we-pick-sub{font-size:11.5px;color:var(--steel)}
   .we-pick-body{padding:2px 10px 10px;border-top:1px solid var(--line-soft)}
+  .we-pick-headrow{display:flex;align-items:stretch;gap:0}
+  .we-pick-headrow .we-pick-head{flex:1}
+  .we-pick-pairmini{flex:none;font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.02em;font-size:11px;color:#fff;background:var(--teal);padding:0 12px;border-left:1px solid rgba(255,255,255,.2)}
+  .we-pick-pairmini:active{opacity:.85}
   .we-pick-meta{font-size:12px;color:var(--steel);line-height:1.5;margin:6px 0}
   .we-pick-photo{display:block;max-width:200px;width:100%;border-radius:8px;border:1px solid var(--line);margin-bottom:8px}
   .we-pick-nophoto{font-size:11.5px;color:var(--steel-light);font-style:italic;margin-bottom:8px}
@@ -1337,7 +1345,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="5.1";
+const APP_VERSION="5.2";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1847,14 +1855,25 @@ onActivate($("shareCopyName"),async()=>{
   try{ await navigator.clipboard.writeText(name); toast("Name copied"); const b=$("shareCopyName"); b.textContent="Copied ✓"; setTimeout(()=>{ b.textContent="📋 Copy arrival name"; },1600); }
   catch(e){ toast("Copy failed — tap and hold to select"); }
 });
-let WD_PAIR_TARGET={docId:"",arrivalId:""};
-function wdOpenPairKind(docId, arrivalId){ WD_PAIR_TARGET={docId,arrivalId}; openModal("pairModal"); }
-function wdDoPair(partial){
-  const {docId,arrivalId}=WD_PAIR_TARGET; if(!docId){ closeModal("pairModal"); return; }
+let WD_PAIR_TARGET={docId:"",arrivalId:"",order:null,thenDeliver:false};
+function wdOpenPairKind(docId, arrivalId){ WD_PAIR_TARGET={docId,arrivalId,order:null,thenDeliver:false}; openModal("pairModal"); }
+// From the item checkmark on an auto-linked arrival: ask full/partial, then set it AND mark delivered.
+function wdOpenPairKindThenDeliver(docId, arrivalId, order){ WD_PAIR_TARGET={docId,arrivalId,order,thenDeliver:true}; openModal("pairModal"); }
+async function wdDoPair(partial){
+  const {docId,arrivalId,order,thenDeliver}=WD_PAIR_TARGET; if(!docId){ closeModal("pairModal"); return; }
   WD_PICK_OPEN[docId]="";
-  wdSetMatch(docId,"confirmed",arrivalId,partial);
+  await wdSetMatch(docId,"confirmed",arrivalId,partial);
   closeModal("pairModal");
-  toast(partial?"Paired (partial)":"Paired with arrival");
+  if(thenDeliver && order){
+    // Mark the arrival delivered using the order's scheduled date.
+    const schedIso=order.requestedDate||order.deliveryDate||order.orderedDate||"";
+    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=d.toISOString().slice(0,10); }
+    if(!schedDate) schedDate=(new Date()).toISOString().slice(0,10);
+    try{ await setDoc(doc(db,"arrivals",arrivalId),{delivered:true,deliveredDate:schedDate,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error(e); }
+    toast(partial?"Delivered (partial)":"Marked delivered");
+  } else {
+    toast(partial?"Paired (partial)":"Paired with arrival");
+  }
 }
 onActivate($("shareLinkCopy"),async()=>{
   const url=$("shareLinkUrl").value;
@@ -1950,66 +1969,69 @@ function renderCalendar(){
     // and clicking the name expands the full order card inline (one open at a time).
     let dayInner="";
     if(isSel){
-      const tier=o=>o.hasEquip?0:(o.shipType==="jobsite"?1:2);
       const cleanName=o=>String(o.orderedBy||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim();
-      // Group orders by job name first (each job shows once; its orders open together).
+      // Group orders by job name (each job shows once; its orders open together).
       const byJob=new Map();
       orders.forEach(o=>{ const nm=(o.jobName||o.job||"").trim(); if(!nm)return; if(!byJob.has(nm))byJob.set(nm,[]); byJob.get(nm).push(o); });
-      // Determine the ROW ORDER of jobs.
-      let jobOrder=[...byJob.keys()];
-      if(calSortByTime){
-        // Earliest delivery time first (jobs with no time sink to bottom).
-        const jobTime=nm=>{ const times=byJob.get(nm).map(o=>wdParseTime(wdNotesFor(o.docId).deliveryTime)).filter(t=>t!=null); return times.length?Math.min(...times):null; };
-        jobOrder.sort((a,b)=>{ const ta=jobTime(a),tb=jobTime(b); if(ta==null&&tb==null) return a.localeCompare(b); if(ta==null)return 1; if(tb==null)return -1; return ta-tb; });
-      } else {
-        // Alphabetical by orderer, but keep people who co-ordered a job clustered together.
-        // Build connected components of orderers linked through shared jobs (union-find).
+      // A job goes on the DELIVERIES side if ANY of its orders is a delivery (equipment or job-site).
+      // Its pickups ride along on the deliveries side too. Pickup-only jobs go on the PICKUP side.
+      const jobIsDelivery=nm=>byJob.get(nm).some(o=>o.hasEquip||o.shipType==="jobsite");
+      const delJobs=[...byJob.keys()].filter(jobIsDelivery);
+      const pickJobs=[...byJob.keys()].filter(nm=>!jobIsDelivery(nm));
+      // Order a set of job names: by time if the toggle is on, else alphabetical-by-orderer with
+      // co-orderer clustering (people who share a job stay adjacent).
+      function orderJobs(keys){
+        keys=keys.slice();
+        if(calSortByTime){
+          const jobTime=nm=>{ const times=byJob.get(nm).map(o=>wdParseTime(wdNotesFor(o.docId).deliveryTime)).filter(t=>t!=null); return times.length?Math.min(...times):null; };
+          keys.sort((a,b)=>{ const ta=jobTime(a),tb=jobTime(b); if(ta==null&&tb==null) return a.localeCompare(b); if(ta==null)return 1; if(tb==null)return -1; return ta-tb; });
+          return keys;
+        }
         const parent={}; const find=x=>{ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; };
         const union=(a,b)=>{ parent[a]=parent[a]||a; parent[b]=parent[b]||b; const ra=find(a),rb=find(b); if(ra!==rb)parent[ra]=rb; };
         const jobOrderers={};
-        byJob.forEach((list,nm)=>{ const names=[...new Set(list.map(cleanName).filter(Boolean))]; jobOrderers[nm]=names; names.forEach(n=>{ parent[n]=parent[n]||n; }); for(let i=1;i<names.length;i++) union(names[0],names[i]); });
-        // Each job's cluster = the component of its (alphabetically first) orderer.
-        const jobKeyName=nm=>{ const names=jobOrderers[nm].slice().sort((a,b)=>a.localeCompare(b)); return names[0]||"zzz"; };
+        keys.forEach(nm=>{ const names=[...new Set(byJob.get(nm).map(cleanName).filter(Boolean))]; jobOrderers[nm]=names; names.forEach(n=>{ parent[n]=parent[n]||n; }); for(let i=1;i<names.length;i++) union(names[0],names[i]); });
+        const jobKeyName=nm=>{ const names=(jobOrderers[nm]||[]).slice().sort((a,b)=>a.localeCompare(b)); return names[0]||"zzz"; };
         const clusterOf=nm=>{ const kn=jobKeyName(nm); return (parent[kn]?find(kn):kn); };
-        // Rank clusters by the alphabetically-smallest orderer name they contain.
-        const clusterMin={}; jobOrder.forEach(nm=>{ const c=clusterOf(nm); const kn=jobKeyName(nm); if(clusterMin[c]===undefined||kn.localeCompare(clusterMin[c])<0) clusterMin[c]=kn; });
-        jobOrder.sort((a,b)=>{
-          const ca=clusterOf(a), cb=clusterOf(b);
-          if(ca!==cb){ const cmp=(clusterMin[ca]||"").localeCompare(clusterMin[cb]||""); if(cmp!==0)return cmp; }
-          // within a cluster: by this job's key orderer, then job name
-          const ka=jobKeyName(a), kb=jobKeyName(b); return ka.localeCompare(kb) || a.localeCompare(b);
-        });
+        const clusterMin={}; keys.forEach(nm=>{ const c=clusterOf(nm); const kn=jobKeyName(nm); if(clusterMin[c]===undefined||kn.localeCompare(clusterMin[c])<0) clusterMin[c]=kn; });
+        keys.sort((a,b)=>{ const ca=clusterOf(a),cb=clusterOf(b); if(ca!==cb){ const cmp=(clusterMin[ca]||"").localeCompare(clusterMin[cb]||""); if(cmp!==0)return cmp; } return jobKeyName(a).localeCompare(jobKeyName(b))||a.localeCompare(b); });
+        return keys;
       }
-      const rows=[];
-      jobOrder.forEach(nm=>{ const list=byJob.get(nm);
-        const first=list[0];
+      // Build one job's row. On the deliveries side, order that job's own cards equipment→jobsite→pickup.
+      function jobRow(nm){
+        const raw=byJob.get(nm).slice();
+        raw.sort((a,b)=>{ const ta=a.hasEquip?0:(a.shipType==="jobsite"?1:2), tb=b.hasEquip?0:(b.shipType==="jobsite"?1:2); return ta-tb; });
+        const first=raw[0];
         const nn=wdNotesFor(first.docId); const t=nn.deliveryTime||""; const tk=nn.truck||"";
         const isPickup=!first.hasEquip && first.shipType!=="jobsite";
         const ic=first.hasEquip?"📦":(first.shipType==="jobsite"?"🚚":"🆙");
         const jobKey="job|"+nm.toLowerCase();
         const isOpen=calDayOpenJob===jobKey;
-        // Distinct orderers for this job's orders that day (shown in light text).
-        const orderers=[...new Set(list.map(o=>String(o.orderedBy||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim()).filter(Boolean))];
-        const countTag=list.length>1?`<span class="cal-jn-count">${list.length} orders</span>`:"";
+        const orderers=[...new Set(raw.map(cleanName).filter(Boolean))];
+        const countTag=raw.length>1?`<span class="cal-jn-count">${raw.length} orders</span>`:"";
         let btns="";
         if(!isPickup){
           const timeBtn=t?`<button class="cal-jn-time" data-caltime="${wdEsc(first.docId)}">⏱ ${wdEsc(t)}</button>`:`<button class="cal-jn-add" data-caltime="${wdEsc(first.docId)}" title="Add delivery time">⏰</button>`;
           const truckBtn=tk?`<button class="cal-jn-truck" data-caltruck="${wdEsc(first.docId)}">🚚 ${wdEsc(tk)}</button>`:`<button class="cal-jn-add" data-caltruck="${wdEsc(first.docId)}" title="Add truck #">🚚</button>`;
           btns=timeBtn+truckBtn;
         }
-        rows.push(`<div class="cal-jobrow ${isOpen?'open':''}">
+        return `<div class="cal-jobrow ${isOpen?'open':''}">
           <div class="cal-jobline">
             <span class="cal-jn-name" data-caljob="${wdEsc(jobKey)}">${ic} ${wdEsc(nm)}${countTag} <span class="cal-jn-chev">${isOpen?"▾":"▸"}</span>${orderers.length?`<span class="cal-jn-by">${wdEsc(orderers.join(", "))}</span>`:""}</span>
             <span class="cal-jn-btns">${btns}</span>
           </div>
-          ${isOpen?`<div class="cal-jobcard" data-caljobclose="${wdEsc(jobKey)}">${list.map(o=>wdOrderCard(o,true)).join("")}</div>`:""}
-        </div>`);
-      });
+          ${isOpen?`<div class="cal-jobcard" data-caljobclose="${wdEsc(jobKey)}">${raw.map(o=>wdOrderCard(o,true)).join("")}</div>`:""}
+        </div>`;
+      }
+      const delRows=orderJobs(delJobs).map(jobRow).join("");
+      const pickRows=orderJobs(pickJobs).map(jobRow).join("");
       const sortToggle=`<button class="cal-sort ${calSortByTime?'on':''}" data-calsort="1">${calSortByTime?"✓ ":""}Sort deliveries by time</button>`;
       dayInner=`<div class="cal-day-head"><span class="cal-num">${day}</span><button class="cal-day-close" data-calclose="1">✕ Close</button></div>
         <span class="cal-dots">${marks}</span>
         ${sortToggle}
-        <div class="cal-jobnames">${rows.join("")}</div>`;
+        ${delRows?`<div class="cal-sec-lbl">🚚 Deliveries</div><div class="cal-jobnames">${delRows}</div>`:""}
+        ${pickRows?`<div class="cal-sec-lbl">🆙 Pickups</div><div class="cal-jobnames">${pickRows}</div>`:""}
+        ${(!delRows&&!pickRows)?`<div class="cal-day-empty">No orders this day.</div>`:""}`;
     }
     if(isSel){
       html+=`<div class="cal-cell today-${key===todayKey?'1':'0'} has sel" data-calday="${key}">${dayInner}</div>`;
@@ -2155,6 +2177,11 @@ async function wdToggleItemGathered(docId, ik){
   if(!it||!it.isEquip) return;
   const eq=wdEquipEntryFor(o.number, it); if(!eq||!eq.arrivalId) return;
   const arr=ARRIVALS.find(a=>a.id===eq.arrivalId); if(!arr) return;
+  // If this arrival was AUTO-matched (we never asked full vs partial), ask now on first check.
+  if(nowChecked && eq.partial===undefined){
+    wdOpenPairKindThenDeliver(eq.docId, eq.arrivalId, o);
+    return;
+  }
   try{
     // Use the order's SCHEDULED delivery date (requested/delivery), not today — deliveries are often
     // checked off the day before while prepping. Fall back to today only if the order has no date.
@@ -2206,6 +2233,11 @@ function wdOrderCard(o, compact){
   const itemKey=it=>wdSlug((it.label||"")+"|"+(it.sku||"")+"|"+(it.quantity!=null?it.quantity:""));
   const itemLine=it=>{ const ik=itemKey(it); let got=!!gathered[ik]; if(it.isEquip && !got){ const eq=wdEquipEntryFor(o.number,it); if(eq&&eq.arrivalId){ const ar=ARRIVALS.find(a=>a.id===eq.arrivalId); if(ar&&ar.delivered) got=true; } } return `<div class="wo-item ${got?'got':''}"><button class="wo-item-chk ${got?'on':''}" data-woitemchk="${wdEsc(o.docId)}|||${wdEsc(ik)}" title="${got?'Delivered/gathered':'Mark gathered'}">${got?'✅':'⬜'}</button><div class="wo-item-main2"><div class="wo-item-top"><span class="wo-item-name">${wdEsc(it.label||"Item")}</span>${it.quantity!=null?`<span class="wo-item-qty">×${wdEsc(it.quantity)}</span>`:""}</div>${it.notes?`<div class="wo-item-notes">${wdEsc(it.notes)}</div>`:""}${it.build?`<div class="wo-item-build">🔧 Laser/CAD: ${wdEsc(it.build)}</div>`:(it.dims?`<div class="wo-item-build">${wdEsc(it.dims)}</div>`:"")}${it.shipStatus?`<span class="wo-item-ship">${wdEsc(it.shipStatus)}</span>`:""}</div></div>`; };
   const orderedByClean=o.orderedBy?String(o.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim():"";
+  // Whole-order "gathered" indicator: checked only when EVERY item on the order is checked off
+  // (an equipment item counts as checked if its linked arrival is delivered). Not clickable.
+  const allItems=(o.items||[]);
+  const itemGathered=it=>{ const ik=itemKey(it); if(gathered[ik])return true; if(it.isEquip){ const eq=wdEquipEntryFor(o.number,it); if(eq&&eq.arrivalId){ const ar=ARRIVALS.find(a=>a.id===eq.arrivalId); if(ar&&ar.delivered)return true; } } return false; };
+  const allGathered=allItems.length>0 && allItems.every(itemGathered);
   return `<div class="wo-card ${highlighted?'hl':''} ${compact?'compact':''}" data-wocard="${wdEsc(o.docId)}">
     <div class="wo-head" ${tog}>
       ${compact?"":`<span class="wo-chev" id="wo-chev-${wdEsc(o.docId)}">${open?"▾":"▸"}</span>`}
@@ -2215,7 +2247,7 @@ function wdOrderCard(o, compact){
       ${o.hasEquip?`<span class="wo-tag equip">📦 EQUIP</span>`:""}
       <span class="wo-head-btns">
         <button class="wo-ibtn ${wdHasDisplayNotes(n)||wdHasExtraNotes(n)?'on':''}" data-wonotes="${wdEsc(o.docId)}" title="Delivery notes">📝</button>
-        <button class="wo-ibtn ${highlighted?'on':''}" data-wohl="${wdEsc(o.docId)}" title="Highlight">${highlighted?'✅':'⬜'}</button>
+        <span class="wo-donechk ${allGathered?'on':''}" title="${allGathered?'All items gathered':'Not all items gathered yet'}">${allGathered?'✅':'⬜'}</span>
         <button class="wo-star ${starred?'on':''}" data-wostar="${wdEsc(o.job||"")}" title="${starred?'In My Jobs':'Add to My Jobs'}">${starred?'★':'☆'}</button>
       </span>
     </div>
@@ -2315,6 +2347,11 @@ document.addEventListener("click",e=>{
   // Catch-all LAST: clicking an empty part of a day cell selects it. Card-internal controls above
   // (pills, checkmarks, star, time/truck, job expand) are handled first and return before this.
   const cd=e.target.closest("[data-calday]"); if(cd){ if(calSelDay===cd.dataset.calday){ return; } calSelDay=cd.dataset.calday; calDayOpenJob=null; renderCalendar(); return; }
+  // If a day is expanded and the click landed OUTSIDE the black day box and not on any day cell,
+  // close the expanded day. (Clicks on another day are handled by the branch above.)
+  if(calSelDay && !e.target.closest(".cal-cell.sel") && !e.target.closest(".modal-back") && !e.target.closest("[data-caltime],[data-caltruck]")){
+    calSelDay=null; calDayOpenJob=null; renderCalendar(); return;
+  }
 });
 
 // Connect a Webduct company login → save the key to Firebase for everyone.
@@ -3479,18 +3516,24 @@ function wdArrivalPickList(e, query){
   if(best>=STRONG){ scored.sort((x,y)=> (y.score-x.score) || (recency(y.a)-recency(x.a))); }
   else { scored.sort((x,y)=> recency(y.a)-recency(x.a)); }
   cands=scored.map(x=>x.a);
-  const openId=WD_PICK_OPEN[e.docId]||"";
+  // Default-open the top (suggested/most-recent) pick so its Pair button is immediately visible.
+  let openId=WD_PICK_OPEN[e.docId];
+  if(openId===undefined && cands.length){ openId=cands[0].id; }
+  openId=openId||"";
   return cands.slice(0,25).map((a,i)=>{
     const arrivedDate=a.dateReceived?wdDate(a.dateReceived):"";
     const isOpen=openId===a.id;
     const hasPhoto=!!a.photoBy;
     const suggested=(i===0 && !q && best>=STRONG && wdSimilarity(target,a.description||"")>=STRONG);
     const isPartial=WD_EQUIP.some(x=>x.arrivalId===a.id && x.partial);
-    const head=`<button class="we-pick-head" data-wepickopen="${wdEsc(e.docId)}|||${wdEsc(a.id)}">
-      ${suggested?'<span class="we-pick-sug">SUGGESTED</span>':""}
-      <span class="we-pick-desc">${wdEsc(a.description||"No description")}</span>
-      <span class="we-pick-sub">${arrivedDate?`📅 arrived ${wdEsc(arrivedDate)}`:""}${isPartial?`<span class="we-pick-partial">◑ PARTIAL</span>`:""}${a.storageLocation?`${arrivedDate?" · ":""}📍 ${wdEsc(a.storageLocation)}`:""}</span>
-    </button>`;
+    const head=`<div class="we-pick-headrow">
+      <button class="we-pick-head" data-wepickopen="${wdEsc(e.docId)}|||${wdEsc(a.id)}">
+        ${suggested?'<span class="we-pick-sug">SUGGESTED</span>':""}
+        <span class="we-pick-desc">${wdEsc(a.description||"No description")}</span>
+        <span class="we-pick-sub">${arrivedDate?`📅 arrived ${wdEsc(arrivedDate)}`:""}${isPartial?`<span class="we-pick-partial">◑ PARTIAL</span>`:""}${a.storageLocation?`${arrivedDate?" · ":""}📍 ${wdEsc(a.storageLocation)}`:""}</span>
+      </button>
+      <button class="we-pick-pairmini" data-wepick="${wdEsc(e.docId)}|||${wdEsc(a.id)}" title="Pair this arrival">🔗 Pair</button>
+    </div>`;
     const body=isOpen?`<div class="we-pick-body">
       <div class="we-pick-meta">${a.supplier?`Supplier: ${wdEsc(a.supplier)}<br>`:""}${a.po?`PO: ${wdEsc(a.po)}<br>`:""}${arrivedDate?`Received: ${wdEsc(arrivedDate)}`:""}${a.delivered?" · ✓ delivered":""}</div>
       ${hasPhoto?`<img class="we-pick-photo" data-wiaphoto="${wdEsc(a.id)}" alt="arrival photo" loading="lazy">`:`<div class="we-pick-nophoto">No photo on this arrival</div>`}
