@@ -468,14 +468,20 @@
   .photo-add:active{background:var(--line-soft)}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
   .cal-dow{text-align:center;font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:11px;color:var(--steel-light);padding:2px 0 4px}
-  .cal-cell{aspect-ratio:1/1;border:1px solid var(--line);border-radius:9px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:5px 2px 2px;position:relative;overflow:hidden}
+  .cal-cell{aspect-ratio:1/1;border:1px solid var(--line);border-radius:9px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:5px 2px 2px;position:relative;overflow:hidden;transition:background .12s}
   .cal-cell.blank{background:transparent;border:none}
   .cal-cell.today{border-color:var(--hivis);border-width:2px}
   .cal-cell.has{cursor:pointer}
-  .cal-cell.sel{background:var(--ink)}
-  .cal-cell.sel .cal-num{color:#fff}
+  .cal-cell.sel{background:var(--ink);grid-column:span 2;grid-row:span 2;aspect-ratio:auto;align-items:stretch;justify-content:flex-start;padding:8px 9px;z-index:2}
+  .cal-cell.sel .cal-num{color:#fff;font-size:20px;align-self:flex-start;margin-bottom:4px}
+  .cal-cell.sel .cal-dots{margin-top:0;margin-bottom:6px;justify-content:flex-start}
+  .cal-cell.sel .cal-jobnames{margin-top:2px}
+  .cal-cell.sel .cal-jobname{font-size:12px;line-height:1.4;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.12)}
   .cal-num{font-family:'Barlow Condensed';font-weight:600;font-size:15px;color:var(--ink);line-height:1}
-  .cal-dots{display:flex;gap:2px;margin-top:auto;margin-bottom:2px;flex-wrap:wrap;justify-content:center}
+  .cal-mk{display:inline-flex;align-items:center;gap:1px}
+  .cal-mkn{font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel)}
+  .cal-cell.sel .cal-mkn{color:#fff;font-size:12px}
+  .cal-dots{display:flex;gap:4px;margin-top:auto;margin-bottom:2px;flex-wrap:wrap;justify-content:center;align-items:center}
   .cal-dot{width:6px;height:6px;border-radius:50%}
   .cal-dot.req{background:var(--hivis)} .cal-dot.done{background:var(--teal)} .cal-dot.wd{background:#5b3fd6} .cal-dot.blue{background:#1f6fe0}
   .lg-dot.blue{background:#1f6fe0}
@@ -1247,7 +1253,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="3.8";
+const APP_VERSION="3.9";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1818,28 +1824,31 @@ function renderCalendar(){
     const key=calYear+"-"+String(calMonth+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
     const m=map[key];
     const orders=m?m.orders:[];
-    const anyEquip=orders.some(o=>o.hasEquip);
-    const anyJobsite=orders.some(o=>o.shipType==="jobsite");
-    const anyPickup=orders.some(o=>o.shipType!=="jobsite");
+    const equipN=orders.filter(o=>o.hasEquip).length;
+    const jobsiteN=orders.filter(o=>!o.hasEquip && o.shipType==="jobsite").length;
+    const pickupN=orders.filter(o=>!o.hasEquip && o.shipType!=="jobsite").length;
     const hasArrReq=m&&m.req.length, hasDone=m&&m.done.length;
     const has=orders.length||hasArrReq||hasDone;
-    // Stack unique job names for this day's orders (job-site first), with delivery time if set.
-    const seenNames=new Set(); const nameRows=[];
-    orders.slice().sort((a,b)=>(a.shipType==="jobsite"?0:1)-(b.shipType==="jobsite"?0:1)).forEach(o=>{
-      const nm=(o.jobName||o.job||"").trim(); if(!nm||seenNames.has(nm.toLowerCase()))return; seenNames.add(nm.toLowerCase());
-      const n=wdNotesFor(o.docId); const t=n.deliveryTime||"";
-      nameRows.push(`<span class="cal-jobname">${o.shipType==="jobsite"?"🚚":"🆙"} ${wdEsc(nm)}${t?`<span class="cal-jobtime">${wdEsc(t)}</span>`:""}</span>`);
-    });
+    const isSel=key===calSelDay;
+    // Each icon carries its own count. Numbers show next to the icon.
     let marks="";
-    if(anyEquip) marks+='<span class="cal-emoji">📦</span>';
-    if(anyJobsite) marks+='<span class="cal-emoji">🚚</span>';
-    if(anyPickup) marks+='<span class="cal-emoji">🆙</span>';
-    if(hasArrReq) marks+='<span class="cal-dot req"></span>';
+    if(equipN)   marks+=`<span class="cal-mk"><span class="cal-emoji">📦</span><span class="cal-mkn">${equipN}</span></span>`;
+    if(jobsiteN) marks+=`<span class="cal-mk"><span class="cal-emoji">🚚</span><span class="cal-mkn">${jobsiteN}</span></span>`;
+    if(pickupN)  marks+=`<span class="cal-mk"><span class="cal-emoji">🆙</span><span class="cal-mkn">${pickupN}</span></span>`;
+    if(hasArrReq) marks+=`<span class="cal-mk"><span class="cal-dot req"></span><span class="cal-mkn">${hasArrReq}</span></span>`;
     if(hasDone) marks+='<span class="cal-dot done"></span>';
-    const cnt=orders.length+(hasArrReq||0);
-    html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''} ${key===calSelDay?'sel':''}" ${has?`data-calday="${key}"`:""}>
+    // Job names only render on the currently-selected day (keeps other cells clean).
+    let nameRows=[];
+    if(isSel){
+      const seen=new Set();
+      orders.slice().sort((a,b)=>(a.shipType==="jobsite"?0:1)-(b.shipType==="jobsite"?0:1)).forEach(o=>{
+        const nm=(o.jobName||o.job||"").trim(); if(!nm||seen.has(nm.toLowerCase()))return; seen.add(nm.toLowerCase());
+        const n=wdNotesFor(o.docId); const t=n.deliveryTime||"";
+        nameRows.push(`<span class="cal-jobname">${o.shipType==="jobsite"?"🚚":"🆙"} ${wdEsc(nm)}${t?`<span class="cal-jobtime">${wdEsc(t)}</span>`:""}</span>`);
+      });
+    }
+    html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''} ${isSel?'sel':''}" ${has?`data-calday="${key}"`:""}>
       <span class="cal-num">${day}</span>
-      ${cnt>0?`<span class="cal-cnt">${cnt}</span>`:""}
       ${nameRows.length?`<div class="cal-jobnames">${nameRows.join("")}</div>`:""}
       <span class="cal-dots">${marks}</span>
     </div>`;
@@ -1856,10 +1865,13 @@ function renderDayDetail(){
   let html=`<div class="dd-head">${esc(label)}<button class="dd-close" id="ddClose">Close</button></div>`;
   const orders=m.orders||[];
   if(!orders.length && !m.req.length && !m.done.length){ html+=`<div class="dd-empty">Nothing scheduled this day.</div>`; }
-  // Orders that include equipment first, then the rest.
-  const equipOrders=orders.filter(o=>o.hasEquip), plainOrders=orders.filter(o=>!o.hasEquip);
-  if(equipOrders.length){ html+=`<div class="we-sec">🏭 Orders with equipment to deliver (${equipOrders.length})</div>`+equipOrders.map(wdOrderCard).join(""); }
-  if(plainOrders.length){ html+=`<div class="we-sec">📦 Other orders (${plainOrders.length})</div>`+plainOrders.map(wdOrderCard).join(""); }
+  // 1) equipment to deliver, 2) job-site deliveries (no equipment), 3) shop pickups.
+  const equipOrders=orders.filter(o=>o.hasEquip);
+  const deliverOrders=orders.filter(o=>!o.hasEquip && o.shipType==="jobsite");
+  const pickupOrders=orders.filter(o=>!o.hasEquip && o.shipType!=="jobsite");
+  if(equipOrders.length){ html+=`<div class="we-sec">📦 Orders with equipment to deliver (${equipOrders.length})</div>`+equipOrders.map(wdOrderCard).join(""); }
+  if(deliverOrders.length){ html+=`<div class="we-sec">🚚 Orders to deliver (${deliverOrders.length})</div>`+deliverOrders.map(wdOrderCard).join(""); }
+  if(pickupOrders.length){ html+=`<div class="we-sec">🆙 Orders for pick up (${pickupOrders.length})</div>`+pickupOrders.map(wdOrderCard).join(""); }
   if(m.req.length){ html+=`<div class="we-sec">🚚 Arrival deliveries wanted (${m.req.length})</div>`+m.req.map(deliveryRow).join(""); }
   if(m.done.length){ html+=`<div class="we-sec">✓ Delivered (${m.done.length})</div>`+m.done.map(deliveryRow).join(""); }
   box.innerHTML=html; box.style.display="block";
