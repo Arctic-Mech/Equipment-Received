@@ -486,8 +486,10 @@
   .cal-jobrow{border-bottom:1px solid rgba(255,255,255,.14)}
   .cal-jobrow:last-child{border-bottom:none}
   .cal-jobline{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
-  .cal-jn-name{flex:1;min-width:0;color:#fff;font-size:14px;line-height:1.4;cursor:pointer;display:flex;align-items:center;gap:5px}
+  .cal-jn-name{flex:1;min-width:0;color:#fff;font-size:14px;line-height:1.4;cursor:pointer;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
   .cal-jn-chev{color:rgba(255,255,255,.6);font-size:11px}
+  .cal-jn-by{flex-basis:100%;color:rgba(255,255,255,.45);font-size:11px;font-weight:400;padding-left:20px}
+  .cal-jn-count{background:rgba(255,255,255,.18);color:#fff;font-family:'Barlow Condensed';font-weight:700;font-size:10px;letter-spacing:.03em;padding:1px 7px;border-radius:10px}
   .cal-jn-btns{flex:none;display:flex;gap:6px}
   .cal-jn-time,.cal-jn-truck{font-family:'JetBrains Mono';font-size:11.5px;font-weight:600;color:#fff;background:rgba(255,255,255,.18);padding:3px 9px;border-radius:20px;white-space:nowrap}
   .cal-jn-add{font-size:15px;background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.35);border-radius:20px;padding:2px 9px;line-height:1.2}
@@ -719,6 +721,7 @@
   .we-stat{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:10.5px;padding:2px 8px;border-radius:6px;background:var(--line-soft);color:var(--steel)}
   .we-stat.green{background:var(--teal-soft);color:var(--teal)} .we-stat.amber{background:#fff4e5;color:#8a4b00} .we-stat.blue{background:#e7e7fb;color:#2a2a9e}
   .we-stat.partial{background:#ffe4c2;color:#8a4b00}
+  .we-usernote{margin-top:6px;padding:7px 10px;background:#fffbea;border:1px solid #f0d98a;border-radius:8px;font-size:12.5px;color:var(--ink);line-height:1.4;white-space:pre-wrap}
   .ac-wd-stat.partial{color:#8a4b00}
   .we-label{font-weight:700;font-size:14px;color:var(--ink)}
   .we-notes{font-size:13px;color:var(--steel);margin-top:2px;line-height:1.4;white-space:pre-wrap}
@@ -1334,7 +1337,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.9";
+const APP_VERSION="5.0";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1948,31 +1951,36 @@ function renderCalendar(){
     let dayInner="";
     if(isSel){
       const tier=o=>o.hasEquip?0:(o.shipType==="jobsite"?1:2);
-      // Base order: equipment, then deliveries, then pickups. When the time-sort toggle is on,
-      // order by earliest parsed delivery time first (rows without a time sink to the bottom).
       let sorted=orders.slice();
       if(calSortByTime){ sorted.sort((a,b)=>{ const ta=wdParseTime(wdNotesFor(a.docId).deliveryTime), tb=wdParseTime(wdNotesFor(b.docId).deliveryTime); if(ta==null&&tb==null) return tier(a)-tier(b); if(ta==null) return 1; if(tb==null) return -1; return ta-tb; }); }
       else { sorted.sort((a,b)=>tier(a)-tier(b)); }
-      const seen=new Set(); const rows=[];
-      sorted.forEach(o=>{
-        const nm=(o.jobName||o.job||"").trim(); if(!nm||seen.has(nm.toLowerCase()))return; seen.has(nm.toLowerCase())||seen.add(nm.toLowerCase());
-        const nn=wdNotesFor(o.docId); const t=nn.deliveryTime||""; const tk=nn.truck||"";
-        const isPickup=!o.hasEquip && o.shipType!=="jobsite";
-        const ic=o.hasEquip?"📦":(o.shipType==="jobsite"?"🚚":"🆙");
-        const isOpen=calDayOpenJob===o.docId;
-        // Pickups don't get delivered, so no time/truck controls for them.
+      // Group orders by job name so each job shows once. Clicking the name expands ALL of that
+      // job's orders that day as separate cards.
+      const byJob=new Map();
+      sorted.forEach(o=>{ const nm=(o.jobName||o.job||"").trim(); if(!nm)return; if(!byJob.has(nm))byJob.set(nm,[]); byJob.get(nm).push(o); });
+      const rows=[];
+      byJob.forEach((list,nm)=>{
+        const first=list[0];
+        const nn=wdNotesFor(first.docId); const t=nn.deliveryTime||""; const tk=nn.truck||"";
+        const isPickup=!first.hasEquip && first.shipType!=="jobsite";
+        const ic=first.hasEquip?"📦":(first.shipType==="jobsite"?"🚚":"🆙");
+        const jobKey="job|"+nm.toLowerCase();
+        const isOpen=calDayOpenJob===jobKey;
+        // Distinct orderers for this job's orders that day (shown in light text).
+        const orderers=[...new Set(list.map(o=>String(o.orderedBy||"").replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim()).filter(Boolean))];
+        const countTag=list.length>1?`<span class="cal-jn-count">${list.length} orders</span>`:"";
         let btns="";
         if(!isPickup){
-          const timeBtn=t?`<button class="cal-jn-time" data-caltime="${wdEsc(o.docId)}">⏱ ${wdEsc(t)}</button>`:`<button class="cal-jn-add" data-caltime="${wdEsc(o.docId)}" title="Add delivery time">⏰</button>`;
-          const truckBtn=tk?`<button class="cal-jn-truck" data-caltruck="${wdEsc(o.docId)}">🚚 ${wdEsc(tk)}</button>`:`<button class="cal-jn-add" data-caltruck="${wdEsc(o.docId)}" title="Add truck #">🚚</button>`;
+          const timeBtn=t?`<button class="cal-jn-time" data-caltime="${wdEsc(first.docId)}">⏱ ${wdEsc(t)}</button>`:`<button class="cal-jn-add" data-caltime="${wdEsc(first.docId)}" title="Add delivery time">⏰</button>`;
+          const truckBtn=tk?`<button class="cal-jn-truck" data-caltruck="${wdEsc(first.docId)}">🚚 ${wdEsc(tk)}</button>`:`<button class="cal-jn-add" data-caltruck="${wdEsc(first.docId)}" title="Add truck #">🚚</button>`;
           btns=timeBtn+truckBtn;
         }
         rows.push(`<div class="cal-jobrow ${isOpen?'open':''}">
           <div class="cal-jobline">
-            <span class="cal-jn-name" data-caljob="${wdEsc(o.docId)}">${ic} ${wdEsc(nm)} <span class="cal-jn-chev">${isOpen?"▾":"▸"}</span></span>
+            <span class="cal-jn-name" data-caljob="${wdEsc(jobKey)}">${ic} ${wdEsc(nm)}${countTag} <span class="cal-jn-chev">${isOpen?"▾":"▸"}</span>${orderers.length?`<span class="cal-jn-by">${wdEsc(orderers.join(", "))}</span>`:""}</span>
             <span class="cal-jn-btns">${btns}</span>
           </div>
-          ${isOpen?`<div class="cal-jobcard" data-caljobclose="${wdEsc(o.docId)}">${wdOrderCard(o,true)}</div>`:""}
+          ${isOpen?`<div class="cal-jobcard" data-caljobclose="${wdEsc(jobKey)}">${list.map(o=>wdOrderCard(o,true)).join("")}</div>`:""}
         </div>`);
       });
       const sortToggle=`<button class="cal-sort ${calSortByTime?'on':''}" data-calsort="1">${calSortByTime?"✓ ":""}Sort deliveries by time</button>`;
@@ -2113,7 +2121,24 @@ async function wdToggleHighlight(docId){
   try{ await setDoc(doc(db,"webductOrderNotes",docId),{highlight:!n.highlight,updatedAt:serverTimestamp()},{merge:true}); }
   catch(e){ console.error("highlight save failed",e); toast("Couldn't save — add the webductOrderNotes Firestore rule"); }
 }
-async function wdToggleItemGathered(docId, ik){ if(!fbReady){ toast("No connection — can't save"); return; } const n=wdNotesFor(docId); const g=Object.assign({}, n.gathered||{}); g[ik]=!g[ik]; try{ await setDoc(doc(db,"webductOrderNotes",docId),{gathered:g,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error("gathered save failed",e); toast("Couldn't save — add the webductOrderNotes Firestore rule"); } }
+async function wdToggleItemGathered(docId, ik){
+  if(!fbReady){ toast("No connection — can't save"); return; }
+  const n=wdNotesFor(docId); const g=Object.assign({}, n.gathered||{}); const nowChecked=!g[ik]; g[ik]=nowChecked;
+  try{ await setDoc(doc(db,"webductOrderNotes",docId),{gathered:g,updatedAt:serverTimestamp()},{merge:true}); }
+  catch(e){ console.error("gathered save failed",e); toast("Couldn't save — add the webductOrderNotes Firestore rule"); }
+  // If this item is equipment linked to an arrival, checking it also marks that arrival delivered
+  // (and unchecking un-delivers it), so the truck turns green on My Jobs / Arrivals too.
+  const o=WD_ORDERS.find(x=>x.docId===docId); if(!o) return;
+  const it=(o.items||[]).find(x=>wdSlug((x.label||"")+"|"+(x.sku||"")+"|"+(x.quantity!=null?x.quantity:""))===ik);
+  if(!it||!it.isEquip) return;
+  const eq=wdEquipEntryFor(o.number, it); if(!eq||!eq.arrivalId) return;
+  const arr=ARRIVALS.find(a=>a.id===eq.arrivalId); if(!arr) return;
+  try{
+    const patch=nowChecked?{delivered:true, deliveredDate:(new Date()).toISOString().slice(0,10)}:{delivered:false, deliveredDate:""};
+    await setDoc(doc(db,"arrivals",eq.arrivalId),{...patch,updatedAt:serverTimestamp()},{merge:true});
+    toast(nowChecked?"Marked delivered":"Delivery cleared");
+  }catch(e){ console.error("arrival delivered propagate",e); }
+}
 let WD_NOTES_TARGET="";
 function wdOpenNotes(docId){
   WD_NOTES_TARGET=docId; const n=wdNotesFor(docId);
@@ -2152,7 +2177,7 @@ function wdOrderCard(o, compact){
   const wt=(typeof o.totalWeight==="number"&&o.totalWeight>0)?o.totalWeight:0;
   const tog=compact?"":`data-wotoggle="${wdEsc(o.docId)}"`;
   const itemKey=it=>wdSlug((it.label||"")+"|"+(it.sku||"")+"|"+(it.quantity!=null?it.quantity:""));
-  const itemLine=it=>{ const ik=itemKey(it); const got=!!gathered[ik]; return `<div class="wo-item ${got?'got':''}"><button class="wo-item-chk ${got?'on':''}" data-woitemchk="${wdEsc(o.docId)}|||${wdEsc(ik)}" title="${got?'Gathered':'Mark gathered'}">${got?'✅':'⬜'}</button><div class="wo-item-main2"><div class="wo-item-top"><span class="wo-item-name">${wdEsc(it.label||"Item")}</span>${it.quantity!=null?`<span class="wo-item-qty">×${wdEsc(it.quantity)}</span>`:""}</div>${it.notes?`<div class="wo-item-notes">${wdEsc(it.notes)}</div>`:""}${it.build?`<div class="wo-item-build">🔧 Laser/CAD: ${wdEsc(it.build)}</div>`:(it.dims?`<div class="wo-item-build">${wdEsc(it.dims)}</div>`:"")}${it.shipStatus?`<span class="wo-item-ship">${wdEsc(it.shipStatus)}</span>`:""}</div></div>`; };
+  const itemLine=it=>{ const ik=itemKey(it); let got=!!gathered[ik]; if(it.isEquip && !got){ const eq=wdEquipEntryFor(o.number,it); if(eq&&eq.arrivalId){ const ar=ARRIVALS.find(a=>a.id===eq.arrivalId); if(ar&&ar.delivered) got=true; } } return `<div class="wo-item ${got?'got':''}"><button class="wo-item-chk ${got?'on':''}" data-woitemchk="${wdEsc(o.docId)}|||${wdEsc(ik)}" title="${got?'Delivered/gathered':'Mark gathered'}">${got?'✅':'⬜'}</button><div class="wo-item-main2"><div class="wo-item-top"><span class="wo-item-name">${wdEsc(it.label||"Item")}</span>${it.quantity!=null?`<span class="wo-item-qty">×${wdEsc(it.quantity)}</span>`:""}</div>${it.notes?`<div class="wo-item-notes">${wdEsc(it.notes)}</div>`:""}${it.build?`<div class="wo-item-build">🔧 Laser/CAD: ${wdEsc(it.build)}</div>`:(it.dims?`<div class="wo-item-build">${wdEsc(it.dims)}</div>`:"")}${it.shipStatus?`<span class="wo-item-ship">${wdEsc(it.shipStatus)}</span>`:""}</div></div>`; };
   const orderedByClean=o.orderedBy?String(o.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim():"";
   return `<div class="wo-card ${highlighted?'hl':''} ${compact?'compact':''}" data-wocard="${wdEsc(o.docId)}">
     <div class="wo-head" ${tog}>
@@ -3417,17 +3442,25 @@ function wdArrivalPickList(e, query){
   let cands=ARRIVALS.filter(a=>normJob(a.jobNumber)===normJob(e.job));
   if(!cands.length) return `<div class="we-pick-empty">No arrivals logged on job ${wdEsc(e.job||"?")} yet.</div>`;
   if(q) cands=cands.filter(a=>[a.description,a.supplier,a.storageLocation].some(v=>(v||"").toLowerCase().includes(q)));
-  const target=(e.notes||e.label||"");
-  cands=cands.map(a=>({a,score:wdSimilarity(target, a.description||"")})).sort((x,y)=>y.score-x.score).map(x=>x.a);
   if(!cands.length) return `<div class="we-pick-empty">No matches — clear the search to see all arrivals on this job.</div>`;
+  const target=(e.notes||e.label||"");
+  const recency=a=>{ const d=new Date(a.dateReceived||a.createdAt||0).getTime(); return isNaN(d)?0:d; };
+  const scored=cands.map(a=>({a,score:wdSimilarity(target, a.description||"")}));
+  const best=Math.max(0,...scored.map(s=>s.score));
+  // If nothing matches closely, order by most-recent arrival. If there IS a strong match, rank by score.
+  const STRONG=0.35;
+  if(best>=STRONG){ scored.sort((x,y)=> (y.score-x.score) || (recency(y.a)-recency(x.a))); }
+  else { scored.sort((x,y)=> recency(y.a)-recency(x.a)); }
+  cands=scored.map(x=>x.a);
   const openId=WD_PICK_OPEN[e.docId]||"";
   return cands.slice(0,25).map((a,i)=>{
     const arrivedDate=a.dateReceived?wdDate(a.dateReceived):"";
     const isOpen=openId===a.id;
     const hasPhoto=!!a.photoBy;
+    const suggested=(i===0 && !q && best>=STRONG && wdSimilarity(target,a.description||"")>=STRONG);
     const isPartial=WD_EQUIP.some(x=>x.arrivalId===a.id && x.partial);
     const head=`<button class="we-pick-head" data-wepickopen="${wdEsc(e.docId)}|||${wdEsc(a.id)}">
-      ${i===0&&!q?'<span class="we-pick-sug">SUGGESTED</span>':""}
+      ${suggested?'<span class="we-pick-sug">SUGGESTED</span>':""}
       <span class="we-pick-desc">${wdEsc(a.description||"No description")}</span>
       <span class="we-pick-sub">${arrivedDate?`📅 arrived ${wdEsc(arrivedDate)}`:""}${isPartial?`<span class="we-pick-partial">◑ PARTIAL</span>`:""}${a.storageLocation?`${arrivedDate?" · ":""}📍 ${wdEsc(a.storageLocation)}`:""}</span>
     </button>`;
@@ -3467,6 +3500,7 @@ function renderWdEquip(){
       <div class="we-top"><span class="we-job">${wdEsc(e.job||"—")}</span><span class="we-ord">Order ${wdEsc(e.orderNumber)}</span>${badge}${partBadge}</div>
       <div class="we-label">${wdEsc(e.label||"Equipment")}${q}</div>
       ${e.notes?`<div class="we-notes">${wdEsc(e.notes)}</div>`:""}
+      ${wdEqNoteFor(e.docId)?`<div class="we-usernote">📝 ${wdEsc(wdEqNoteFor(e.docId))}</div>`:""}
       <div class="we-dates">${e.orderedBy?`By ${wdEsc(String(e.orderedBy).replace(/\s*\(?\d[\d\s().-]{6,}\)?/g,"").trim())}`:""}${e.orderedDate?` · ordered ${wdDate(e.orderedDate)}`:""}${e.requestedDate?` · field wants ${wdDate(e.requestedDate)}`:""}</div>
       ${extra||""}
       <div class="we-actions">${actBtn}<button class="we-act dismiss" data-wedismiss="${wdEsc(e.docId)}">Dismiss</button></div>
