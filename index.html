@@ -476,6 +476,8 @@
   .cal-day-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .cal-day-head .cal-num{color:#fff;font-size:22px}
   .cal-day-close{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:#fff;background:rgba(255,255,255,.16);padding:5px 12px;border-radius:7px}
+  .cal-sort{display:block;width:100%;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);padding:7px;border-radius:8px;margin-bottom:8px}
+  .cal-sort.on{background:var(--hivis);border-color:var(--hivis)}
   .cal-cell.sel .cal-dots{margin:0 0 10px;justify-content:flex-start}
   .cal-cell.sel .cal-jobnames{display:flex;flex-direction:column;gap:0}
   .cal-jobrow{border-bottom:1px solid rgba(255,255,255,.14)}
@@ -1055,6 +1057,19 @@
 <!-- hidden legacy fields kept for code compatibility -->
 
 <!-- ORDER NOTES MODAL -->
+<!-- DELIVERY TIME PICKER MODAL -->
+<div class="modal-back" id="timeModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3 id="tp_title">Delivery time</h3><button class="x" id="tp_x">✕</button></div>
+  <div class="modal-body">
+    <p style="color:var(--steel);font-size:13px;margin:0 0 14px">Pick the delivery time. Includes AM/PM.</p>
+    <input id="tp_input" type="time" step="300" style="width:100%;font-size:20px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-family:'JetBrains Mono';text-align:center">
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="submit" id="tp_save" style="flex:1">Save time</button>
+      <button class="submit" id="tp_clear" style="flex:none;background:var(--surface);color:var(--red);border:1px solid var(--line)">Clear</button>
+    </div>
+  </div>
+</div></div>
+
 <div class="modal-back" id="notesModal"><div class="modal"><div class="modal-grip"></div>
   <div class="modal-head"><h3 id="wn_title">Delivery notes</h3><button class="x" id="wn_x">✕</button></div>
   <div class="modal-body">
@@ -1281,7 +1296,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.3";
+const APP_VERSION="4.4";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1815,6 +1830,7 @@ function deliveryRow(r){ const job=normJob(r.jobNumber); return `<div class="aca
 /* ---------- Deliveries calendar ---------- */
 let calYear, calMonth, calSelDay=null;   // selected day = "YYYY-MM-DD"
 let calDayOpenJob=null;                  // docId of the one order expanded inside the day cell (only one at a time)
+let calSortByTime=false;                 // day view: sort deliveries by earliest delivery time
 function dateKeyLocal(iso){ if(!iso)return ""; const d=new Date(iso); if(isNaN(d))return ""; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 // Build a map of day-key → {req:[arrivals], done:[arrivals], wd:[equip]} for the visible month.
 // Is this order/job "mine"? (ordered by my email, or on a job I've starred.)
@@ -1872,24 +1888,37 @@ function renderCalendar(){
     let dayInner="";
     if(isSel){
       const tier=o=>o.hasEquip?0:(o.shipType==="jobsite"?1:2);
+      // Base order: equipment, then deliveries, then pickups. When the time-sort toggle is on,
+      // order by earliest parsed delivery time first (rows without a time sink to the bottom).
+      let sorted=orders.slice();
+      if(calSortByTime){ sorted.sort((a,b)=>{ const ta=wdParseTime(wdNotesFor(a.docId).deliveryTime), tb=wdParseTime(wdNotesFor(b.docId).deliveryTime); if(ta==null&&tb==null) return tier(a)-tier(b); if(ta==null) return 1; if(tb==null) return -1; return ta-tb; }); }
+      else { sorted.sort((a,b)=>tier(a)-tier(b)); }
       const seen=new Set(); const rows=[];
-      orders.slice().sort((a,b)=>tier(a)-tier(b)).forEach(o=>{
-        const nm=(o.jobName||o.job||"").trim(); if(!nm||seen.has(nm.toLowerCase()))return; seen.add(nm.toLowerCase());
+      sorted.forEach(o=>{
+        const nm=(o.jobName||o.job||"").trim(); if(!nm||seen.has(nm.toLowerCase()))return; seen.has(nm.toLowerCase())||seen.add(nm.toLowerCase());
         const nn=wdNotesFor(o.docId); const t=nn.deliveryTime||""; const tk=nn.truck||"";
+        const isPickup=!o.hasEquip && o.shipType!=="jobsite";
         const ic=o.hasEquip?"📦":(o.shipType==="jobsite"?"🚚":"🆙");
         const isOpen=calDayOpenJob===o.docId;
-        const timeBtn=t?`<button class="cal-jn-time" data-caltime="${wdEsc(o.docId)}">⏱ ${wdEsc(t)}</button>`:`<button class="cal-jn-add" data-caltime="${wdEsc(o.docId)}" title="Add delivery time">⏰</button>`;
-        const truckBtn=tk?`<button class="cal-jn-truck" data-caltruck="${wdEsc(o.docId)}">🚚 ${wdEsc(tk)}</button>`:`<button class="cal-jn-add" data-caltruck="${wdEsc(o.docId)}" title="Add truck #">🚚</button>`;
+        // Pickups don't get delivered, so no time/truck controls for them.
+        let btns="";
+        if(!isPickup){
+          const timeBtn=t?`<button class="cal-jn-time" data-caltime="${wdEsc(o.docId)}">⏱ ${wdEsc(t)}</button>`:`<button class="cal-jn-add" data-caltime="${wdEsc(o.docId)}" title="Add delivery time">⏰</button>`;
+          const truckBtn=tk?`<button class="cal-jn-truck" data-caltruck="${wdEsc(o.docId)}">🚚 ${wdEsc(tk)}</button>`:`<button class="cal-jn-add" data-caltruck="${wdEsc(o.docId)}" title="Add truck #">🚚</button>`;
+          btns=timeBtn+truckBtn;
+        }
         rows.push(`<div class="cal-jobrow ${isOpen?'open':''}">
           <div class="cal-jobline">
             <span class="cal-jn-name" data-caljob="${wdEsc(o.docId)}">${ic} ${wdEsc(nm)} <span class="cal-jn-chev">${isOpen?"▾":"▸"}</span></span>
-            <span class="cal-jn-btns">${timeBtn}${truckBtn}</span>
+            <span class="cal-jn-btns">${btns}</span>
           </div>
           ${isOpen?`<div class="cal-jobcard">${wdOrderCard(o)}</div>`:""}
         </div>`);
       });
+      const sortToggle=`<button class="cal-sort ${calSortByTime?'on':''}" data-calsort="1">${calSortByTime?"✓ ":""}Sort deliveries by time</button>`;
       dayInner=`<div class="cal-day-head"><span class="cal-num">${day}</span><button class="cal-day-close" data-calclose="1">✕ Close</button></div>
         <span class="cal-dots">${marks}</span>
+        ${sortToggle}
         <div class="cal-jobnames">${rows.join("")}</div>`;
     }
     if(isSel){
@@ -1936,15 +1965,35 @@ function wdDetectShipType(src){
   return "pickup";
 }
 function wdNotesFor(docId){ return WD_NOTES[docId]||{}; }
-// Quick inline edit of a single note field (delivery time or truck) via prompt. Writes to the
-// shared notes doc, so both the calendar day view AND the list below update together.
+// Parse a display time like "7:30 AM" into minutes-since-midnight for sorting. null if unparseable.
+function wdParseTime(s){ if(!s)return null; const m=String(s).match(/(\d{1,2}):(\d{2})\s*([ap]m)?/i); if(!m)return null; let h=+m[1]; const min=+m[2]; const ap=(m[3]||"").toLowerCase(); if(ap==="pm"&&h<12)h+=12; if(ap==="am"&&h===12)h=0; return h*60+min; }
+// Convert a display time to <input type=time> 24h "HH:MM", and back to a friendly "H:MM AM/PM".
+function wdTo24(s){ const mins=wdParseTime(s); if(mins==null)return""; return String(Math.floor(mins/60)).padStart(2,"0")+":"+String(mins%60).padStart(2,"0"); }
+function wdFromInput(v){ if(!v)return""; const [h,m]=v.split(":").map(Number); const ap=h>=12?"PM":"AM"; let hh=h%12; if(hh===0)hh=12; return hh+":"+String(m).padStart(2,"0")+" "+ap; }
+// Quick inline edit of a single note field (truck) via prompt. Writes to the shared notes doc.
 async function wdQuickNote(docId, field, label){
   if(!fbReady){ toast("No connection — can't save"); return; }
   const cur=wdNotesFor(docId)[field]||"";
   const val=prompt(label, cur);
-  if(val===null) return;   // cancelled
+  if(val===null) return;
   try{ await setDoc(doc(db,"webductOrderNotes",docId),{[field]:val.trim(),updatedAt:serverTimestamp()},{merge:true}); toast(val.trim()?"Saved":"Cleared"); }
   catch(e){ console.error("quicknote save",e); toast("Couldn't save — add the webductOrderNotes Firestore rule"); }
+}
+// Delivery-time picker (proper time chooser with AM/PM).
+let WD_TIME_TARGET="";
+function wdOpenTimePicker(docId){
+  WD_TIME_TARGET=docId; const cur=wdNotesFor(docId).deliveryTime||"";
+  $("tp_input").value=wdTo24(cur)||"";
+  const o=WD_ORDERS.find(x=>x.docId===docId);
+  $("tp_title").textContent=o?`Delivery time — ${o.job||""} #${o.number||""}`:"Delivery time";
+  openModal("timeModal"); setTimeout(()=>{ try{$("tp_input").showPicker&&$("tp_input").showPicker();}catch(_){} },150);
+}
+async function wdSaveTime(clear){
+  if(!WD_TIME_TARGET){ closeModal("timeModal"); return; }
+  if(!fbReady){ toast("No connection"); return; }
+  const val=clear?"":wdFromInput($("tp_input").value);
+  try{ await setDoc(doc(db,"webductOrderNotes",WD_TIME_TARGET),{deliveryTime:val,updatedAt:serverTimestamp()},{merge:true}); closeModal("timeModal"); toast(val?"Time saved":"Cleared"); }
+  catch(e){ console.error("time save",e); toast("Couldn't save — add the webductOrderNotes Firestore rule"); }
 }
 // Find the synced WD_EQUIP entry that corresponds to a given order line item (same order #, same label).
 function wdEquipEntryFor(orderNumber, it){
@@ -2028,7 +2077,7 @@ function wdOrderCard(o){
     </div>
     <div class="wo-sub" data-wotoggle="${wdEsc(o.docId)}">${wdEsc(o.jobName||"")}${dateStr?` · wants ${dateStr}`:""}${orderedByClean?` · by ${wdEsc(orderedByClean)}`:""}${o.orderedDate?` · placed ${wdEsc(wdDate(o.orderedDate))}`:""}</div>
     ${groupNames.length?`<div class="wo-catprev">${groupNames.map(g=>`<button class="wo-catprev-pill ${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'on':''}" data-wocatchip="${wdEsc(o.docId)}|||${wdEsc(g)}">${wdEsc(g)} <b>${groups[g].length}</b></button>`).join("")}</div>
-    ${groupNames.map(g=>`<div class="wo-cat" id="wo-cat-${wdEsc(o.docId)}-${wdSlug(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(it=>itemLine(it)+(it.isEquip?wdItemArrivalBlock(o,it):"")).join("")}</div>`).join("")}`:""}
+    ${groupNames.map(g=>`<div class="wo-cat" data-wocatbox="${wdEsc(o.docId)}|||${wdEsc(g)}" style="display:${EXPANDED_WO_CATS.has(o.docId+"|"+g)?'block':'none'}"><div class="wo-cat-name">${wdEsc(g)}</div>${groups[g].map(it=>itemLine(it)+(it.isEquip?wdItemArrivalBlock(o,it):"")).join("")}</div>`).join("")}`:""}
     ${wdHasDisplayNotes(n)?`<div class="wo-notechips">${n.deliveryTime?`<span class="wo-notechip">🕒 ${wdEsc(n.deliveryTime)}</span>`:""}${n.truck?`<span class="wo-notechip">🚚 ${wdEsc(n.truck)}</span>`:""}</div>`:""}
     ${wdHasExtraNotes(n)?`<div class="wo-extranote" id="wo-extra-${wdEsc(o.docId)}" style="display:${notesOpen?'block':'none'}">📝 ${wdEsc(n.extra)}</div>`:""}
     <div class="wo-body" id="wo-body-${wdEsc(o.docId)}" style="display:${open?"block":"none"}">
@@ -2087,7 +2136,8 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#calNext")){ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); return; }
   if(e.target.closest("#calToday")){ const n=new Date(); calYear=n.getFullYear(); calMonth=n.getMonth(); calSelDay=dateKeyLocal(n.toISOString()); calDayOpenJob=null; renderCalendar(); return; }
   if(e.target.closest("[data-calclose]")){ calSelDay=null; calDayOpenJob=null; renderCalendar(); return; }
-  const caltime=e.target.closest("[data-caltime]"); if(caltime){ e.stopPropagation(); wdQuickNote(caltime.dataset.caltime,"deliveryTime","Delivery time (e.g. 7:30 AM)"); return; }
+  if(e.target.closest("[data-calsort]")){ calSortByTime=!calSortByTime; renderCalendar(); return; }
+  const caltime=e.target.closest("[data-caltime]"); if(caltime){ e.stopPropagation(); wdOpenTimePicker(caltime.dataset.caltime); return; }
   const caltruck=e.target.closest("[data-caltruck]"); if(caltruck){ e.stopPropagation(); wdQuickNote(caltruck.dataset.caltruck,"truck","Truck # / name"); return; }
   const caljob=e.target.closest("[data-caljob]"); if(caljob){ e.stopPropagation(); const id=caljob.dataset.caljob; calDayOpenJob=(calDayOpenJob===id)?null:id; renderCalendar(); return; }
   const cd=e.target.closest("[data-calday]"); if(cd){ if(calSelDay===cd.dataset.calday){ /* already open — clicks inside handled above; ignore */ return; } calSelDay=cd.dataset.calday; calDayOpenJob=null; renderCalendar(); return; }
@@ -2096,7 +2146,7 @@ document.addEventListener("click",e=>{
   const wstar=e.target.closest("[data-wostar]"); if(wstar){ e.stopPropagation(); const job=wstar.dataset.wostar; if(job){ if(MY_JOBS.some(j=>normJob(j)===normJob(job))) removeJob(normJob(job)); else addJob(job); renderDeliveries(); } return; }
   const whl=e.target.closest("[data-wohl]"); if(whl){ e.stopPropagation(); wdToggleHighlight(whl.dataset.wohl); return; }
   const wnotes=e.target.closest("[data-wonotes]"); if(wnotes){ e.stopPropagation(); const id=wnotes.dataset.wonotes; const n=wdNotesFor(id); if(wdHasExtraNotes(n) && !e.target.closest("[data-wonotes-edit]")){ /* toggle extra note display */ const open=!EXPANDED_WO_NOTES.has(id); if(open)EXPANDED_WO_NOTES.add(id); else EXPANDED_WO_NOTES.delete(id); const b=$("wo-extra-"+id); if(b)b.style.display=open?"block":"none"; } else { wdOpenNotes(id); } return; }
-  const wcatchip=e.target.closest("[data-wocatchip]"); if(wcatchip){ e.stopPropagation(); const [docId,g]=wcatchip.dataset.wocatchip.split("|||"); const key=docId+"|"+g; const open=!EXPANDED_WO_CATS.has(key); if(open)EXPANDED_WO_CATS.add(key); else EXPANDED_WO_CATS.delete(key); const b=$("wo-cat-"+docId+"-"+wdSlug(g)); if(b)b.style.display=open?"block":"none"; wcatchip.classList.toggle("on",open); return; }
+  const wcatchip=e.target.closest("[data-wocatchip]"); if(wcatchip){ e.stopPropagation(); const combo=wcatchip.dataset.wocatchip; const [docId,g]=combo.split("|||"); const key=docId+"|"+g; const open=!EXPANDED_WO_CATS.has(key); if(open)EXPANDED_WO_CATS.add(key); else EXPANDED_WO_CATS.delete(key); document.querySelectorAll(`[data-wocatbox="${CSS.escape(combo)}"]`).forEach(b=>b.style.display=open?"block":"none"); document.querySelectorAll(`[data-wocatchip="${CSS.escape(combo)}"]`).forEach(p=>p.classList.toggle("on",open)); return; }
   const witemchk=e.target.closest("[data-woitemchk]"); if(witemchk){ e.stopPropagation(); const [docId,ik]=witemchk.dataset.woitemchk.split("|||"); wdToggleItemGathered(docId,ik); return; }
   const weunlink=e.target.closest("[data-weunlink]"); if(weunlink){ e.stopPropagation(); if(confirm("Unlink this arrival from the equipment?")) wdSetMatch(weunlink.dataset.weunlink,"none",""); return; }
   const wiadd=e.target.closest("[data-wiaddphoto]"); if(wiadd){ e.stopPropagation(); startCapture(wiadd.dataset.wiaddphoto); return; }
@@ -3322,6 +3372,9 @@ document.addEventListener("click",e=>{
   const cr=e.target.closest("#calRefreshBtn"); if(cr){ if(!wdConnected()){ toast("Connect Webduct in Admin first"); return; } cr.disabled=true; cr.textContent="⟳ Syncing…"; wdAutoSync({manual:true}).finally(()=>{ cr.disabled=false; cr.textContent="⟳ Refresh"; }); return; }
   if(e.target.closest("#calWinApply")){ wdSaveWindow(parseInt($("calWinBack").value||"0",10), parseInt($("calWinFwd").value||"0",10)); wdSyncWindowInputs(); toast("Window set: "+wdWindowLabel()+" — refreshing"); if(wdConnected()) wdAutoSync({manual:true}); return; }
   if(e.target.closest("#wn_x")){ closeModal("notesModal"); return; }
+  if(e.target.closest("#tp_x")){ closeModal("timeModal"); return; }
+  if(e.target.closest("#tp_save")){ wdSaveTime(false); return; }
+  if(e.target.closest("#tp_clear")){ wdSaveTime(true); return; }
   if(e.target.closest("#wdWinApply")){ wdSaveWindow(parseInt($("wdWinBack").value||"0",10), parseInt($("wdWinFwd").value||"0",10)); wdSyncWindowInputs(); toast("/orders window set: "+wdWindowLabel()); return; }
 });
 document.addEventListener("change",e=>{
