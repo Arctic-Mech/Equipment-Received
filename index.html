@@ -478,6 +478,7 @@
   .cal-day-close{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:#fff;background:rgba(255,255,255,.16);padding:5px 12px;border-radius:7px}
   .cal-sort{display:block;width:100%;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:12px;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);padding:7px;border-radius:8px;margin-bottom:8px}
   .cal-sort.on{background:var(--hivis);border-color:var(--hivis)}
+  .tp-tap{display:block;text-align:center;font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em;font-size:13px;color:var(--blue);margin-bottom:6px}
   .cal-cell.sel .cal-dots{margin:0 0 10px;justify-content:flex-start}
   .cal-cell.sel .cal-jobnames{display:flex;flex-direction:column;gap:0}
   .cal-jobrow{border-bottom:1px solid rgba(255,255,255,.14)}
@@ -1061,8 +1062,9 @@
 <div class="modal-back" id="timeModal"><div class="modal"><div class="modal-grip"></div>
   <div class="modal-head"><h3 id="tp_title">Delivery time</h3><button class="x" id="tp_x">✕</button></div>
   <div class="modal-body">
-    <p style="color:var(--steel);font-size:13px;margin:0 0 14px">Pick the delivery time. Includes AM/PM.</p>
-    <input id="tp_input" type="time" step="300" style="width:100%;font-size:20px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-family:'JetBrains Mono';text-align:center">
+    <p style="color:var(--steel);font-size:13px;margin:0 0 14px">Tap the field below to open the time wheel, then set the hour, minute, and AM/PM.</p>
+    <label for="tp_input" class="tp-tap">👆 Tap here to choose a time</label>
+    <input id="tp_input" type="time" step="300" style="width:100%;font-size:22px;padding:14px;border:2px solid var(--blue);border-radius:10px;background:#fff;font-family:'JetBrains Mono';text-align:center;color:var(--ink)">
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="submit" id="tp_save" style="flex:1">Save time</button>
       <button class="submit" id="tp_clear" style="flex:none;background:var(--surface);color:var(--red);border:1px solid var(--line)">Clear</button>
@@ -1296,7 +1298,7 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="4.4";
+const APP_VERSION="4.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2140,8 +2142,6 @@ document.addEventListener("click",e=>{
   const caltime=e.target.closest("[data-caltime]"); if(caltime){ e.stopPropagation(); wdOpenTimePicker(caltime.dataset.caltime); return; }
   const caltruck=e.target.closest("[data-caltruck]"); if(caltruck){ e.stopPropagation(); wdQuickNote(caltruck.dataset.caltruck,"truck","Truck # / name"); return; }
   const caljob=e.target.closest("[data-caljob]"); if(caljob){ e.stopPropagation(); const id=caljob.dataset.caljob; calDayOpenJob=(calDayOpenJob===id)?null:id; renderCalendar(); return; }
-  const cd=e.target.closest("[data-calday]"); if(cd){ if(calSelDay===cd.dataset.calday){ /* already open — clicks inside handled above; ignore */ return; } calSelDay=cd.dataset.calday; calDayOpenJob=null; renderCalendar(); return; }
-  if(e.target.closest("#ddClose")){ calSelDay=null; calDayOpenJob=null; renderCalendar(); return; }
   const cseg=e.target.closest("[data-calseg]"); if(cseg){ calShowMine=cseg.dataset.calseg==="mine"; document.querySelectorAll("#calSeg button").forEach(b=>b.classList.toggle("on",b===cseg)); renderCalendar(); return; }
   const wstar=e.target.closest("[data-wostar]"); if(wstar){ e.stopPropagation(); const job=wstar.dataset.wostar; if(job){ if(MY_JOBS.some(j=>normJob(j)===normJob(job))) removeJob(normJob(job)); else addJob(job); renderDeliveries(); } return; }
   const whl=e.target.closest("[data-wohl]"); if(whl){ e.stopPropagation(); wdToggleHighlight(whl.dataset.wohl); return; }
@@ -2157,6 +2157,10 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#delFbToggle")){ const w=$("delFbWrap"),c=$("delFbChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); return; }
   if(e.target.closest("#wdTestToggle")){ const w=$("wdTestWrap"),c=$("wdTestChev"); const open=w.style.display==="none"; w.style.display=open?"block":"none"; c.classList.toggle("open",open); if(open&&typeof wdRenderToken==="function")wdRenderToken(); return; }
   if(e.target.closest("#wdKeyReveal")){ const b=$("wdKeyRevealBox"); const show=b.style.display==="none"; b.style.display=show?"block":"none"; if(show)$("wdKeyValue").textContent=wdHasAdmin()?("Connected as "+WD_ADMIN_CREDS.email+" (password stored, token minted fresh each sync)"):"(no company login saved)"; $("wdKeyReveal").textContent=show?"Hide":"Show details"; return; }
+  if(e.target.closest("#ddClose")){ calSelDay=null; calDayOpenJob=null; renderCalendar(); return; }
+  // Catch-all LAST: clicking an empty part of a day cell selects it. Card-internal controls above
+  // (pills, checkmarks, star, time/truck, job expand) are handled first and return before this.
+  const cd=e.target.closest("[data-calday]"); if(cd){ if(calSelDay===cd.dataset.calday){ return; } calSelDay=cd.dataset.calday; calDayOpenJob=null; renderCalendar(); return; }
 });
 
 // Connect a Webduct company login → save the key to Firebase for everyone.
