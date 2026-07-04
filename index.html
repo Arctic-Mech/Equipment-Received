@@ -565,8 +565,8 @@
   .wia-badge.partial{background:#ffe4c2;color:#8a4b00}
   .wia-badge.complete{background:#cdeede;color:#0d7a73}
   .ptoggle{cursor:pointer;border:none}
-  .ac-copy{background:none;font-size:15px;padding:2px 4px;line-height:1;opacity:.65}
-  .ac-copy:active{opacity:1}
+  .ac-copy{background:var(--surface);border:1px solid var(--line);color:var(--steel);font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:11px;padding:4px 9px;border-radius:7px;white-space:nowrap}
+  .ac-copy:active{background:var(--line-soft);color:var(--ink)}
   .wia-note{margin-top:8px}
   .wia-notebtn{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.02em;font-size:11.5px;color:var(--steel);background:var(--card);border:1px solid var(--line);border-radius:7px;padding:5px 11px}
   .wia-notebtn.on{background:#fffbea;border-color:#f0d98a;color:#8a4b00}
@@ -600,6 +600,7 @@
   .cal-layout{display:block}
   .cal-lastsync{font-size:11px;color:var(--steel-light);margin-bottom:8px}
   .arr-viewseg button{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .cal-daycount{color:rgba(255,255,255,.85);font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:13px;margin:2px 0 8px}
   .cal-cnt{position:absolute;top:3px;right:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel-light)}
   .cal-cell.sel .cal-cnt{color:#fff}
   .cal-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px;font-size:11.5px;color:var(--steel)}
@@ -826,7 +827,7 @@
         <div class="cal-nav"><button class="cal-arrow" id="arrPrev">‹</button><div class="cal-title" id="arrTitle">—</div><button class="cal-arrow" id="arrNext">›</button></div>
         <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px"><button class="cal-today" id="arrToday" style="margin:0">Today</button></div>
         <div class="cal-grid" id="arrGrid"></div>
-        <div class="cal-legend"><span><i class="lg-dot req"></i> Delivery wanted</span><span><i class="lg-dot done"></i> Delivered</span></div>
+        <div class="cal-legend"><span><i class="lg-dot req"></i> Arrivals logged that day — tap a day to see them</span></div>
       </div>
       <div id="arrDayDetail" class="day-detail" style="display:none"></div>
     </div>
@@ -1374,9 +1375,30 @@ function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(
 
 /* ---------- Toast ---------- */
 let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
+// Copy text to clipboard with a fallback for browsers where navigator.clipboard is unavailable
+// or blocked (older iOS Safari, non-secure contexts). Returns nothing; shows a toast.
+function copyToClipboard(text){
+  if(!text){ toast("No name to copy"); return; }
+  const done=()=>toast("Name copied");
+  const fail=()=>{
+    // Fallback: temporary textarea + execCommand("copy")
+    try{
+      const ta=document.createElement("textarea");
+      ta.value=text; ta.setAttribute("readonly",""); ta.style.position="fixed"; ta.style.top="-1000px"; ta.style.opacity="0";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+      const ok=document.execCommand("copy");
+      document.body.removeChild(ta);
+      toast(ok?"Name copied":"Couldn't copy — long-press to select");
+    }catch(_){ toast("Couldn't copy — long-press to select"); }
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(fail);
+  } else { fail(); }
+}
 
 /* ---------- Sync ---------- */
-const APP_VERSION="5.3";
+const APP_VERSION="5.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1442,7 +1464,7 @@ function arrivalRow(r,opts={}){
     <div class="acard-head" data-expand="${esc(r.id)}">
       <div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
       <div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div>
-      <div class="ac-icons">${opts.star!==false?starMini(job):""}<button class="ac-copy" data-copyname="${esc(r.description||"")}" title="Copy arrival name">📋</button>${cam}${deliv}<span class="ac-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
+      <div class="ac-icons"><button class="ac-copy" data-copyname="${esc(r.description||"")}" title="Copy arrival name">Copy Name</button>${opts.star!==false?starMini(job):""}${cam}${deliv}<span class="ac-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
       <div class="ac-desc">${esc(r.description)||"<span style='color:var(--steel-light)'>No description</span>"}</div>
       <div class="ac-foot"><span class="ac-date"><b>${d.top}</b><span class="${d.rel?'rel':''}">${d.bot}</span></span>${place}${partial}${newTag}</div>
     </div>
@@ -1779,6 +1801,7 @@ document.addEventListener("click",e=>{
   const dl=e.target.closest("[data-del]"); if(dl){ e.stopPropagation(); const i=dl.dataset.del.indexOf(":"); doDelete(dl.dataset.del.slice(0,i),dl.dataset.del.slice(i+1)); return; }
   const shA=e.target.closest("[data-shareadd]"); if(shA){ acceptShare(shA.dataset.shareadd); return; }
   const shN=e.target.closest("[data-shareno]"); if(shN){ dismissShare(shN.dataset.shareno); return; }
+  const cpn=e.target.closest("[data-copyname]"); if(cpn){ e.stopPropagation(); e.preventDefault(); copyToClipboard(cpn.dataset.copyname||""); return; }
   const shr=e.target.closest("[data-share]"); if(shr){ e.stopPropagation(); openShare(shr.dataset.share); return; }
   const cj=e.target.closest("[data-clearjob]"); if(cj){ e.stopPropagation(); clearJobNotif(cj.dataset.clearjob); return; }
   const co=e.target.closest("[data-clearone]"); if(co){ e.stopPropagation(); clearOneNotif(co.dataset.clearone); return; }
@@ -1904,8 +1927,8 @@ function openShare(arrivalId){
 onActivate($("shareCopyName"),async()=>{
   const name=shareArrivalName||"";
   if(!name){ toast("No name to copy"); return; }
-  try{ await navigator.clipboard.writeText(name); toast("Name copied"); const b=$("shareCopyName"); b.textContent="Copied ✓"; setTimeout(()=>{ b.textContent="📋 Copy arrival name"; },1600); }
-  catch(e){ toast("Copy failed — tap and hold to select"); }
+  copyToClipboard(name);
+  const b=$("shareCopyName"); b.textContent="Copied ✓"; setTimeout(()=>{ b.textContent="📋 Copy arrival name"; },1600);
 });
 let WD_PAIR_TARGET={docId:"",arrivalId:"",order:null,thenDeliver:false};
 function wdOpenPairKind(docId, arrivalId){ WD_PAIR_TARGET={docId,arrivalId,order:null,thenDeliver:false}; openModal("pairModal"); }
@@ -1957,8 +1980,8 @@ function delivIconsFor(r){
   const cam=`<button class="mini-btn cam ${hasPhoto?'has':''}" data-cam="${esc(r.id)}" title="${hasPhoto?'Photo by '+esc(r.photoBy):'Add photo'}"><svg width="17" height="17" viewBox="0 0 24 24" fill="${hasPhoto?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></button>`;
   const shr=`<button class="mini-btn" data-share="${esc(r.id)}" title="Share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"></line></svg></button>`;
   const deliv=`<button class="mini-btn deliv-btn ${r.delivered?'set':''}" data-deliv="${esc(r.id)}" title="Edit delivery"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></button>`;
-  const cpy=`<button class="mini-btn" data-copyname="${esc(r.description||"")}" title="Copy arrival name"><span style="font-size:15px">📋</span></button>`;
-  return cam+cpy+shr+deliv;
+  const cpy=`<button class="mini-btn ac-copy" data-copyname="${esc(r.description||"")}" title="Copy arrival name">Copy Name</button>`;
+  return cpy+cam+shr+deliv;
 }
 function deliveryRow(r){ const job=normJob(r.jobNumber); return `<div class="acard open" data-type="arrival" data-id="${esc(r.id)}"><div class="acard-head" style="cursor:default"><div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div><div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div><div class="ac-icons">${delivIconsFor(r)}</div><div class="ac-desc">${esc(r.description)||""}</div><div class="ac-foot">${r.delivered?`<span class="m deliv">✓ Delivered${r.deliveredDate?" "+esc(longDate(r.deliveredDate).split(",")[0]):""}</span>`:`<span class="m reqd">Requested ${esc(longDate(r.reqDeliv).split(",")[0])}</span>`}${r.partial?'<span class="m partial">⚠ Partial</span>':""}${r.storageLocation?`<span class="m loc">📍 ${esc(r.storageLocation)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}</div></div></div>`; }
 
@@ -1971,29 +1994,24 @@ function renderArrCalendar(){
   const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
   $("arrTitle").textContent=MONTHS[arrCalMonth]+" "+arrCalYear;
   const first=new Date(arrCalYear,arrCalMonth,1), startDow=first.getDay(), daysIn=new Date(arrCalYear,arrCalMonth+1,0).getDate();
-  const todayKey=dateKeyLocal(new Date().toISOString());
-  // Map arrivals to their delivery-wanted / delivered dates.
+  const _t=new Date(); const todayKey=_t.getFullYear()+"-"+String(_t.getMonth()+1).padStart(2,"0")+"-"+String(_t.getDate()).padStart(2,"0");
+  // Map arrivals to the day they were LOGGED (received). dateReceived is already "YYYY-MM-DD",
+  // so use it directly as the key — converting through Date shifts it a day in western timezones.
+  const dayKeyOf=r=>{ const s=r.dateReceived||""; if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10); return s?dateKeyLocal(s):""; };
   const map={};
-  ARRIVALS.forEach(r=>{
-    const reqKey=r.reqDeliv?dateKeyLocal(r.reqDeliv):"";
-    const delKey=r.delivered&&r.deliveredDate?dateKeyLocal(r.deliveredDate):"";
-    if(reqKey && !r.delivered){ (map[reqKey]=map[reqKey]||{req:[],done:[]}).req.push(r); }
-    if(delKey){ (map[delKey]=map[delKey]||{req:[],done:[]}).done.push(r); }
-  });
+  ARRIVALS.forEach(r=>{ const key=dayKeyOf(r); if(key){ (map[key]=map[key]||{items:[]}).items.push(r); } });
   let html=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<div class="cal-dow">${d}</div>`).join("");
   for(let i=0;i<startDow;i++) html+=`<div class="cal-cell blank"></div>`;
   for(let day=1;day<=daysIn;day++){
     const key=arrCalYear+"-"+String(arrCalMonth+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
     const m=map[key];
-    const reqN=m?m.req.length:0, doneN=m?m.done.length:0;
-    const has=reqN||doneN;
+    const n=m?m.items.length:0;
+    const has=n>0;
     const isSel=key===arrCalSelDay;
-    let marks="";
-    if(reqN) marks+=`<span class="cal-mk"><span class="cal-dot req"></span><span class="cal-mkn">${reqN}</span></span>`;
-    if(doneN) marks+=`<span class="cal-mk"><span class="cal-dot done"></span><span class="cal-mkn">${doneN}</span></span>`;
+    const marks=n?`<span class="cal-mk"><span class="cal-dot req"></span><span class="cal-mkn">${n}</span></span>`:"";
     if(isSel){
-      const rows=[...(m?m.req:[]),...(m?m.done:[])].map(r=>deliveryRow(r)).join("");
-      html+=`<div class="cal-cell has sel" data-arrday="${key}"><div class="cal-day-head"><span class="cal-num">${day}</span><button class="cal-day-close" data-arrclose="1">✕ Close</button></div><span class="cal-dots">${marks}</span><div class="cal-jobnames" style="gap:6px">${rows||'<div class="cal-day-empty">No arrivals this day.</div>'}</div></div>`;
+      const rows=(m?m.items:[]).map(r=>arrivalRow(r,{compact:true,star:true})).join("");
+      html+=`<div class="cal-cell has sel" data-arrday="${key}"><div class="cal-day-head"><span class="cal-num">${day}</span><button class="cal-day-close" data-arrclose="1">✕ Close</button></div><div class="cal-daycount">${n} arrival${n===1?"":"s"} logged</div><div class="cal-jobnames" style="gap:8px">${rows||'<div class="cal-day-empty">No arrivals this day.</div>'}</div></div>`;
     } else {
       html+=`<div class="cal-cell ${key===todayKey?'today':''} ${has?'has':''}" ${has?`data-arrday="${key}"`:""}><span class="cal-num">${day}</span><span class="cal-dots">${marks}</span></div>`;
     }
@@ -3732,7 +3750,6 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#arrToday")){ const n=new Date(); arrCalYear=n.getFullYear(); arrCalMonth=n.getMonth(); arrCalSelDay=dateKeyLocal(n.toISOString()); renderArrCalendar(); return; }
   if(e.target.closest("[data-arrclose]")){ arrCalSelDay=null; renderArrCalendar(); return; }
   const ad=e.target.closest("[data-arrday]"); if(ad){ if(arrCalSelDay===ad.dataset.arrday){ if(!e.target.closest(".cal-day-head")){} return; } arrCalSelDay=ad.dataset.arrday; renderArrCalendar(); return; }
-  const cpn=e.target.closest("[data-copyname]"); if(cpn){ e.stopPropagation(); const nm=cpn.dataset.copyname||""; if(!nm){ toast("No name"); return; } navigator.clipboard.writeText(nm).then(()=>{ toast("Name copied"); }).catch(()=>toast("Copy failed")); return; }
   const eqn=e.target.closest("[data-weqnote]"); if(eqn){ e.stopPropagation(); wdSaveEqNote(eqn.dataset.weqnote); return; }
   const wpart=e.target.closest("[data-wepartial]"); if(wpart){ e.stopPropagation(); const id=wpart.dataset.wepartial; const eq=WD_EQUIP.find(x=>x.docId===id); if(eq&&fbReady){ setDoc(doc(db,"webductEquip",id),{partial:!eq.partial,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast(!eq.partial?"Marked partial":"Marked complete")).catch(()=>toast("Couldn't update")); } return; }
   const pick=e.target.closest("[data-wepick]"); if(pick){ e.stopPropagation(); const [docId,arrivalId]=pick.dataset.wepick.split("|||"); wdOpenPairKind(docId,arrivalId); return; }
