@@ -16,6 +16,9 @@ Env vars (provided by the workflow from repo secrets):
                         FLOW sends from (jareneells@arctic.biz), not Bobby's.
   EXPECTED_SUBJECT      substring that must appear in the Subject (default "Arrivals
                         sheet") — this is the subject set in the Power Automate flow.
+  FILENAME_MUST_CONTAIN substring the attachment's filename must contain (default
+                        "Equipment Received"). This is what stops OTHER spreadsheets
+                        Bobby emails from ever being imported as arrivals.
   FIREBASE_SA_JSON      full service-account JSON (as a string)
   MAX_AGE_HOURS         optional; only accept an email newer than this (default 26)
   DRY_RUN               optional; "1" parses + validates but does not write
@@ -158,12 +161,53 @@ def parse_arrival_sheet(ws, sheet_name):
     return out
 
 
+def _looks_like_master(wb):
+    """
+    Sanity check that this workbook is really the Equipment Received master sheet.
+    We require at least one non-rental tab whose first few rows contain the
+    arrival header words. Cheap, but it stops an unrelated spreadsheet cold.
+    """
+    for name in wb.sheetnames:
+        if re.search(r"rental", name, re.I):
+            continue
+        ws = wb[name]
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            if i >= 6:
+                break
+            joined = "|".join(str(c).lower() if c is not None else "" for c in row)
+            if "date received" in joined or ("job" in joined and "description" in joined):
+                return True
+    return False
+
+
 # ---------------------------------------------------------------------------
 # 3. Pull the newest matching attachment from the Gmail relay inbox (IMAP)
 # ---------------------------------------------------------------------------
 
+def _clean_filename(raw):
+    """Decode an attachment filename and strip encoding artifacts/quotes."""
+    if not raw:
+        return ""
+    try:
+        dec = decode_header(raw)[0]
+        name = dec[0].decode(dec[1] or "utf-8", errors="replace") if isinstance(dec[0], bytes) else str(dec[0])
+    except Exception:
+        name = str(raw)
+    # RFC2231 can leave things like "utf-8''Name.xlsm" or stray quotes.
+    name = re.sub(r"^[A-Za-z0-9\-]+''", "", name)
+    name = name.strip().strip("'\"").strip()
+    # ...and sometimes percent-encoding survives ("Equipment%20Received.xlsm").
+    if "%" in name:
+        try:
+            from urllib.parse import unquote
+            name = unquote(name)
+        except Exception:
+            pass
+    return name.strip()
+
+
 def fetch_latest_attachment(user, app_password, expected_sender, max_age_hours,
-                            expected_subject=""):
+                            expected_subject="", filename_must_contain=""):
     imap = imaplib.IMAP4_SSL("imap.gmail.com", ssl_context=ssl.create_default_context())
     imap.login(user, app_password)
     imap.select("INBOX")
@@ -179,9 +223,9 @@ def fetch_latest_attachment(user, app_password, expected_sender, max_age_hours,
         raise RuntimeError("No recent emails found in the relay inbox")
 
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=max_age_hours)
-    best = None  # (date, filename, bytes)
+    candidates = []   # every matching (date, filename, bytes) — we pick the newest at the end
+    skipped_names = []
 
-    # Newest first
     for msg_id in reversed(ids):
         status, msg_data = imap.fetch(msg_id, "(RFC822)")
         if status != "OK":
@@ -201,7 +245,6 @@ def fetch_latest_attachment(user, app_password, expected_sender, max_age_hours,
             if expected_subject.lower() not in subj.lower():
                 continue
 
-        # date filter
         try:
             msg_date = email.utils.parsedate_to_datetime(msg.get("Date"))
             if msg_date.tzinfo is None:
@@ -212,27 +255,35 @@ def fetch_latest_attachment(user, app_password, expected_sender, max_age_hours,
             continue
 
         for part in msg.walk():
-            fname = part.get_filename()
+            fname = _clean_filename(part.get_filename())
             if not fname:
                 continue
-            dec = decode_header(fname)[0]
-            if isinstance(dec[0], bytes):
-                fname = dec[0].decode(dec[1] or "utf-8", errors="replace")
-            if re.search(r"\.(xlsx|xlsm)$", fname, re.I):
-                payload = part.get_payload(decode=True)
-                if payload:
-                    best = (msg_date, fname, payload)
-                    break
-        if best:
-            break
+            if not re.search(r"\.(xlsx|xlsm)$", fname, re.I):
+                continue
+            # Guard: Bobby sends other spreadsheets too. Only accept the master sheet.
+            if filename_must_contain and filename_must_contain.lower() not in fname.lower():
+                skipped_names.append(fname)
+                continue
+            payload = part.get_payload(decode=True)
+            if payload:
+                candidates.append((msg_date, fname, payload))
 
     imap.logout()
-    if not best:
+
+    if not candidates:
+        extra = ""
+        if skipped_names:
+            uniq = ", ".join(sorted(set(skipped_names))[:5])
+            extra = (f" Spreadsheets were found but their filenames didn't contain "
+                     f"'{filename_must_contain}': {uniq}")
         raise RuntimeError(
-            f"No email from '{expected_sender}' with an .xlsx/.xlsm attachment "
-            f"in the last {max_age_hours}h"
+            f"No email from '{expected_sender}' with a matching .xlsx/.xlsm attachment "
+            f"in the last {max_age_hours}h.{extra}"
         )
-    return best  # (date, filename, bytes)
+
+    # Always use the MOST RECENT one.
+    candidates.sort(key=lambda c: c[0])
+    return candidates[-1]  # (date, filename, bytes)
 
 
 # ---------------------------------------------------------------------------
@@ -244,17 +295,60 @@ def main():
     pw = os.environ["GMAIL_APP_PASSWORD"]
     sender = os.environ.get("EXPECTED_SENDER", "").strip()
     subject = os.environ.get("EXPECTED_SUBJECT", "Arrivals sheet").strip()
+    fname_match = os.environ.get("FILENAME_MUST_CONTAIN", "Equipment Received").strip()
     max_age = int(os.environ.get("MAX_AGE_HOURS", "26"))
     dry_run = os.environ.get("DRY_RUN", "") == "1"
+    force = os.environ.get("FORCE", "") == "1"
+    # When the job runs on a schedule we poll several times a morning; "no email yet"
+    # is normal and must NOT be treated as a failure.
+    soft_missing = os.environ.get("SOFT_IF_MISSING", "1") == "1"
 
-    print(f"[1/4] Looking for newest attachment from '{sender or '(any sender)'}' "
-          f"with subject containing '{subject or '(any)'}' …")
-    msg_date, fname, blob = fetch_latest_attachment(user, pw, sender, max_age, subject)
+    print(f"[1/5] Looking for newest attachment from '{sender or '(any sender)'}' "
+          f"with subject containing '{subject or '(any)'}' "
+          f"and filename containing '{fname_match or '(any)'}' …")
+    try:
+        msg_date, fname, blob = fetch_latest_attachment(user, pw, sender, max_age, subject, fname_match)
+    except RuntimeError as e:
+        if soft_missing and "No email from" in str(e):
+            print(f"      Nothing to import yet — {e}")
+            print("      Exiting cleanly (this is normal for an early poll).")
+            return
+        raise
     print(f"      Found: {fname}  (sent {msg_date.isoformat()}, {len(blob)} bytes)")
 
-    print("[2/4] Parsing workbook …")
+    # ---- connect early so we can see whether this exact email is already imported ----
+    db = None
+    if not dry_run:
+        print("[2/5] Connecting to Firestore …")
+        sa_info = json.loads(os.environ["FIREBASE_SA_JSON"])
+        creds = service_account.Credentials.from_service_account_info(sa_info)
+        db = firestore.Client(project=sa_info["project_id"], credentials=creds)
+
+        this_email_ms = int(msg_date.timestamp() * 1000)
+        try:
+            prev = db.collection("config").document("lastImport").get()
+            if prev.exists and not force:
+                prev_ms = prev.to_dict().get("emailDateMs")
+                if prev_ms and int(prev_ms) == this_email_ms:
+                    print("      This exact email was already imported — nothing to do.")
+                    print("      (Run manually with force=true to re-import anyway.)")
+                    return
+        except Exception as e:
+            print(f"      (couldn't read previous import marker: {e} — continuing)")
+
+    print("[3/5] Parsing workbook …")
     import io
     wb = openpyxl.load_workbook(io.BytesIO(blob), data_only=True, read_only=True)
+
+    # Structure check: the real master sheet has arrival-style headers. If this workbook
+    # doesn't look like it, bail out rather than import junk.
+    if not _looks_like_master(wb):
+        raise RuntimeError(
+            "That workbook doesn't look like the Equipment Received master sheet "
+            "(couldn't find the expected 'date received' / 'description' headers). "
+            "Aborting so no bad data is written."
+        )
+
     arrivals = []
     for name in wb.sheetnames:
         if re.search(r"rental", name, re.I):
@@ -271,7 +365,6 @@ def main():
             f"the sheet format may have changed. Aborting."
         )
     print(f"      Parsed {len(arrivals)} arrivals ({len(dated)} with dates).")
-
     # ---- build docs with the SAME id scheme as the website ----
     docs = {}
     for r in arrivals:
@@ -283,18 +376,13 @@ def main():
     print(f"      {len(docs)} unique arrival documents after de-dupe.")
 
     if dry_run:
-        print("[3/4] DRY_RUN=1 — not writing. Sample IDs:")
+        print("[4/5] DRY_RUN=1 — not writing. Sample IDs:")
         for i, (k, v) in enumerate(list(docs.items())[:5]):
             print(f"        {k}  ->  {v['dateReceived']} | {v['jobNumber']} | {v['description'][:40]}")
-        print("[4/4] Dry run complete.")
+        print("[5/5] Dry run complete.")
         return
 
-    print("[3/4] Connecting to Firestore …")
-    sa_info = json.loads(os.environ["FIREBASE_SA_JSON"])
-    creds = service_account.Credentials.from_service_account_info(sa_info)
-    db = firestore.Client(project=sa_info["project_id"], credentials=creds)
-
-    print("[4/4] Writing arrivals (merge, batched) …")
+    print("[4/5] Writing arrivals (merge, batched) …")
     base = int(datetime.datetime.now().timestamp() * 1000) - len(docs)
     batch = db.batch()
     n = 0
@@ -314,6 +402,20 @@ def main():
     if n:
         batch.commit()
     print(f"      Done. {written} arrivals written/updated in Firestore.")
+
+    # Record what we imported so the website can show it (mirrors config/lastSync).
+    try:
+        db.collection("config").document("lastImport").set({
+            "at": int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000),
+            "emailDate": msg_date.isoformat(),
+            "emailDateMs": int(msg_date.timestamp() * 1000),
+            "sourceFile": fname,
+            "count": written,
+            "by": "auto (email)",
+        }, merge=True)
+        print("      Import metadata recorded (config/lastImport).")
+    except Exception as e:
+        print(f"      WARNING: couldn't record import metadata: {e}")
 
 
 if __name__ == "__main__":
