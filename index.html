@@ -605,6 +605,9 @@
   .cal-layout{display:block}
   .cal-lastsync{font-size:11px;color:var(--steel-light);margin-bottom:8px}
   .arr-viewseg button{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .auto-import{margin:0 14px 10px;padding:7px 11px;background:var(--teal-soft);border:1px solid #bfe3de;border-radius:8px;font-size:12px;color:var(--teal)}
+  .auto-import.stale{background:#fff4e5;border-color:#f0d98a;color:#8a4b00}
+  .ai-warn{font-weight:700}
   .cal-daycount{color:rgba(255,255,255,.85);font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:13px;margin:2px 0 8px}
   .cal-cnt{position:absolute;top:3px;right:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel-light)}
   .cal-cell.sel .cal-cnt{color:#fff}
@@ -825,6 +828,7 @@
       <div class="selwrap"><select class="filter" id="monthSel"><option value="">All months</option></select></div>
     </div>
     <div class="meta-row"><span id="feedMeta">Loading…</span><span>Newest first</span></div>
+    <div class="auto-import" id="autoImport" style="display:none"></div>
     <div id="feedList" class="rows"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
     </div>
     <div id="arrCalWrap" style="display:none">
@@ -1231,6 +1235,23 @@ let WD_EQUIP=[];                    // Webduct shop-equipment order items (synce
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
 let WD_NOTES={};                    // per-order notes keyed by order docId {deliveryTime, truck, extra, highlight}
 let WD_LAST_SYNC=null;              // {by, at, summary} — who forced the last refresh and when
+let LAST_IMPORT=null;               // {at, emailDateMs, sourceFile, count} — nightly email import
+function renderAutoImport(){
+  const el=$("autoImport"); if(!el) return;
+  if(!LAST_IMPORT || !LAST_IMPORT.at){ el.style.display="none"; return; }
+  const ago=m=>{ const mins=Math.max(0,Math.round((Date.now()-m)/60000));
+    if(mins<1)return"just now"; if(mins<60)return mins+" min ago";
+    const h=Math.round(mins/60); if(h<24)return h+" hr ago";
+    return Math.round(h/24)+" days ago"; };
+  // The important bit: when the SHEET Bobby sent was from, not just when we ran.
+  const sheetFrom=LAST_IMPORT.emailDateMs?`sheet emailed ${ago(LAST_IMPORT.emailDateMs)}`:"";
+  const ran=`imported ${ago(LAST_IMPORT.at)}`;
+  const cnt=LAST_IMPORT.count?` · ${LAST_IMPORT.count.toLocaleString()} rows`:"";
+  const stale=LAST_IMPORT.emailDateMs && (Date.now()-LAST_IMPORT.emailDateMs)>36*3600*1000;
+  el.className="auto-import"+(stale?" stale":"");
+  el.innerHTML=`<b>📥 Auto-import</b> ${wdEsc(ran)}${sheetFrom?` · ${wdEsc(sheetFrom)}`:""}${cnt}${stale?' <span class="ai-warn">— sheet looks old</span>':""}`;
+  el.style.display="block";
+}
 function wdRenderLastSync(){
   if(!WD_LAST_SYNC) return;
   const el=$("calLastSync"); if(!el) return;
@@ -1403,7 +1424,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="5.6";
+const APP_VERSION="5.7";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1416,6 +1437,7 @@ function startSync(){
   onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>console.error("webductEquip",e));
   onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>console.error("webductOrders",e));
   onSnapshot(doc(db,"config","lastSync"),snap=>{ if(snap.exists()){ WD_LAST_SYNC=snap.data(); wdRenderLastSync(); } }, e=>console.error("lastSync",e));
+  onSnapshot(doc(db,"config","lastImport"),snap=>{ if(snap.exists()){ LAST_IMPORT=snap.data(); renderAutoImport(); } }, e=>console.error("lastImport",e));
   onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>console.error("webductOrderNotes",e));
   onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>console.error("webductEquipNotes",e));
   wdWatchAdminKey();
@@ -1520,6 +1542,7 @@ function refreshMonths(){
 
 /* ---------- Render: Arrivals ---------- */
 function renderFeed(){
+  if(typeof renderAutoImport==="function") renderAutoImport();
   if(arrViewMode==="cal" && typeof renderArrCalendar==="function") renderArrCalendar();
   const q=$("feedSearch").value.trim().toLowerCase(),month=$("monthSel").value;
   $("feedClr").style.display=q?"block":"none";
