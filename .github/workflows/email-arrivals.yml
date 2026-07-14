@@ -5,15 +5,22 @@ name: Daily Arrivals Email Import
 
 on:
   schedule:
-    # 06:30 America/Los_Angeles. GitHub cron is UTC, so this is 13:30 UTC.
-    # (During Pacific Daylight Time that's 6:30am; in standard time it's 5:30am.
-    #  Adjust the number if you want a fixed local clock time year-round.)
-    - cron: "30 13 * * *"
+    # Bobby emails Mon-Fri, roughly 5am-7am Pacific.
+    # GitHub cron is ALWAYS UTC and does not follow daylight saving, so we poll a
+    # window wide enough to cover Pacific in both PST (UTC-8) and PDT (UTC-7):
+    #   12:00 UTC = 4am PST / 5am PDT      17:30 UTC = 9:30am PST / 10:30am PDT
+    # Every 30 min, weekdays only (1-5 = Mon-Fri). Extra polls are free: the job
+    # exits immediately once that morning's email has already been imported.
+    - cron: "0,30 12-17 * * 1-5"
   workflow_dispatch:
-    # lets you trigger it by hand from the Actions tab, with an optional dry run
+    # lets you trigger it by hand from the Actions tab
     inputs:
       dry_run:
         description: "Parse & validate only, do not write to Firestore"
+        required: false
+        default: "false"
+      force:
+        description: "Re-import even if this email was already imported"
         required: false
         default: "false"
 
@@ -26,6 +33,8 @@ jobs:
   import:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      issues: write
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
@@ -44,28 +53,43 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           EXPECTED_SENDER: ${{ secrets.EXPECTED_SENDER }}
           EXPECTED_SUBJECT: "Arrivals sheet"
+          FILENAME_MUST_CONTAIN: "Equipment Received"
           FIREBASE_SA_JSON: ${{ secrets.FIREBASE_SA_JSON }}
           MAX_AGE_HOURS: "26"
+          SOFT_IF_MISSING: "1"
+          FORCE: ${{ (github.event.inputs.force == 'true') && '1' || '0' }}
           DRY_RUN: ${{ (github.event.inputs.dry_run == 'true') && '1' || '0' }}
         run: python email_import.py
 
       - name: Flag failure as an issue
-        # If the import step failed (bad sheet, no email, etc.), open an issue so
-        # you find out instead of silently missing a day.
+        # Only real problems reach here — "no email yet" exits cleanly, so a quiet
+        # early poll never opens an issue. Reuses one issue per day so a repeated
+        # failure across the morning's polls doesn't spam you.
         if: failure()
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `Arrivals email import failed — ${new Date().toISOString().slice(0,10)}`;
+            const day = new Date().toISOString().slice(0,10);
+            const title = `Arrivals email import failed — ${day}`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "import-failure",
+            });
+            if (existing.data.some(i => i.title === title)) {
+              core.info("An issue for today already exists — not opening another.");
+              return;
+            }
             const body = [
-              "The scheduled arrivals email import did not complete.",
+              "The arrivals email import hit a real error (not just 'no email yet').",
               "",
               `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               "",
               "Common causes:",
-              "- Bobby's email hadn't arrived yet when the job ran",
-              "- The attachment wasn't an .xlsx/.xlsm file",
+              "- The attachment wasn't the Equipment Received master sheet",
               "- A column header in the sheet changed",
+              "- Gmail or Firebase credentials stopped working",
               "",
               "No data was written (the importer aborts on anything unexpected).",
             ].join("\n");
