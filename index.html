@@ -606,8 +606,6 @@
   .cal-lastsync{font-size:11px;color:var(--steel-light);margin-bottom:8px}
   .arr-viewseg button{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em}
   .auto-import{margin:0 14px 10px;padding:7px 11px;background:var(--teal-soft);border:1px solid #bfe3de;border-radius:8px;font-size:12px;color:var(--teal)}
-  .auto-import.stale{background:#fff4e5;border-color:#f0d98a;color:#8a4b00}
-  .ai-warn{font-weight:700}
   .cal-daycount{color:rgba(255,255,255,.85);font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:13px;margin:2px 0 8px}
   .cal-cnt{position:absolute;top:3px;right:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel-light)}
   .cal-cell.sel .cal-cnt{color:#fff}
@@ -855,6 +853,7 @@
         <div class="selwrap"><select class="filter" id="rentStatus"><option value="">All</option><option value="Renting">Renting</option><option value="Returned">Returned</option></select></div>
       </div>
       <div class="meta-row"><span id="rentMeta">Loading…</span><span>Newest first</span></div>
+      <div class="auto-import" id="rentImport" style="display:none"></div>
       <div id="rentList" class="drows"><div class="skel" style="border-radius:12px"></div></div>
     </div>
     <!-- Tool rentals -->
@@ -865,6 +864,7 @@
         <div class="selwrap"><select class="filter" id="toolStatus"><option value="">All</option><option value="Out">Out</option><option value="Returned">Returned</option></select></div>
       </div>
       <div class="meta-row"><span id="toolMeta">Loading…</span><span>Newest first</span></div>
+      <div class="auto-import" id="toolImport" style="display:none"></div>
       <div id="toolList" class="drows"><div class="skel" style="border-radius:12px"></div></div>
     </div>
   </section>
@@ -1235,22 +1235,29 @@ let WD_EQUIP=[];                    // Webduct shop-equipment order items (synce
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
 let WD_NOTES={};                    // per-order notes keyed by order docId {deliveryTime, truck, extra, highlight}
 let WD_LAST_SYNC=null;              // {by, at, summary} — who forced the last refresh and when
-let LAST_IMPORT=null;               // {at, emailDateMs, sourceFile, count} — nightly email import
-function renderAutoImport(){
-  const el=$("autoImport"); if(!el) return;
-  if(!LAST_IMPORT || !LAST_IMPORT.at){ el.style.display="none"; return; }
-  const ago=m=>{ const mins=Math.max(0,Math.round((Date.now()-m)/60000));
-    if(mins<1)return"just now"; if(mins<60)return mins+" min ago";
-    const h=Math.round(mins/60); if(h<24)return h+" hr ago";
-    return Math.round(h/24)+" days ago"; };
-  // The important bit: when the SHEET Bobby sent was from, not just when we ran.
-  const sheetFrom=LAST_IMPORT.emailDateMs?`sheet emailed ${ago(LAST_IMPORT.emailDateMs)}`:"";
-  const ran=`imported ${ago(LAST_IMPORT.at)}`;
-  const cnt=LAST_IMPORT.count?` · ${LAST_IMPORT.count.toLocaleString()} rows`:"";
-  const stale=LAST_IMPORT.emailDateMs && (Date.now()-LAST_IMPORT.emailDateMs)>36*3600*1000;
-  el.className="auto-import"+(stale?" stale":"");
-  el.innerHTML=`<b>📥 Auto-import</b> ${wdEsc(ran)}${sheetFrom?` · ${wdEsc(sheetFrom)}`:""}${cnt}${stale?' <span class="ai-warn">— sheet looks old</span>':""}`;
+let LAST_IMPORT=null;               // {at, emailDateMs, sourceFile, count, rentals}
+let LAST_TOOL_IMPORT=null;          // {at, emailDateMs, sourceFile, count, jobs}
+// Absolute stamp like "7/15/26 5:42 AM" — clearer than "33 minutes ago" when you're
+// trying to tell whether this morning's sheet actually landed.
+function stampText(ms){
+  const d=new Date(ms); if(isNaN(d)) return "";
+  const date=(d.getMonth()+1)+"/"+d.getDate()+"/"+String(d.getFullYear()).slice(-2);
+  let h=d.getHours(); const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12;
+  return date+" "+h+":"+String(d.getMinutes()).padStart(2,"0")+" "+ap;
+}
+function importLine(el, info, label){
+  if(!el) return;
+  if(!info || !info.at){ el.style.display="none"; return; }
+  const from=info.emailDateMs?` · emailed ${stampText(info.emailDateMs)}`:"";
+  const cnt=info.count?` · ${info.count.toLocaleString()} ${label}`:"";
+  el.innerHTML=`<b>Last updated</b> ${wdEsc(stampText(info.at))}${wdEsc(from)}${wdEsc(cnt)}`;
   el.style.display="block";
+}
+function renderAutoImport(){
+  importLine($("autoImport"), LAST_IMPORT, "rows");
+  importLine($("rentImport"), LAST_IMPORT && LAST_IMPORT.rentals!=null
+    ? {...LAST_IMPORT, count:LAST_IMPORT.rentals} : LAST_IMPORT, "rentals");
+  importLine($("toolImport"), LAST_TOOL_IMPORT, "tool lines");
 }
 function wdRenderLastSync(){
   if(!WD_LAST_SYNC) return;
@@ -1424,7 +1431,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="5.7";
+const APP_VERSION="6.0";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1438,6 +1445,7 @@ function startSync(){
   onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>console.error("webductOrders",e));
   onSnapshot(doc(db,"config","lastSync"),snap=>{ if(snap.exists()){ WD_LAST_SYNC=snap.data(); wdRenderLastSync(); } }, e=>console.error("lastSync",e));
   onSnapshot(doc(db,"config","lastImport"),snap=>{ if(snap.exists()){ LAST_IMPORT=snap.data(); renderAutoImport(); } }, e=>console.error("lastImport",e));
+  onSnapshot(doc(db,"config","lastToolImport"),snap=>{ if(snap.exists()){ LAST_TOOL_IMPORT=snap.data(); renderAutoImport(); } }, e=>console.error("lastToolImport",e));
   onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>console.error("webductOrderNotes",e));
   onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>console.error("webductEquipNotes",e));
   wdWatchAdminKey();
@@ -1581,7 +1589,7 @@ function rentalJobCard(job,items){
     <div class="tcard-body">${items.map(rentalLine).join("")}</div>
   </div>`;
 }
-function renderRentals(){
+function renderRentals(){ if(typeof renderAutoImport==="function")renderAutoImport();
   const q=$("rentSearch").value.trim().toLowerCase(),st=$("rentStatus").value;
   $("rentClr").style.display=q?"block":"none"; $("pillRent").textContent=(RENTALS.length+TOOLS.length)>999?(Math.floor((RENTALS.length+TOOLS.length)/100)/10)+"k":(RENTALS.length+TOOLS.length);
   let rows=RENTALS;
@@ -1621,7 +1629,7 @@ function toolJobCard(job,items,opts={}){
 }
 function groupByJob(items){ const m=new Map(); items.forEach(r=>{ const j=normJob(r.jobNumber); if(!m.has(j))m.set(j,[]); m.get(j).push(r); }); return m; }
 function fmtTs(ts){ try{ const d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null); if(!d||isNaN(d))return ""; return MON[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear(); }catch(e){return "";} }
-function renderTools(){
+function renderTools(){ if(typeof renderAutoImport==="function")renderAutoImport();
   const q=$("toolSearch").value.trim().toLowerCase(),st=$("toolStatus").value;
   $("toolClr").style.display=q?"block":"none"; const pt=$("pillTool"); if(pt)pt.textContent=TOOLS.length>999?(Math.floor(TOOLS.length/100)/10)+"k":TOOLS.length; const pr=$("pillRent"); if(pr)pr.textContent=(RENTALS.length+TOOLS.length)>999?(Math.floor((RENTALS.length+TOOLS.length)/100)/10)+"k":(RENTALS.length+TOOLS.length);
   const asOf=$("toolAsOf"); if(asOf){ const when=PDF_META?fmtTs(PDF_META.uploadedAt):""; if(when){ asOf.style.display="block"; asOf.innerHTML=`As of <b>${esc(when)}</b>, this is the tool rental list${PDF_META.name?` (from ${esc(PDF_META.name)})`:""}.`; } else asOf.style.display="none"; }
