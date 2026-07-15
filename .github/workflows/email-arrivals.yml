@@ -1,17 +1,21 @@
-name: Daily Arrivals Email Import
+name: Daily Arrivals & Tools Email Import
 
-# Pulls Bobby's morning Excel sheet from the Gmail relay inbox and writes the
-# arrivals into Firestore. Runs on a schedule, and can be run manually.
+# Pulls Bobby's morning emails from the Gmail relay inbox:
+#   - "Equipment Received & Rentals MASTER" workbook  -> arrivals + rentals
+#   - "Webduct Tool Rental" PDF                        -> toolRentals + stored PDF
+# They arrive in separate emails and are imported independently.
 
 on:
   schedule:
     # Bobby emails Mon-Fri, roughly 5am-7am Pacific.
-    # GitHub cron is ALWAYS UTC and does not follow daylight saving, so we poll a
-    # window wide enough to cover Pacific in both PST (UTC-8) and PDT (UTC-7):
-    #   12:00 UTC = 4am PST / 5am PDT      17:30 UTC = 9:30am PST / 10:30am PDT
-    # Every 30 min, weekdays only (1-5 = Mon-Fri). Extra polls are free: the job
-    # exits immediately once that morning's email has already been imported.
-    - cron: "0,30 12-17 * * 1-5"
+    # GitHub cron is ALWAYS UTC and ignores daylight saving, so each window below is
+    # sized to cover Pacific in BOTH PST (UTC-8) and PDT (UTC-7).
+    #
+    # HOT WINDOW - every 10 minutes. 12:00-15:59 UTC covers 5:30-7:00am Pacific
+    # year-round (5:30am = 12:30 UTC in PDT, 13:30 UTC in PST).
+    - cron: "*/10 12-15 * * 1-5"
+    # SAFETY NET - every 30 minutes afterwards, in case Bobby sends late.
+    - cron: "0,30 16-17 * * 1-5"
   workflow_dispatch:
     # lets you trigger it by hand from the Actions tab
     inputs:
@@ -45,15 +49,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install openpyxl google-cloud-firestore
+        run: pip install openpyxl pdfplumber google-cloud-firestore
 
-      - name: Import arrivals from email
+      - name: Import arrivals, rentals & tools from email
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           EXPECTED_SENDER: ${{ secrets.EXPECTED_SENDER }}
           EXPECTED_SUBJECT: "Arrivals sheet"
           FILENAME_MUST_CONTAIN: "Equipment Received"
+          PDF_FILENAME_MUST_CONTAIN: "Tool Rental"
           FIREBASE_SA_JSON: ${{ secrets.FIREBASE_SA_JSON }}
           MAX_AGE_HOURS: "26"
           SOFT_IF_MISSING: "1"
