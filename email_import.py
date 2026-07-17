@@ -71,10 +71,17 @@ def _base36(n):
     return out
 
 
+MONTHS_LONG = {"jan":1,"feb":2,"mar":3,"apr":4,"may":5,"jun":6,
+               "jul":7,"aug":8,"sep":9,"oct":10,"nov":11,"dec":12}
+
+
 def fmt_date_key(d):
     """
     Mirror of fmtDateKey(): return YYYY-MM-DD (zero-padded) from a date or string.
-    Handles real dates, ISO-ish, and M/D/Y. Returns "" if unparseable.
+    Handles real dates, ISO-ish, M/D/Y, and — importantly — dates people TYPE as text
+    such as "Thursday, July 16, 2026" or "July 16, 2026". Those show up in the master
+    sheet whenever a row is filled in by hand instead of picked, and silently produced
+    dateless arrivals before this was handled. Returns "" if unparseable.
     """
     if d is None or d == "":
         return ""
@@ -90,6 +97,14 @@ def fmt_date_key(d):
         if len(y) == 2:
             y = "20" + y
         return f"{y}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"
+    # Written-out: optional weekday, month name, day, year.
+    #   "Thursday, July 16, 2026" / "July 16, 2026" / "16 July 2026" / "Jul 16 2026"
+    m = re.search(r"([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})", s)
+    if m and m.group(1)[:3].lower() in MONTHS_LONG:
+        return f"{int(m.group(3)):04d}-{MONTHS_LONG[m.group(1)[:3].lower()]:02d}-{int(m.group(2)):02d}"
+    m = re.search(r"(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?\s*,?\s*(\d{4})", s)
+    if m and m.group(2)[:3].lower() in MONTHS_LONG:
+        return f"{int(m.group(3)):04d}-{MONTHS_LONG[m.group(2)[:3].lower()]:02d}-{int(m.group(1)):02d}"
     return ""
 
 
@@ -580,6 +595,14 @@ def import_master_excel(db, atts, dry_run, force, soft_missing):
             print(f"    tab '{name}': {len(got)} arrivals")
     newest = sorted({a["dateReceived"] for a in arrivals if a["dateReceived"]})[-3:]
     print(f"  Newest arrival dates parsed: {', '.join(newest) if newest else '(none)'}")
+    # Loud warning for rows whose date we couldn't read. These still import, but they'd
+    # be invisible on the calendar / date sort — exactly the failure that hid July 16.
+    undated = [a for a in arrivals if not a["dateReceived"]]
+    if undated:
+        print(f"  ⚠ {len(undated)} arrival row(s) had an UNREADABLE date and will have no date set:")
+        for a in undated[:8]:
+            print(f"      job {a['jobNumber'] or '—'} | {a['description'][:44]}")
+        print("      (usually means the date was typed as text in the sheet)")
 
     if not arrivals and not rentals:
         raise RuntimeError("Parsed 0 arrivals and 0 rentals - aborting so no bad data is written.")
