@@ -1550,7 +1550,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="7.2";
+const APP_VERSION="7.3";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2058,11 +2058,11 @@ function applyAccess(){
 // Shipping's job is logging what shows up: the entry, the photo, and where it's stored.
 // Deliberately does NOT cover deliveries/pairing/rentals — that's not their workflow.
 const TUT_SHIP=[
- ["Log everything that arrives","This is the whole job. Material shows up → tap the orange <b>+</b> and log it. That's what makes it findable for everyone else.","#btnLog","feed"],
- ["What goes in","Job #, what it is, the supplier, where you put it. Job # and description are the only required ones — but the more you fill in, the less anyone has to come ask you.","#btnLog","feed"],
- ["Name it like Webduct","<b>This one matters.</b> Type the description the way the order reads in Webduct. When the wording matches, the app links the order to what you logged automatically — nobody has to pair it up by hand later.","#btnLog","feed"],
- ["Where you stored it","The <b>Stored at</b> field is the one people rely on most. \"Building 3\", \"Rack B-4\", \"back of the yard\" — whatever tells someone where to walk. Without it they're calling you.","#btnLog","feed"],
- ["Take a photo","Snap a picture as you log it — there's an <b>Add photo</b> button right in the form. A photo answers questions no description can: is it the right part, is it damaged, how many pallets.","#btnLog","feed"],
+ ["Log everything that arrives","This is the whole job. Material shows up → tap <b>Log Arrival</b> and record it. That's what makes it findable for everyone else.","#btnLog","admin",tutGrantAdmin],
+ ["What goes in","Job #, what it is, the supplier, where you put it. Job # and description are the only required ones — but the more you fill in, the less anyone has to come ask you.","#btnLog","admin",tutGrantAdmin],
+ ["Name it like Webduct","<b>This one matters.</b> Type the description the way the order reads in Webduct. When the wording matches, the app links the order to what you logged automatically — nobody has to pair it up by hand later.","#btnLog","admin",tutGrantAdmin],
+ ["Where you stored it","In the form there's a <b>Stored at</b> field — the one people rely on most. \"Building 3\", \"Rack B-4\", \"back of the yard\" — whatever tells someone where to walk. Without it they're calling you.","#btnLog","admin",tutGrantAdmin],
+ ["Take a photo","Snap a picture as you log it — there's an <b>Add photo</b> button right in the form. A photo answers questions no description can: is it the right part, is it damaged, how many pallets.","#btnLog","admin",tutGrantAdmin],
  ["Adding a photo later","Missed it? The 📷 button on any arrival card adds one anytime. Your name gets attached so people know who shot it.","[data-cam]","feed"],
  ["Fixing a log entry","Tap a card to open it — edit anything, add photos, or delete it if it was a mistake. Everyone sees the change instantly.",".acard","feed"],
  ["Finding what you stored","Search by job #, item, or supplier. Each card shows 📍 where it's stored and who logged it — so you can answer \"where's my stuff\" without walking the yard.","#feedSearch","feed"],
@@ -2111,6 +2111,19 @@ function demoTools(job){ return [
   {id:"demo-t3", jobNumber:job, jobName:DEMO_NAME, toolType:"Step Ladder 8' (SAMPLE)", toolId:"1882", status:"Returned",
    rentalStarted:dIso(40), rentalEnded:dIso(6), billingDays:34, dailyRate:1.78, billingTotal:"60.52", discountedRate:"33.29"},
 ]; }
+// Logging lives behind the admin PIN, so the logging steps would spotlight a hidden
+// button. Unlock it just for the walkthrough and put it back exactly as we found it.
+// Deliberately NOT written to sessionStorage — a refresh returns to locked.
+let TUT_ADMIN_WAS=null;
+function tutGrantAdmin(){
+  if(TUT_ADMIN_WAS===null) TUT_ADMIN_WAS=adminUnlocked;
+  if(!adminUnlocked){ adminUnlocked=true; try{ syncAdminView(); }catch(_){} }
+}
+function tutRestoreAdmin(){
+  if(TUT_ADMIN_WAS===null) return;
+  const was=TUT_ADMIN_WAS; TUT_ADMIN_WAS=null;
+  if(adminUnlocked!==was){ adminUnlocked=was; try{ syncAdminView(); }catch(_){} try{ renderAll(); }catch(_){} }
+}
 function tutOpenJobCard(seg){
   try{
     TUT_DEMO=true;
@@ -2125,7 +2138,7 @@ function tutOpenJobCard(seg){
 let TUT_LIST=null, TUT_I=0;
 function tutClearSpot(){ document.querySelectorAll(".tut-spot").forEach(e=>e.classList.remove("tut-spot")); }
 function tutClearDemo(){ const had=TUT_DEMO; TUT_DEMO=false; if(had){ try{ EXPANDED_FOLDERS.delete(TUT_JOB); EXPANDED_ARR.delete("demo-a1"); }catch(_){} if(typeof renderJobs==="function"){ try{ renderJobs(); }catch(_){} } } }
-function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); openModal("tutModal"); }
+function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); tutRestoreAdmin(); openModal("tutModal"); }
 function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; document.body.classList.add("tut-live"); tutRender(); }
 function tutRender(){
   const [t,b,sel,tab,setup]=TUT_LIST[TUT_I];
@@ -2150,7 +2163,7 @@ function tutRender(){
     },90);
   }
 }
-function tutFinish(){ localStorage.setItem("tut_done","1"); document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); closeModal("tutModal"); }
+function tutFinish(){ localStorage.setItem("tut_done","1"); document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); tutRestoreAdmin(); closeModal("tutModal"); }
 
 /* ---------- Manual import trigger (GitHub workflow_dispatch) ---------- */
 // Repo details are fixed — no reason to make anyone type them. Only the token is
