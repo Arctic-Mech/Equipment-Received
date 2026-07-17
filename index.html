@@ -837,9 +837,8 @@
 <div class="modal-back" id="ghModal"><div class="modal"><div class="modal-grip"></div>
   <div class="modal-head"><h3>Set up Run Import</h3><button class="x" id="ghX">✕</button></div>
   <div class="modal-body">
-    <p style="font-size:12.5px;color:var(--steel);line-height:1.45;margin:0 0 12px">One-time setup so the <b>Run import now</b> button can start the email import for everyone. Needs a GitHub fine-grained token with <b>Actions: Read and write</b> on the repo (github.com → Settings → Developer settings → Fine-grained tokens).</p>
-    <div class="field-2"><div class="field"><label>Repo owner</label><input id="ghOwner" type="text" placeholder="e.g. arctic-mech" autocomplete="off" spellcheck="false"></div><div class="field"><label>Repo name</label><input id="ghRepo" type="text" placeholder="e.g. Equipment-Received" autocomplete="off" spellcheck="false"></div></div>
-    <div class="field-2"><div class="field"><label>Branch</label><input id="ghBranch" type="text" placeholder="main" autocomplete="off" spellcheck="false"></div><div class="field"><label>Token</label><input id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off"></div></div>
+    <p style="font-size:12.5px;color:var(--steel);line-height:1.45;margin:0 0 12px">One-time setup so the <b>Run import now</b> button works for the whole crew. Paste a GitHub fine-grained token with <b>Actions: Read and write</b> on <b>Arctic-Mech/Equipment-Received</b>.<br><br>github.com → Settings → Developer settings → Fine-grained tokens → Generate new token.</p>
+    <div class="field"><label>GitHub token</label><input id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off"></div>
     <button class="submit" id="ghSave">Save</button>
     <div class="hint" id="ghHint" style="margin-top:8px"></div>
   </div>
@@ -1524,7 +1523,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="6.5";
+const APP_VERSION="6.6";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2056,20 +2055,21 @@ function tutRender(){
 function tutFinish(){ localStorage.setItem("tut_done","1"); closeModal("tutModal"); }
 
 /* ---------- Manual import trigger (GitHub workflow_dispatch) ---------- */
-let GH_CFG=null;   // {owner, repo, branch, token} from config/ghActions — shared with the team
+// Repo details are fixed — no reason to make anyone type them. Only the token is
+// stored (config/ghActions), pasted once by one person, then it just works for everyone.
+const GH_OWNER="Arctic-Mech", GH_REPO="Equipment-Received", GH_BRANCH="main";
+const GH_WORKFLOW="email-arrivals.yml";
+let GH_CFG=null;   // {token} from config/ghActions — shared with the team
 let ghCooldown=0;
 function ghRenderBtn(){
   const b=$("runImportBtn"); if(b) b.style.display="block";   // always there for everyone
-  if(GH_CFG){ const o=$("ghOwner"),r=$("ghRepo"),br=$("ghBranch");
-    if(o&&!o.value)o.value=GH_CFG.owner||""; if(r&&!r.value)r.value=GH_CFG.repo||""; if(br&&!br.value)br.value=GH_CFG.branch||""; }
 }
 async function ghSaveCfg(){
-  const owner=$("ghOwner").value.trim(), repo=$("ghRepo").value.trim();
-  const branch=$("ghBranch").value.trim()||"main", token=$("ghToken").value.trim();
-  if(!owner||!repo||!token){ $("ghHint").textContent="Owner, repo, and token are all required."; return; }
+  const token=$("ghToken").value.trim();
+  if(!token){ $("ghHint").textContent="Paste the token to save."; return; }
   if(!fbReady){ toast("No connection"); return; }
   try{
-    await setDoc(doc(db,"config","ghActions"),{owner,repo,branch,token,updatedAt:serverTimestamp()},{merge:true});
+    await setDoc(doc(db,"config","ghActions"),{token,updatedAt:serverTimestamp()},{merge:true});
     $("ghToken").value="";
     closeModal("ghModal");
     toast("Saved — tap Run import now again to start it");
@@ -2084,10 +2084,10 @@ async function ghRunImport(){
   if(alreadyToday&&!force) return;
   const b=$("runImportBtn"); b.disabled=true; b.textContent="Starting…";
   try{
-    const r=await fetch(`https://api.github.com/repos/${encodeURIComponent(GH_CFG.owner)}/${encodeURIComponent(GH_CFG.repo)}/actions/workflows/email-arrivals.yml/dispatches`,{
+    const r=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,{
       method:"POST",
       headers:{ "Accept":"application/vnd.github+json", "Authorization":"Bearer "+GH_CFG.token, "X-GitHub-Api-Version":"2022-11-28" },
-      body:JSON.stringify({ ref:GH_CFG.branch||"main", inputs:{ dry_run:"false", force:force?"true":"false" } })
+      body:JSON.stringify({ ref:GH_BRANCH, inputs:{ dry_run:"false", force:force?"true":"false" } })
     });
     if(r.status===204){ ghCooldown=Date.now()+60000; toast("Import started — results in ~1-2 min"); b.textContent="Running…"; setTimeout(()=>{ b.disabled=false; b.textContent="▶ Run import now"; },60000); }
     else if(r.status===401||r.status===403){ toast("GitHub rejected the token — re-save it in Admin"); b.disabled=false; b.textContent="▶ Run import now"; }
