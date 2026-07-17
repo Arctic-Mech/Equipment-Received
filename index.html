@@ -51,16 +51,28 @@
   .tut-btn{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:12px;color:#1f6fe0;background:#e8f0fd;border:1px solid #bcd4f6;padding:6px 10px;border-radius:9px;white-space:nowrap}
   .run-import{flex:none;font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:12px;color:#fff;background:var(--hivis);padding:8px 12px;border-radius:9px;white-space:nowrap}
   .run-import:disabled{opacity:.55}
-  /* Tutorial spotlight: during steps the backdrop goes clear so the real UI is visible,
-     and the element being described gets a pulsing hi-vis ring. */
+  /* Tutorial spotlight. The giant box-shadow spread darkens the WHOLE screen except
+     the highlighted element — it punches a hole around it. Impossible to miss. */
   body.tut-live #tutModal{background:transparent;backdrop-filter:none}
-  body.tut-live #tutModal .modal{max-height:52vh;box-shadow:0 -6px 30px rgba(20,24,31,.28)}
-  .tut-spot{outline:3px solid var(--hivis) !important;outline-offset:3px;border-radius:8px;
-    box-shadow:0 0 0 3px rgba(255,106,26,.28), 0 0 18px rgba(255,106,26,.5) !important;
-    animation:tutpulse 1.5s ease-in-out infinite;position:relative;z-index:60}
+  body.tut-live #tutModal .modal{max-height:50vh;box-shadow:0 -6px 34px rgba(0,0,0,.5)}
+  /* The 9999px spread gets clipped by any ancestor with overflow, and trapped by any
+     ancestor stacking context. Neutralize both — but only while the tutorial runs. */
+  body.tut-live .tabs{overflow:visible}
+  body.tut-live .acard{overflow:visible}
+  body.tut-live .appbar{z-index:70}
+  body.tut-live .cards,body.tut-live .rows,body.tut-live .drows{overflow:visible}
+  .tut-spot{
+    position:relative !important; z-index:60 !important;
+    outline:4px solid var(--hivis) !important; outline-offset:4px;
+    border-radius:10px;
+    box-shadow:0 0 0 9999px rgba(12,15,20,.78), 0 0 0 6px rgba(255,106,26,.45), 0 0 34px 8px rgba(255,106,26,.95) !important;
+    animation:tutpulse 1.1s ease-in-out infinite;
+  }
   @keyframes tutpulse{
-    0%,100%{box-shadow:0 0 0 3px rgba(255,106,26,.28), 0 0 18px rgba(255,106,26,.45)}
-    50%{box-shadow:0 0 0 7px rgba(255,106,26,.12), 0 0 26px rgba(255,106,26,.75)}
+    0%,100%{ outline-color:var(--hivis);
+      box-shadow:0 0 0 9999px rgba(12,15,20,.78), 0 0 0 5px rgba(255,106,26,.40), 0 0 26px 5px rgba(255,106,26,.8); }
+    50%{ outline-color:#ffc48a;
+      box-shadow:0 0 0 9999px rgba(12,15,20,.78), 0 0 0 13px rgba(255,106,26,.16), 0 0 46px 14px rgba(255,106,26,1); }
   }
   .acc-chip{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:10px;padding:2px 8px;border-radius:9px;margin-left:6px;vertical-align:middle}
   .acc-chip.acc-on{background:#cdeede;color:#0d7a73}
@@ -1538,7 +1550,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="6.8";
+const APP_VERSION="6.9";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2035,43 +2047,61 @@ function applyAccess(){
 }
 
 /* ---------- Tutorial ---------- */
-// [title, body, selector-to-highlight, tab-to-switch-to]
+// [title, body, selector-to-highlight, tab-to-switch-to, setupFn]
 const TUT_SHIP=[
  ["Logging an arrival","Tap the orange <b>+</b> button whenever material shows up. Fill in the job #, what it is, where you stored it, and snap a photo. That's the whole job — everyone sees it instantly.","#btnLog","feed"],
+ ["Name it the same as Webduct","<b>This one matters.</b> Whatever you type as the description, the field/office should use that <i>exact</i> wording on their Webduct order. When the names match, the app links the order to this arrival automatically instead of making someone pair it by hand.","#btnLog","feed"],
  ["Editing & photos","Tap any arrival card to open it. Inside you can edit details, add more photos 📷, or delete it.",".acard","feed"],
- ["Copy Name","Copies just the item's name to your clipboard — handy for texts or emails.",".ac-copy","feed"],
+ ["Copy Name","Copies just the item's name to your clipboard. Send it to whoever ordered it and ask them to paste it into Webduct word-for-word — that's what makes the auto-matching work.",".ac-copy","feed"],
  ["Marking delivered","The <b>truck icon</b> opens the delivery editor — check it off when it goes out and pick full or partial. The truck turns green everywhere once delivered.","[data-deliv]","feed"],
  ["List or Calendar","Toggle the Arrivals tab between a list and a calendar of what got logged each day.","#arrViewSeg","feed"],
  ["Auto-import","Bobby's sheet imports itself every morning. This shows when it last landed — and <b>▶ Run import now</b> pulls it on demand if he sends late.","#runImportBtn","feed"],
+ ["Equipment rentals","The <b>Rentals</b> tab, Equipment side: everything rented from a vendor — what it is, the rate, who ordered it, and whether it's still out or came back.","[data-rentseg='equip']","rentals",()=>{ const b=document.querySelector("[data-rentseg='equip']"); if(b)b.click(); }],
+ ["Tool rentals","The <b>Tools</b> side is our own gear charged to jobs, straight from Bobby's Webduct tool PDF — tool #, job, days out, and rate. It imports itself with the morning sheet.","[data-rentseg='tool']","rentals",()=>{ const b=document.querySelector("[data-rentseg='tool']"); if(b)b.click(); }],
  ["The Deliveries tab","The Webduct order calendar. Days show 📦 equipment, 🚚 job-site deliveries, and 🆙 pickups with counts. Tap a day to see every job going out.","[data-view='deliveries']","feed"],
  ["Inside a day","Tap a job name to open its orders. Tap the <b>category pills</b> to see items, and ⬜ check them off as you gather. When all are checked, the order gets its ✅ automatically. ⏰ sets a delivery time, 🚚 records the truck.",null,"deliveries"],
- ["Pairing equipment","When a Webduct order has equipment we logged as an arrival, use <b>Pair with an arrival</b> — pick it, choose full or partial. Paired items show the arrival's photo and status right on the order.",null,"deliveries"],
+ ["Pairing equipment","If an order's equipment didn't auto-match, use <b>Pair with an arrival</b> — pick it, choose full or partial. Paired items show the arrival's photo and status right on the order.",null,"deliveries"],
  ["Notes that follow","📝 on an order = delivery notes (time/truck/extra). 📝 on a paired arrival = an equipment note that shows on every page. Both sync to everyone.",null,"deliveries"],
  ["That's it","Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
 const TUT_FIELD=[
  ["Finding material","The <b>Arrivals</b> tab lists everything the shop has received, newest first. Search by job #, item, or supplier.","#feedSearch","feed"],
  ["Order with the right name","Sign in with the same name you order under in Webduct — that's how the app matches orders to you and links your jobs automatically.","#whoChip","feed"],
- ["Arrival cards","Tap any card to see details and the photo. <b>Copy Name</b> grabs just the item name for a text.",".acard","feed"],
- ["Order status","Cards from your orders show a purple WEBDUCT strip: order #, dates, status. <b>Tap it</b> to jump straight to that order on the Deliveries calendar.",".ac-wd-row","feed"],
- ["My Jobs","Star ★ a job (or it auto-stars from your orders) and it shows here — your material, arrivals, and order status in one place.","[data-view='jobs']","feed"],
+ ["Arrival cards","Tap any card to see everything — details, photo, and who logged it.",".acard","feed"],
+ ["Copy Name — use it!","<b>The most useful button here.</b> It copies the arrival's name exactly. Paste that <i>word-for-word</i> into your Webduct order and the app links your order to the physical item automatically. Retype it your own way and someone has to pair it by hand.",".ac-copy","feed"],
+ ["My Jobs","Star ★ a job (or it auto-stars from your orders) and it lands here — every arrival for your jobs in one place.","[data-view='jobs']","jobs",()=>tutOpenJobCard()],
+ ["What's on a card","Here's a card opened up: the photo, where it's stored, who logged it, delivery status, and the buttons — 📷 photo, Copy Name, share, and the 🚚 truck showing whether it's gone out.",".acard.open","jobs",()=>tutOpenJobCard()],
+ ["Equipment rentals","The <b>Rentals</b> tab, Equipment side: gear rented from vendors for your job — what it is, the rate, and whether it's still out.","[data-rentseg='equip']","rentals",()=>{ const b=document.querySelector("[data-rentseg='equip']"); if(b)b.click(); }],
+ ["Tool rentals","The <b>Tools</b> side shows company tools charged to your job — tool #, days out, and rate. Useful for checking what's still billing to you.","[data-rentseg='tool']","rentals",()=>{ const b=document.querySelector("[data-rentseg='tool']"); if(b)b.click(); }],
  ["The Deliveries calendar","See when everything's going out. Days show 📦 equipment, 🚚 deliveries, 🆙 pickups. Tap a day, then a job name, to see what's coming and when.","[data-view='deliveries']","feed"],
- ["Delivered or not","✅ means the shop gathered it. A green truck means it reached your site. ◑ PARTIAL means only part came — tap it to flip to complete.",null,"deliveries"],
- ["Your personal link","Your My Jobs page has its own URL (#yourname). Bookmark it, or swap the name in the URL to view a coworker's jobs.","#whoChip","feed"],
  ["That's it","Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
+// Open a job folder + expand an arrival card so the My Jobs steps show a real, full card.
+function tutOpenJobCard(){
+  try{
+    if(typeof EXPANDED_FOLDERS!=="undefined" && MY_JOBS && MY_JOBS.length){
+      const job=MY_JOBS.find(j=>ARRIVALS.some(a=>normJob(a.jobNumber)===normJob(j)))||MY_JOBS[0];
+      if(job) EXPANDED_FOLDERS.add(job);
+      const first=ARRIVALS.find(a=>normJob(a.jobNumber)===normJob(job));
+      if(first && typeof EXPANDED_ARR!=="undefined") EXPANDED_ARR.add(first.id);
+      if(typeof renderJobs==="function") renderJobs();
+    }
+  }catch(_){}
+}
 let TUT_LIST=null, TUT_I=0;
 function tutClearSpot(){ document.querySelectorAll(".tut-spot").forEach(e=>e.classList.remove("tut-spot")); }
 function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); openModal("tutModal"); }
 function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; document.body.classList.add("tut-live"); tutRender(); }
 function tutRender(){
-  const [t,b,sel,tab]=TUT_LIST[TUT_I];
+  const [t,b,sel,tab,setup]=TUT_LIST[TUT_I];
   $("tutProg").textContent=`Step ${TUT_I+1} of ${TUT_LIST.length}`;
   $("tutStepTitle").textContent=t; $("tutStepBody").innerHTML=b;
   $("tutBack").style.visibility=TUT_I===0?"hidden":"visible";
   $("tutNext").textContent=TUT_I===TUT_LIST.length-1?"Done ✓":"Next ›";
-  // Switch to the tab this step lives on, then spotlight the element it describes.
+  // Switch to the tab this step lives on, run any setup (open a card, flip a segment),
+  // then spotlight the element it describes.
   if(tab && typeof setView==="function"){ try{ setView(tab); }catch(_){} }
+  if(typeof setup==="function"){ try{ setup(); }catch(_){} }
   tutClearSpot();
   if(sel){
     setTimeout(()=>{
@@ -2082,7 +2112,7 @@ function tutRender(){
         // Only scroll if it's off-screen or hidden behind the sheet (which covers the lower half).
         if(r.top<70 || r.bottom>window.innerHeight*0.45) el.scrollIntoView({block:"center",behavior:"smooth"});
       }
-    },60);
+    },90);
   }
 }
 function tutFinish(){ localStorage.setItem("tut_done","1"); document.body.classList.remove("tut-live"); tutClearSpot(); closeModal("tutModal"); }
