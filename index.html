@@ -1550,7 +1550,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="7.0";
+const APP_VERSION="7.2";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1801,7 +1801,10 @@ function renderJobs(){
   const banner=$("viewAsBanner");
   if(viewingOther){ banner.style.display="flex"; $("vabName").textContent=viewName||"this person"; $("notifBanner").classList.remove("show"); }
   else { banner.style.display="none"; }
-  const jobsList=viewingOther?(vp&&Array.isArray(vp.savedJobs)?vp.savedJobs:[]):MY_JOBS;
+  let jobsList=viewingOther?(vp&&Array.isArray(vp.savedJobs)?vp.savedJobs:[]):MY_JOBS;
+  // Tutorial: prepend a sample job so the walkthrough always has a folder to show —
+  // even for someone with no saved jobs (who'd otherwise hit the empty state below).
+  if(TUT_DEMO) jobsList=[TUT_JOB, ...jobsList.filter(j=>j!==TUT_JOB)];
   const ordList=viewingOther?(vp&&Array.isArray(vp.jobOrder)?vp.jobOrder:[]):JOB_ORDER;
 
   const sq=$("jobSearch").value.trim().toLowerCase(),sugWrap=$("jobSuggest");
@@ -1828,18 +1831,16 @@ function renderJobs(){
     let arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
     let rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
     let tls=TOOLS.filter(r=>normJob(r.jobNumber)===job);
-    // During the tutorial, if this job has no rentals/tools to look at, show sample rows
-    // so the walkthrough has something real to point at. Display-only — never saved.
-    if(TUT_DEMO && job===TUT_DEMO_JOB){
-      if(!rnt.length) rnt=demoRentals(job);
-      if(!tls.length) tls=demoTools(job);
-    }
+    // The tutorial's sample job: fully synthetic, and it skips the month/search filters
+    // below so a leftover filter can never hide it mid-walkthrough.
+    const isDemo = TUT_DEMO && job===TUT_JOB;
+    if(isDemo){ arr=demoArrivals(job); rnt=demoRentals(job); tls=demoTools(job); }
     const totalArr=arr.length,totalRnt=rnt.length,totalTls=tls.length;
     const nNew=newCountFor(job); const isOpen=EXPANDED_FOLDERS.has(job);
-    if(month){ arr=arr.filter(r=>monthKey(r.dateReceived)===month); rnt=rnt.filter(r=>monthKey(r.dateRented)===month); tls=tls.filter(r=>monthKey(r.rentalStarted)===month); }
+    if(month && !isDemo){ arr=arr.filter(r=>monthKey(r.dateReceived)===month); rnt=rnt.filter(r=>monthKey(r.dateRented)===month); tls=tls.filter(r=>monthKey(r.rentalStarted)===month); }
     const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||tls[0]?.jobName||"Unknown job name";
     const jobNameNumMatch = sq && (job.toLowerCase().includes(sq) || name.toLowerCase().includes(sq));
-    if(sq && !jobNameNumMatch){
+    if(sq && !jobNameNumMatch && !isDemo){
       // narrow this job's items down to ones whose tag info matches — only within saved jobs
       arr=arr.filter(r=>tagMatch(r,ARR_TAG_FIELDS,sq));
       rnt=rnt.filter(r=>tagMatch(r,RENT_TAG_FIELDS,sq));
@@ -2054,28 +2055,26 @@ function applyAccess(){
 
 /* ---------- Tutorial ---------- */
 // [title, body, selector-to-highlight, tab-to-switch-to, setupFn]
+// Shipping's job is logging what shows up: the entry, the photo, and where it's stored.
+// Deliberately does NOT cover deliveries/pairing/rentals — that's not their workflow.
 const TUT_SHIP=[
- ["Logging an arrival","Tap the orange <b>+</b> button whenever material shows up. Fill in the job #, what it is, where you stored it, and snap a photo. That's the whole job — everyone sees it instantly.","#btnLog","feed"],
- ["Name it the same as Webduct","<b>This one matters.</b> Whatever you type as the description, the field/office should use that <i>exact</i> wording on their Webduct order. When the names match, the app links the order to this arrival automatically instead of making someone pair it by hand.","#btnLog","feed"],
- ["Editing & photos","Tap any arrival card to open it. Inside you can edit details, add more photos 📷, or delete it.",".acard","feed"],
- ["Copy Name","Copies just the item's name to your clipboard. Send it to whoever ordered it and ask them to paste it into Webduct word-for-word — that's what makes the auto-matching work.",".ac-copy","feed"],
- ["Marking delivered","The <b>truck icon</b> opens the delivery editor — check it off when it goes out and pick full or partial. The truck turns green everywhere once delivered.","[data-deliv]","feed"],
- ["List or Calendar","Toggle the Arrivals tab between a list and a calendar of what got logged each day.","#arrViewSeg","feed"],
- ["Auto-import","Bobby's sheet imports itself every morning. This shows when it last landed — and <b>▶ Run import now</b> pulls it on demand if he sends late.","#runImportBtn","feed"],
- ["Equipment rentals","Rentals live inside each job. Flip to <b>Equipment Rentals</b> to see gear rented from vendors for that job — what it is, the rate, the vendor, PO, and whether it's still out or came back.","#mjSeg","jobs",()=>tutOpenJobCard("rentals")],
- ["Tool rentals","<b>Tool Rentals</b> is our own gear charged to the job, straight from Bobby's Webduct tool PDF — tool #, days out, daily rate, and the discounted total. It imports itself with the morning sheet.","#mjSeg","jobs",()=>tutOpenJobCard("tools")],
- ["The Deliveries tab","The Webduct order calendar. Days show 📦 equipment, 🚚 job-site deliveries, and 🆙 pickups with counts. Tap a day to see every job going out.","[data-view='deliveries']","feed"],
- ["Inside a day","Tap a job name to open its orders. Tap the <b>category pills</b> to see items, and ⬜ check them off as you gather. When all are checked, the order gets its ✅ automatically. ⏰ sets a delivery time, 🚚 records the truck.",null,"deliveries"],
- ["Pairing equipment","If an order's equipment didn't auto-match, use <b>Pair with an arrival</b> — pick it, choose full or partial. Paired items show the arrival's photo and status right on the order.",null,"deliveries"],
- ["Notes that follow","📝 on an order = delivery notes (time/truck/extra). 📝 on a paired arrival = an equipment note that shows on every page. Both sync to everyone.",null,"deliveries"],
- ["That's it","Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
+ ["Log everything that arrives","This is the whole job. Material shows up → tap the orange <b>+</b> and log it. That's what makes it findable for everyone else.","#btnLog","feed"],
+ ["What goes in","Job #, what it is, the supplier, where you put it. Job # and description are the only required ones — but the more you fill in, the less anyone has to come ask you.","#btnLog","feed"],
+ ["Name it like Webduct","<b>This one matters.</b> Type the description the way the order reads in Webduct. When the wording matches, the app links the order to what you logged automatically — nobody has to pair it up by hand later.","#btnLog","feed"],
+ ["Where you stored it","The <b>Stored at</b> field is the one people rely on most. \"Building 3\", \"Rack B-4\", \"back of the yard\" — whatever tells someone where to walk. Without it they're calling you.","#btnLog","feed"],
+ ["Take a photo","Snap a picture as you log it — there's an <b>Add photo</b> button right in the form. A photo answers questions no description can: is it the right part, is it damaged, how many pallets.","#btnLog","feed"],
+ ["Adding a photo later","Missed it? The 📷 button on any arrival card adds one anytime. Your name gets attached so people know who shot it.","[data-cam]","feed"],
+ ["Fixing a log entry","Tap a card to open it — edit anything, add photos, or delete it if it was a mistake. Everyone sees the change instantly.",".acard","feed"],
+ ["Finding what you stored","Search by job #, item, or supplier. Each card shows 📍 where it's stored and who logged it — so you can answer \"where's my stuff\" without walking the yard.","#feedSearch","feed"],
+ ["Copy Name","Copies the item's name exactly. Handy when someone asks what came in — and if they paste it into their Webduct order word-for-word, it auto-links to what you logged.",".ac-copy","feed"],
+ ["That's it","Log it, photo it, say where it is. Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
 const TUT_FIELD=[
  ["Finding material","The <b>Arrivals</b> tab lists everything the shop has received, newest first. Search by job #, item, or supplier.","#feedSearch","feed"],
  ["Order with the right name","Sign in with the same name you order under in Webduct — that's how the app matches orders to you and links your jobs automatically.","#whoChip","feed"],
  ["Arrival cards","Tap any card to see everything — details, photo, and who logged it.",".acard","feed"],
- ["Copy Name — use it!","<b>The most useful button here.</b> It copies the arrival's name exactly. Paste that <i>word-for-word</i> into your Webduct order and the app links your order to the physical item automatically. Retype it your own way and someone has to pair it by hand.",".ac-copy","feed"],
- ["My Jobs","Star ★ a job (or it auto-stars from your orders) and it lands here — everything for your jobs in one place, split into <b>Arrivals</b>, <b>Equipment Rentals</b>, and <b>Tool Rentals</b>.","[data-view='jobs']","jobs",()=>tutOpenJobCard("arrivals")],
+ ["Copy Name","It copies the arrival's name exactly. Paste that <i>word-for-word</i> into your Webduct order and the app links your order to the physical item automatically. Retype it your own way and someone has to pair it by hand.",".ac-copy","feed"],
+ ["My Jobs — the one to use","<b>This is the most useful tab in the app.</b> Star ★ a job (or it auto-stars from your orders) and everything for it collects here — no scrolling the whole arrivals list. Split into <b>Arrivals</b>, <b>Equipment Rentals</b>, and <b>Tool Rentals</b>.","[data-view='jobs']","jobs",()=>tutOpenJobCard("arrivals")],
  ["What's on a card","Here's a card opened up: the photo, where it's stored, who logged it, delivery status, and the buttons — 📷 photo, Copy Name, share, and the 🚚 truck showing whether it's gone out.",".acard.open","jobs",()=>tutOpenJobCard("arrivals")],
  ["Equipment rentals","Flip to <b>Equipment Rentals</b> to see gear rented from a vendor for this job — what it is, the rate, the vendor, and whether it's still out.","#mjSeg","jobs",()=>tutOpenJobCard("rentals")],
  ["Tool rentals","<b>Tool Rentals</b> shows company tools charged to your job — tool #, days out, daily rate, and total. Handy for checking what's still billing to you.","#mjSeg","jobs",()=>tutOpenJobCard("tools")],
@@ -2084,42 +2083,48 @@ const TUT_FIELD=[
 ];
 // Open a job folder + expand an arrival card so the My Jobs steps show a real, full card.
 // Also picks the job the demo rental/tool rows attach to.
-let TUT_DEMO=false, TUT_DEMO_JOB=null;
+let TUT_DEMO=false;
+const TUT_JOB="26-0000";   // the sample job folder shown only during the tutorial
 function dIso(daysAgo){ const d=new Date(Date.now()-daysAgo*86400000); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
-// Sample rows shown ONLY during the tutorial, only on a job that has none of its own.
-// They're display-only objects — never written to Firebase, gone the moment you finish.
+// Sample rows shown ONLY during the tutorial. Display-only objects — never written to
+// Firebase, never added to the real arrays, gone the moment the tutorial ends.
+const DEMO_NAME="Sample Job (tutorial only)";
+function demoArrivals(job){ return [
+  {id:"demo-a1", jobNumber:job, jobName:DEMO_NAME, description:'2) 4" butterfly valves w/ handles (SAMPLE)',
+   dateReceived:dIso(1), supplier:"Ferguson", po:"PO-90210", storageLocation:"Rack B-4",
+   requestedBy:"Sample data", photoBy:"", delivered:false, deliveredDate:"", reqDeliv:dIso(-2), partial:false},
+  {id:"demo-a2", jobNumber:job, jobName:DEMO_NAME, description:"40 ft) 6\" spiral duct (SAMPLE)",
+   dateReceived:dIso(4), supplier:"Acme", po:"PO-90188", storageLocation:"Yard",
+   requestedBy:"Sample data", photoBy:"", delivered:true, deliveredDate:dIso(1), reqDeliv:dIso(2), partial:false},
+]; }
 function demoRentals(job){ return [
-  {id:"demo-r1", jobNumber:job, equipment:"Scissor Lift 26' (SAMPLE)", rentalId:"SL-4471", status:"Renting",
+  {id:"demo-r1", jobNumber:job, jobName:DEMO_NAME, equipment:"Scissor Lift 26' (SAMPLE)", rentalId:"SL-4471", status:"Renting",
    dateRented:dIso(9), dateReturned:"", rate:"$310/wk", vendor:"United Rentals", po:"PO-88421", orderedBy:"Sample data"},
-  {id:"demo-r2", jobNumber:job, equipment:"Towable Air Compressor (SAMPLE)", rentalId:"AC-1180", status:"Returned",
+  {id:"demo-r2", jobNumber:job, jobName:DEMO_NAME, equipment:"Towable Air Compressor (SAMPLE)", rentalId:"AC-1180", status:"Returned",
    dateRented:dIso(24), dateReturned:dIso(3), rate:"$145/day", vendor:"Sunbelt", po:"PO-88190", orderedBy:"Sample data"},
 ]; }
 function demoTools(job){ return [
-  {id:"demo-t1", jobNumber:job, toolType:"Cordless 20 V SawZall (SAMPLE)", toolId:"3490", status:"Out",
+  {id:"demo-t1", jobNumber:job, jobName:DEMO_NAME, toolType:"Cordless 20 V SawZall (SAMPLE)", toolId:"3490", status:"Out",
    rentalStarted:dIso(31), rentalEnded:"", billingDays:31, dailyRate:1.54, billingTotal:"47.74", discountedRate:"26.26"},
-  {id:"demo-t2", jobNumber:job, toolType:"Medium Gang Box (SAMPLE)", toolId:"GB6", status:"Out",
+  {id:"demo-t2", jobNumber:job, jobName:DEMO_NAME, toolType:"Medium Gang Box (SAMPLE)", toolId:"GB6", status:"Out",
    rentalStarted:dIso(18), rentalEnded:"", billingDays:18, dailyRate:2.18, billingTotal:"39.24", discountedRate:"21.58"},
-  {id:"demo-t3", jobNumber:job, toolType:"Step Ladder 8' (SAMPLE)", toolId:"1882", status:"Returned",
+  {id:"demo-t3", jobNumber:job, jobName:DEMO_NAME, toolType:"Step Ladder 8' (SAMPLE)", toolId:"1882", status:"Returned",
    rentalStarted:dIso(40), rentalEnded:dIso(6), billingDays:34, dailyRate:1.78, billingTotal:"60.52", discountedRate:"33.29"},
 ]; }
 function tutOpenJobCard(seg){
   try{
     TUT_DEMO=true;
-    if(typeof EXPANDED_FOLDERS!=="undefined" && MY_JOBS && MY_JOBS.length){
-      const job=MY_JOBS.find(j=>ARRIVALS.some(a=>normJob(a.jobNumber)===normJob(j)))||MY_JOBS[0];
-      TUT_DEMO_JOB=normJob(job);
-      if(job) EXPANDED_FOLDERS.add(job);
-      const first=ARRIVALS.find(a=>normJob(a.jobNumber)===normJob(job));
-      if(first && typeof EXPANDED_ARR!=="undefined") EXPANDED_ARR.add(first.id);
-    }
-    // Flip the Arrivals / Equipment Rentals / Tool Rentals segment if the step wants one.
-    if(seg){ const b=document.querySelector(`#mjSeg button[data-seg='${seg}']`); if(b) b.click(); else { mjSeg=seg; if(typeof renderJobs==="function") renderJobs(); } }
-    else if(typeof renderJobs==="function") renderJobs();
+    if(typeof EXPANDED_FOLDERS!=="undefined") EXPANDED_FOLDERS.add(TUT_JOB);
+    if(typeof EXPANDED_ARR!=="undefined") EXPANDED_ARR.add("demo-a1");
+    // Clear filters — a leftover month/search would hide the sample job entirely.
+    const ms=$("mjMonth"), ss=$("jobSearch"); if(ms) ms.value=""; if(ss) ss.value="";
+    if(seg){ const b=document.querySelector(`#mjSeg button[data-seg='${seg}']`); if(b){ b.click(); return; } mjSeg=seg; }
+    if(typeof renderJobs==="function") renderJobs();
   }catch(_){}
 }
 let TUT_LIST=null, TUT_I=0;
 function tutClearSpot(){ document.querySelectorAll(".tut-spot").forEach(e=>e.classList.remove("tut-spot")); }
-function tutClearDemo(){ const had=TUT_DEMO; TUT_DEMO=false; TUT_DEMO_JOB=null; if(had && typeof renderJobs==="function"){ try{ renderJobs(); }catch(_){} } }
+function tutClearDemo(){ const had=TUT_DEMO; TUT_DEMO=false; if(had){ try{ EXPANDED_FOLDERS.delete(TUT_JOB); EXPANDED_ARR.delete("demo-a1"); }catch(_){} if(typeof renderJobs==="function"){ try{ renderJobs(); }catch(_){} } } }
 function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); openModal("tutModal"); }
 function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; document.body.classList.add("tut-live"); tutRender(); }
 function tutRender(){
