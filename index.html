@@ -1550,7 +1550,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="6.9";
+const APP_VERSION="7.0";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1828,6 +1828,12 @@ function renderJobs(){
     let arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
     let rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
     let tls=TOOLS.filter(r=>normJob(r.jobNumber)===job);
+    // During the tutorial, if this job has no rentals/tools to look at, show sample rows
+    // so the walkthrough has something real to point at. Display-only — never saved.
+    if(TUT_DEMO && job===TUT_DEMO_JOB){
+      if(!rnt.length) rnt=demoRentals(job);
+      if(!tls.length) tls=demoTools(job);
+    }
     const totalArr=arr.length,totalRnt=rnt.length,totalTls=tls.length;
     const nNew=newCountFor(job); const isOpen=EXPANDED_FOLDERS.has(job);
     if(month){ arr=arr.filter(r=>monthKey(r.dateReceived)===month); rnt=rnt.filter(r=>monthKey(r.dateRented)===month); tls=tls.filter(r=>monthKey(r.rentalStarted)===month); }
@@ -2056,8 +2062,8 @@ const TUT_SHIP=[
  ["Marking delivered","The <b>truck icon</b> opens the delivery editor — check it off when it goes out and pick full or partial. The truck turns green everywhere once delivered.","[data-deliv]","feed"],
  ["List or Calendar","Toggle the Arrivals tab between a list and a calendar of what got logged each day.","#arrViewSeg","feed"],
  ["Auto-import","Bobby's sheet imports itself every morning. This shows when it last landed — and <b>▶ Run import now</b> pulls it on demand if he sends late.","#runImportBtn","feed"],
- ["Equipment rentals","The <b>Rentals</b> tab, Equipment side: everything rented from a vendor — what it is, the rate, who ordered it, and whether it's still out or came back.","[data-rentseg='equip']","rentals",()=>{ const b=document.querySelector("[data-rentseg='equip']"); if(b)b.click(); }],
- ["Tool rentals","The <b>Tools</b> side is our own gear charged to jobs, straight from Bobby's Webduct tool PDF — tool #, job, days out, and rate. It imports itself with the morning sheet.","[data-rentseg='tool']","rentals",()=>{ const b=document.querySelector("[data-rentseg='tool']"); if(b)b.click(); }],
+ ["Equipment rentals","Rentals live inside each job. Flip to <b>Equipment Rentals</b> to see gear rented from vendors for that job — what it is, the rate, the vendor, PO, and whether it's still out or came back.","#mjSeg","jobs",()=>tutOpenJobCard("rentals")],
+ ["Tool rentals","<b>Tool Rentals</b> is our own gear charged to the job, straight from Bobby's Webduct tool PDF — tool #, days out, daily rate, and the discounted total. It imports itself with the morning sheet.","#mjSeg","jobs",()=>tutOpenJobCard("tools")],
  ["The Deliveries tab","The Webduct order calendar. Days show 📦 equipment, 🚚 job-site deliveries, and 🆙 pickups with counts. Tap a day to see every job going out.","[data-view='deliveries']","feed"],
  ["Inside a day","Tap a job name to open its orders. Tap the <b>category pills</b> to see items, and ⬜ check them off as you gather. When all are checked, the order gets its ✅ automatically. ⏰ sets a delivery time, 🚚 records the truck.",null,"deliveries"],
  ["Pairing equipment","If an order's equipment didn't auto-match, use <b>Pair with an arrival</b> — pick it, choose full or partial. Paired items show the arrival's photo and status right on the order.",null,"deliveries"],
@@ -2069,28 +2075,52 @@ const TUT_FIELD=[
  ["Order with the right name","Sign in with the same name you order under in Webduct — that's how the app matches orders to you and links your jobs automatically.","#whoChip","feed"],
  ["Arrival cards","Tap any card to see everything — details, photo, and who logged it.",".acard","feed"],
  ["Copy Name — use it!","<b>The most useful button here.</b> It copies the arrival's name exactly. Paste that <i>word-for-word</i> into your Webduct order and the app links your order to the physical item automatically. Retype it your own way and someone has to pair it by hand.",".ac-copy","feed"],
- ["My Jobs","Star ★ a job (or it auto-stars from your orders) and it lands here — every arrival for your jobs in one place.","[data-view='jobs']","jobs",()=>tutOpenJobCard()],
- ["What's on a card","Here's a card opened up: the photo, where it's stored, who logged it, delivery status, and the buttons — 📷 photo, Copy Name, share, and the 🚚 truck showing whether it's gone out.",".acard.open","jobs",()=>tutOpenJobCard()],
- ["Equipment rentals","The <b>Rentals</b> tab, Equipment side: gear rented from vendors for your job — what it is, the rate, and whether it's still out.","[data-rentseg='equip']","rentals",()=>{ const b=document.querySelector("[data-rentseg='equip']"); if(b)b.click(); }],
- ["Tool rentals","The <b>Tools</b> side shows company tools charged to your job — tool #, days out, and rate. Useful for checking what's still billing to you.","[data-rentseg='tool']","rentals",()=>{ const b=document.querySelector("[data-rentseg='tool']"); if(b)b.click(); }],
+ ["My Jobs","Star ★ a job (or it auto-stars from your orders) and it lands here — everything for your jobs in one place, split into <b>Arrivals</b>, <b>Equipment Rentals</b>, and <b>Tool Rentals</b>.","[data-view='jobs']","jobs",()=>tutOpenJobCard("arrivals")],
+ ["What's on a card","Here's a card opened up: the photo, where it's stored, who logged it, delivery status, and the buttons — 📷 photo, Copy Name, share, and the 🚚 truck showing whether it's gone out.",".acard.open","jobs",()=>tutOpenJobCard("arrivals")],
+ ["Equipment rentals","Flip to <b>Equipment Rentals</b> to see gear rented from a vendor for this job — what it is, the rate, the vendor, and whether it's still out.","#mjSeg","jobs",()=>tutOpenJobCard("rentals")],
+ ["Tool rentals","<b>Tool Rentals</b> shows company tools charged to your job — tool #, days out, daily rate, and total. Handy for checking what's still billing to you.","#mjSeg","jobs",()=>tutOpenJobCard("tools")],
  ["The Deliveries calendar","See when everything's going out. Days show 📦 equipment, 🚚 deliveries, 🆙 pickups. Tap a day, then a job name, to see what's coming and when.","[data-view='deliveries']","feed"],
  ["That's it","Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
 // Open a job folder + expand an arrival card so the My Jobs steps show a real, full card.
-function tutOpenJobCard(){
+// Also picks the job the demo rental/tool rows attach to.
+let TUT_DEMO=false, TUT_DEMO_JOB=null;
+function dIso(daysAgo){ const d=new Date(Date.now()-daysAgo*86400000); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+// Sample rows shown ONLY during the tutorial, only on a job that has none of its own.
+// They're display-only objects — never written to Firebase, gone the moment you finish.
+function demoRentals(job){ return [
+  {id:"demo-r1", jobNumber:job, equipment:"Scissor Lift 26' (SAMPLE)", rentalId:"SL-4471", status:"Renting",
+   dateRented:dIso(9), dateReturned:"", rate:"$310/wk", vendor:"United Rentals", po:"PO-88421", orderedBy:"Sample data"},
+  {id:"demo-r2", jobNumber:job, equipment:"Towable Air Compressor (SAMPLE)", rentalId:"AC-1180", status:"Returned",
+   dateRented:dIso(24), dateReturned:dIso(3), rate:"$145/day", vendor:"Sunbelt", po:"PO-88190", orderedBy:"Sample data"},
+]; }
+function demoTools(job){ return [
+  {id:"demo-t1", jobNumber:job, toolType:"Cordless 20 V SawZall (SAMPLE)", toolId:"3490", status:"Out",
+   rentalStarted:dIso(31), rentalEnded:"", billingDays:31, dailyRate:1.54, billingTotal:"47.74", discountedRate:"26.26"},
+  {id:"demo-t2", jobNumber:job, toolType:"Medium Gang Box (SAMPLE)", toolId:"GB6", status:"Out",
+   rentalStarted:dIso(18), rentalEnded:"", billingDays:18, dailyRate:2.18, billingTotal:"39.24", discountedRate:"21.58"},
+  {id:"demo-t3", jobNumber:job, toolType:"Step Ladder 8' (SAMPLE)", toolId:"1882", status:"Returned",
+   rentalStarted:dIso(40), rentalEnded:dIso(6), billingDays:34, dailyRate:1.78, billingTotal:"60.52", discountedRate:"33.29"},
+]; }
+function tutOpenJobCard(seg){
   try{
+    TUT_DEMO=true;
     if(typeof EXPANDED_FOLDERS!=="undefined" && MY_JOBS && MY_JOBS.length){
       const job=MY_JOBS.find(j=>ARRIVALS.some(a=>normJob(a.jobNumber)===normJob(j)))||MY_JOBS[0];
+      TUT_DEMO_JOB=normJob(job);
       if(job) EXPANDED_FOLDERS.add(job);
       const first=ARRIVALS.find(a=>normJob(a.jobNumber)===normJob(job));
       if(first && typeof EXPANDED_ARR!=="undefined") EXPANDED_ARR.add(first.id);
-      if(typeof renderJobs==="function") renderJobs();
     }
+    // Flip the Arrivals / Equipment Rentals / Tool Rentals segment if the step wants one.
+    if(seg){ const b=document.querySelector(`#mjSeg button[data-seg='${seg}']`); if(b) b.click(); else { mjSeg=seg; if(typeof renderJobs==="function") renderJobs(); } }
+    else if(typeof renderJobs==="function") renderJobs();
   }catch(_){}
 }
 let TUT_LIST=null, TUT_I=0;
 function tutClearSpot(){ document.querySelectorAll(".tut-spot").forEach(e=>e.classList.remove("tut-spot")); }
-function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); openModal("tutModal"); }
+function tutClearDemo(){ const had=TUT_DEMO; TUT_DEMO=false; TUT_DEMO_JOB=null; if(had && typeof renderJobs==="function"){ try{ renderJobs(); }catch(_){} } }
+function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); openModal("tutModal"); }
 function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; document.body.classList.add("tut-live"); tutRender(); }
 function tutRender(){
   const [t,b,sel,tab,setup]=TUT_LIST[TUT_I];
@@ -2115,7 +2145,7 @@ function tutRender(){
     },90);
   }
 }
-function tutFinish(){ localStorage.setItem("tut_done","1"); document.body.classList.remove("tut-live"); tutClearSpot(); closeModal("tutModal"); }
+function tutFinish(){ localStorage.setItem("tut_done","1"); document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); closeModal("tutModal"); }
 
 /* ---------- Manual import trigger (GitHub workflow_dispatch) ---------- */
 // Repo details are fixed — no reason to make anyone type them. Only the token is
