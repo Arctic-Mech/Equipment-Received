@@ -51,6 +51,17 @@
   .tut-btn{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:12px;color:#1f6fe0;background:#e8f0fd;border:1px solid #bcd4f6;padding:6px 10px;border-radius:9px;white-space:nowrap}
   .run-import{flex:none;font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:12px;color:#fff;background:var(--hivis);padding:8px 12px;border-radius:9px;white-space:nowrap}
   .run-import:disabled{opacity:.55}
+  /* Tutorial spotlight: during steps the backdrop goes clear so the real UI is visible,
+     and the element being described gets a pulsing hi-vis ring. */
+  body.tut-live #tutModal{background:transparent;backdrop-filter:none}
+  body.tut-live #tutModal .modal{max-height:52vh;box-shadow:0 -6px 30px rgba(20,24,31,.28)}
+  .tut-spot{outline:3px solid var(--hivis) !important;outline-offset:3px;border-radius:8px;
+    box-shadow:0 0 0 3px rgba(255,106,26,.28), 0 0 18px rgba(255,106,26,.5) !important;
+    animation:tutpulse 1.5s ease-in-out infinite;position:relative;z-index:60}
+  @keyframes tutpulse{
+    0%,100%{box-shadow:0 0 0 3px rgba(255,106,26,.28), 0 0 18px rgba(255,106,26,.45)}
+    50%{box-shadow:0 0 0 7px rgba(255,106,26,.12), 0 0 26px rgba(255,106,26,.75)}
+  }
   .acc-chip{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:10px;padding:2px 8px;border-radius:9px;margin-left:6px;vertical-align:middle}
   .acc-chip.acc-on{background:#cdeede;color:#0d7a73}
   .acc-chip.acc-off{background:#fbe0da;color:#c0341a}
@@ -863,8 +874,8 @@
       <div id="tutStepTitle" style="font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:17px;margin-bottom:8px"></div>
       <div id="tutStepBody" style="font-size:14px;line-height:1.55;color:var(--ink)"></div>
       <div style="display:flex;gap:8px;margin-top:18px">
-        <button id="tutBack" class="submit" style="flex:none;background:var(--surface);color:var(--ink);border:1px solid var(--line)">‹ Back</button>
-        <button id="tutNext" class="submit" style="flex:1">Next ›</button>
+        <button id="tutBack" class="submit" style="width:auto;flex:0 0 auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:none;padding:14px 18px">‹ Back</button>
+        <button id="tutNext" class="submit" style="width:auto;flex:1 1 auto;padding:14px">Next ›</button>
       </div>
       <button id="tutSkip2" style="display:block;width:100%;margin-top:10px;background:none;color:var(--steel);font-size:13px;padding:6px">Skip the rest</button>
     </div>
@@ -1527,7 +1538,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="6.7";
+const APP_VERSION="6.8";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2024,39 +2035,57 @@ function applyAccess(){
 }
 
 /* ---------- Tutorial ---------- */
+// [title, body, selector-to-highlight, tab-to-switch-to]
 const TUT_SHIP=[
- ["Logging an arrival","Tap the orange <b>+</b> button (bottom right of Arrivals) whenever material shows up. Fill in the job #, what it is, where you stored it, and snap a photo. That's the whole job — everyone can see it instantly."],
- ["Editing & photos","Tap any arrival card to open it. Inside you can edit details, add more photos 📷, or delete it. The <b>Copy Name</b> button copies the item's name for texts or emails."],
- ["Marking delivered","The <b>truck icon</b> on a card opens the delivery editor — check it off when it goes out, pick full or partial. The truck turns green everywhere once it's delivered."],
- ["The Deliveries tab","This is the Webduct order calendar. Days show 📦 equipment, 🚚 job-site deliveries, and 🆙 pickups with counts. Tap a day to see every job going out, with who ordered it."],
- ["Inside a day","Tap a job name to open its orders. Tap the <b>category pills</b> to see items, and ⬜ check items off as you gather them. When everything's checked, the order gets its ✅ automatically."],
- ["Times & trucks","In the day view, ⏰ sets a delivery time (real time picker) and 🚚 records which truck. \"Sort deliveries by time\" reorders the day by earliest first."],
- ["Pairing equipment","When a Webduct order has equipment we logged as an arrival, use <b>Pair with an arrival</b> — pick the arrival, choose full or partial. Paired items show the arrival's photo and status right on the order."],
- ["Notes that follow","📝 on an order = delivery notes (time/truck/extra). 📝 on a paired arrival = an equipment note that shows on every page. Both sync to everyone."],
- ["Calendar view & auto-import","Arrivals has a List/Calendar toggle — the calendar shows what got logged each day. The <b>Last updated</b> badge shows when Bobby's sheet was auto-imported."],
+ ["Logging an arrival","Tap the orange <b>+</b> button whenever material shows up. Fill in the job #, what it is, where you stored it, and snap a photo. That's the whole job — everyone sees it instantly.","#btnLog","feed"],
+ ["Editing & photos","Tap any arrival card to open it. Inside you can edit details, add more photos 📷, or delete it.",".acard","feed"],
+ ["Copy Name","Copies just the item's name to your clipboard — handy for texts or emails.",".ac-copy","feed"],
+ ["Marking delivered","The <b>truck icon</b> opens the delivery editor — check it off when it goes out and pick full or partial. The truck turns green everywhere once delivered.","[data-deliv]","feed"],
+ ["List or Calendar","Toggle the Arrivals tab between a list and a calendar of what got logged each day.","#arrViewSeg","feed"],
+ ["Auto-import","Bobby's sheet imports itself every morning. This shows when it last landed — and <b>▶ Run import now</b> pulls it on demand if he sends late.","#runImportBtn","feed"],
+ ["The Deliveries tab","The Webduct order calendar. Days show 📦 equipment, 🚚 job-site deliveries, and 🆙 pickups with counts. Tap a day to see every job going out.","[data-view='deliveries']","feed"],
+ ["Inside a day","Tap a job name to open its orders. Tap the <b>category pills</b> to see items, and ⬜ check them off as you gather. When all are checked, the order gets its ✅ automatically. ⏰ sets a delivery time, 🚚 records the truck.",null,"deliveries"],
+ ["Pairing equipment","When a Webduct order has equipment we logged as an arrival, use <b>Pair with an arrival</b> — pick it, choose full or partial. Paired items show the arrival's photo and status right on the order.",null,"deliveries"],
+ ["Notes that follow","📝 on an order = delivery notes (time/truck/extra). 📝 on a paired arrival = an equipment note that shows on every page. Both sync to everyone.",null,"deliveries"],
+ ["That's it","Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
 const TUT_FIELD=[
- ["Finding material","The <b>Arrivals</b> tab lists everything the shop has received, newest first. Search by job #, item, or supplier. Tap a card for details and the photo."],
- ["Order with the right name","When you order in Webduct, use your real name — the app matches orders to you by name/email and links your jobs automatically. Sign in here with the same name."],
- ["My Jobs","Star ★ any job (or it auto-stars from your orders) and it shows in <b>My Jobs</b> — your material, arrivals, and order status in one place."],
- ["Order status","Arrival cards from your orders show a purple WEBDUCT strip: order #, dates, and status. <b>Tap it</b> to jump straight to that order on the Deliveries calendar."],
- ["The Deliveries calendar","See when everything's going out. Days show 📦 equipment, 🚚 deliveries, 🆙 pickups. Tap a day, then a job name, to see exactly what's coming and when."],
- ["Delivered or not","✅ on an item means the shop gathered it. A green truck means it's been delivered to your site. ◑ PARTIAL means only part of the order came — tap it to flip to complete."],
- ["Copy & share","<b>Copy Name</b> copies an item's name for texts. The share button sends an arrival to a coworker or copies a direct link."],
- ["Your personal link","Your My Jobs page has its own URL (#yourname). Bookmark it, or swap the name in the URL to view a coworker's jobs read-only."],
- ["Need it again?","That's it! Retake this anytime with the <b>? Tutorial</b> button in the header."],
+ ["Finding material","The <b>Arrivals</b> tab lists everything the shop has received, newest first. Search by job #, item, or supplier.","#feedSearch","feed"],
+ ["Order with the right name","Sign in with the same name you order under in Webduct — that's how the app matches orders to you and links your jobs automatically.","#whoChip","feed"],
+ ["Arrival cards","Tap any card to see details and the photo. <b>Copy Name</b> grabs just the item name for a text.",".acard","feed"],
+ ["Order status","Cards from your orders show a purple WEBDUCT strip: order #, dates, status. <b>Tap it</b> to jump straight to that order on the Deliveries calendar.",".ac-wd-row","feed"],
+ ["My Jobs","Star ★ a job (or it auto-stars from your orders) and it shows here — your material, arrivals, and order status in one place.","[data-view='jobs']","feed"],
+ ["The Deliveries calendar","See when everything's going out. Days show 📦 equipment, 🚚 deliveries, 🆙 pickups. Tap a day, then a job name, to see what's coming and when.","[data-view='deliveries']","feed"],
+ ["Delivered or not","✅ means the shop gathered it. A green truck means it reached your site. ◑ PARTIAL means only part came — tap it to flip to complete.",null,"deliveries"],
+ ["Your personal link","Your My Jobs page has its own URL (#yourname). Bookmark it, or swap the name in the URL to view a coworker's jobs.","#whoChip","feed"],
+ ["That's it","Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
 let TUT_LIST=null, TUT_I=0;
-function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; openModal("tutModal"); }
-function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; tutRender(); }
+function tutClearSpot(){ document.querySelectorAll(".tut-spot").forEach(e=>e.classList.remove("tut-spot")); }
+function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); openModal("tutModal"); }
+function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; document.body.classList.add("tut-live"); tutRender(); }
 function tutRender(){
-  const [t,b]=TUT_LIST[TUT_I];
+  const [t,b,sel,tab]=TUT_LIST[TUT_I];
   $("tutProg").textContent=`Step ${TUT_I+1} of ${TUT_LIST.length}`;
   $("tutStepTitle").textContent=t; $("tutStepBody").innerHTML=b;
   $("tutBack").style.visibility=TUT_I===0?"hidden":"visible";
   $("tutNext").textContent=TUT_I===TUT_LIST.length-1?"Done ✓":"Next ›";
+  // Switch to the tab this step lives on, then spotlight the element it describes.
+  if(tab && typeof setView==="function"){ try{ setView(tab); }catch(_){} }
+  tutClearSpot();
+  if(sel){
+    setTimeout(()=>{
+      let el=null; try{ el=document.querySelector(sel); }catch(_){}
+      if(el){
+        el.classList.add("tut-spot");
+        const r=el.getBoundingClientRect();
+        // Only scroll if it's off-screen or hidden behind the sheet (which covers the lower half).
+        if(r.top<70 || r.bottom>window.innerHeight*0.45) el.scrollIntoView({block:"center",behavior:"smooth"});
+      }
+    },60);
+  }
 }
-function tutFinish(){ localStorage.setItem("tut_done","1"); closeModal("tutModal"); }
+function tutFinish(){ localStorage.setItem("tut_done","1"); document.body.classList.remove("tut-live"); tutClearSpot(); closeModal("tutModal"); }
 
 /* ---------- Manual import trigger (GitHub workflow_dispatch) ---------- */
 // Repo details are fixed — no reason to make anyone type them. Only the token is
