@@ -44,6 +44,12 @@
   .who-av{width:22px;height:22px;border-radius:50%;background:var(--hivis);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed';font-weight:700;font-size:11px;flex:none}
   .who-name{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:12px;color:var(--ink);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .export-btn{display:flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:12px;color:#1a6b32;background:#e7f5ec;border:1px solid #b9e2c7;padding:6px 10px;border-radius:9px;white-space:nowrap}
+  .tut-btn{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:12px;color:#1f6fe0;background:#e8f0fd;border:1px solid #bcd4f6;padding:6px 10px;border-radius:9px;white-space:nowrap}
+  .acc-chip{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:10px;padding:2px 8px;border-radius:9px;margin-left:6px;vertical-align:middle}
+  .acc-chip.acc-on{background:#cdeede;color:#0d7a73}
+  .acc-chip.acc-off{background:#fbe0da;color:#c0341a}
+  .acc-chip.acc-auto-in{background:var(--line-soft);color:var(--teal)}
+  .acc-chip.acc-auto-out{background:var(--line-soft);color:var(--steel)}
   .export-btn:active{background:#d3edda}
   .export-btn:disabled{opacity:.6}
   .sync-dot i{width:8px;height:8px;border-radius:50%;background:var(--steel-light);display:block}
@@ -606,6 +612,7 @@
   .cal-lastsync{font-size:11px;color:var(--steel-light);margin-bottom:8px}
   .arr-viewseg button{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em}
   .auto-import{margin:0 14px 10px;padding:7px 11px;background:var(--teal-soft);border:1px solid #bfe3de;border-radius:8px;font-size:12px;color:var(--teal)}
+  .ai-next{display:block;margin-top:3px;font-size:10.5px;opacity:.75}
   .cal-daycount{color:rgba(255,255,255,.85);font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:13px;margin:2px 0 8px}
   .cal-cnt{position:absolute;top:3px;right:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel-light)}
   .cal-cell.sel .cal-cnt{color:#fff}
@@ -805,7 +812,7 @@
       <span class="divider"></span>
       <span class="appname">Equipment<br>Received &amp; Rentals</span>
     </div>
-    <div class="appbar-right"><button class="who-chip" id="whoChip" title="Your account"><span class="who-av" id="whoAv">?</span><span class="who-name" id="whoName">Sign in</span></button><button class="export-btn" id="btnExport" title="Export everything to Excel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Excel</button><div class="sync-dot" id="syncDot"><i></i><span id="syncTxt">Connecting</span></div><div class="wd-hdr-light" id="wdHdrLight" title="Webduct connection"><span class="wd-hdr-dot" id="wdHdrDot"></span><span id="wdHdrTxt">Webduct</span></div></div>
+    <div class="appbar-right"><button class="tut-btn" id="btnTutorial" title="Take the tutorial">? Tutorial</button><button class="who-chip" id="whoChip" title="Your account"><span class="who-av" id="whoAv">?</span><span class="who-name" id="whoName">Sign in</span></button><button class="export-btn" id="btnExport" title="Export everything to Excel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Excel</button><div class="sync-dot" id="syncDot"><i></i><span id="syncTxt">Connecting</span></div><div class="wd-hdr-light" id="wdHdrLight" title="Webduct connection"><span class="wd-hdr-dot" id="wdHdrDot"></span><span id="wdHdrTxt">Webduct</span></div></div>
   </div>
   <nav class="tabs">
     <button class="tab active" data-view="feed">Arrivals <span class="pill" id="pillFeed">0</span></button>
@@ -815,6 +822,37 @@
     <button class="tab" data-view="admin">Admin</button>
   </nav>
 </header>
+
+<!-- ACCESS LOCK SCREEN -->
+<div id="lockScreen" style="display:none;padding:60px 24px;text-align:center">
+  <div style="font-size:44px;margin-bottom:14px">🔒</div>
+  <h2 style="font-family:'Barlow Condensed';text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px">Access restricted</h2>
+  <p style="color:var(--steel);font-size:14px;line-height:1.5;max-width:340px;margin:0 auto">This app is for Arctic Mechanical. Sign in with your <b>@arctic.biz</b> email, or ask a supervisor to grant your name access in Admin → Manage People.</p>
+  <button class="submit" id="lockSignIn" style="max-width:220px;margin:18px auto 0">Sign in</button>
+</div>
+
+<!-- TUTORIAL MODAL -->
+<div class="modal-back" id="tutModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3 id="tutTitle">Welcome!</h3><button class="x" id="tutX">✕</button></div>
+  <div class="modal-body">
+    <div id="tutChoose">
+      <p style="color:var(--steel);font-size:13.5px;line-height:1.5;margin:0 0 14px">Quick tour of how this app works. Pick the one that matches what you do — you can skip at any time, and retake it later with the <b>? Tutorial</b> button in the header.</p>
+      <button class="submit" id="tutPickShip" style="margin-bottom:10px;text-align:left;padding:14px">🏭 <b>Shipping Dept</b><br><span style="font-weight:400;font-size:12px;opacity:.85">Logging &amp; editing arrivals, deliveries, photos, pairing orders</span></button>
+      <button class="submit" id="tutPickField" style="background:var(--teal);text-align:left;padding:14px">👷 <b>Field / Office</b><br><span style="font-weight:400;font-size:12px;opacity:.85">Finding your material, My Jobs, ordering with the right name</span></button>
+      <button id="tutSkip1" style="display:block;width:100%;margin-top:12px;background:none;color:var(--steel);font-size:13px;padding:8px">Skip for now</button>
+    </div>
+    <div id="tutSteps" style="display:none">
+      <div id="tutProg" style="font-family:'JetBrains Mono';font-size:11px;color:var(--steel-light);margin-bottom:8px"></div>
+      <div id="tutStepTitle" style="font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:17px;margin-bottom:8px"></div>
+      <div id="tutStepBody" style="font-size:14px;line-height:1.55;color:var(--ink)"></div>
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button id="tutBack" class="submit" style="flex:none;background:var(--surface);color:var(--ink);border:1px solid var(--line)">‹ Back</button>
+        <button id="tutNext" class="submit" style="flex:1">Next ›</button>
+      </div>
+      <button id="tutSkip2" style="display:block;width:100%;margin-top:10px;background:none;color:var(--steel);font-size:13px;padding:6px">Skip the rest</button>
+    </div>
+  </div>
+</div></div>
 
 <main>
   <!-- ARRIVALS -->
@@ -1245,20 +1283,61 @@ function stampText(ms){
   let h=d.getHours(); const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12;
   return date+" "+h+":"+String(d.getMinutes()).padStart(2,"0")+" "+ap;
 }
-function importLine(el, info, label){
+function timeText(d){ let h=d.getHours(); const ap=h>=12?"PM":"AM"; h=h%12; if(h===0)h=12;
+  return h+":"+String(d.getMinutes()).padStart(2,"0")+" "+ap; }
+function sameLocalDay(a,b){ const x=new Date(a),y=new Date(b);
+  return x.getFullYear()===y.getFullYear() && x.getMonth()===y.getMonth() && x.getDate()===y.getDate(); }
+// Mirrors the GitHub Actions cron (UTC): every 5 min 12:00-15:59, then :00/:30 16:00-17:59,
+// Mon-Fri only. Returns the next scheduled attempt as a local Date, or null.
+const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function nextPollAt(fromMs){
+  const start=new Date(fromMs||Date.now());
+  for(let d=0; d<8; d++){
+    const day=new Date(start.getTime()+d*86400000);
+    const dow=day.getUTCDay();
+    if(dow<1||dow>5) continue;                    // weekdays only
+    const slots=[];
+    for(let h=12; h<=15; h++) for(let m=0;m<60;m+=5) slots.push([h,m]);
+    for(let h=16; h<=17; h++) for(const m of [0,30]) slots.push([h,m]);
+    for(const [h,m] of slots){
+      const t=new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h, m, 0));
+      if(t.getTime()>start.getTime()) return t;
+    }
+  }
+  return null;
+}
+function nextPollText(){
+  const t=nextPollAt(); if(!t) return "";
+  const today=sameLocalDay(t, Date.now());
+  return "Next check "+(today?"":DOW[t.getDay()]+" ")+timeText(t);
+}
+function importLine(el, info, label, showNext){
   if(!el) return;
-  if(!info || !info.at){ el.style.display="none"; return; }
+  const nxt=showNext?nextPollText():"";
+  if(!info || !info.at){
+    if(!showNext){ el.style.display="none"; return; }   // nothing yet and not the one we chase
+    el.innerHTML=`<b>Not updated yet</b>${nxt?`<span class="ai-next">${wdEsc(nxt)}</span>`:""}`;
+    el.style.display="block"; return;
+  }
   const from=info.emailDateMs?` · emailed ${stampText(info.emailDateMs)}`:"";
   const cnt=info.count?` · ${info.count.toLocaleString()} ${label}`:"";
-  el.innerHTML=`<b>Last updated</b> ${wdEsc(stampText(info.at))}${wdEsc(from)}${wdEsc(cnt)}`;
+  el.innerHTML=`<b>Last updated</b> ${wdEsc(stampText(info.at))}${wdEsc(from)}${wdEsc(cnt)}`
+    +(nxt?`<span class="ai-next">${wdEsc(nxt)}</span>`:"");
   el.style.display="block";
 }
 function renderAutoImport(){
-  importLine($("autoImport"), LAST_IMPORT, "rows");
+  // The arrivals sheet is the one we chase hard — the countdown only shows while THAT
+  // is still missing for today. Once it lands, no "next check" anywhere, even if the
+  // tool PDF hasn't arrived yet (we don't nag about the less critical files).
+  const arrivalsToday = !!(LAST_IMPORT && LAST_IMPORT.at && sameLocalDay(LAST_IMPORT.at, Date.now()));
+  const chase = !arrivalsToday;
+  importLine($("autoImport"), LAST_IMPORT, "rows", chase);
   importLine($("rentImport"), LAST_IMPORT && LAST_IMPORT.rentals!=null
-    ? {...LAST_IMPORT, count:LAST_IMPORT.rentals} : LAST_IMPORT, "rentals");
-  importLine($("toolImport"), LAST_TOOL_IMPORT, "tool lines");
+    ? {...LAST_IMPORT, count:LAST_IMPORT.rentals} : LAST_IMPORT, "rentals", chase);
+  importLine($("toolImport"), LAST_TOOL_IMPORT, "tool lines", chase);
 }
+// Keep the "next check" time honest while the page sits open.
+setInterval(()=>{ try{ renderAutoImport(); }catch(_){} }, 60000);
 function wdRenderLastSync(){
   if(!WD_LAST_SYNC) return;
   const el=$("calLastSync"); if(!el) return;
@@ -1431,7 +1510,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="6.0";
+const APP_VERSION="6.3";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1439,7 +1518,7 @@ function startSync(){
   onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("rentList",e.code);});
   onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("toolList",e.code);});
   onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>console.error("pdfmeta",e));
-  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null});}); PEOPLE=l; onPeople(); resolvePendingHash(); }, e=>console.error("people",e));
+  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); }, e=>console.error("people",e));
   onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>console.error("shares",e));
   onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>console.error("webductEquip",e));
   onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>console.error("webductOrders",e));
@@ -1859,7 +1938,7 @@ $("orderReset").addEventListener("click",()=>{ JOB_ORDER=[]; syncUserJobs(); ren
 function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(job); if(i<0)return; const j=i+dir; if(j<0||j>=order.length)return; const t=order[i]; order[i]=order[j]; order[j]=t; JOB_ORDER=order; syncUserJobs(); renderJobs(); }
 
 /* ---------- Identity (Webduct login primary; name captured once per email) ---------- */
-function renderWho(){ const av=$("whoAv"),nm=$("whoName"); if(!av)return; if(USER){ av.textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); nm.textContent=USER.first; } else { av.textContent="?"; nm.textContent="Sign in"; } }
+function renderWho(){ const av=$("whoAv"),nm=$("whoName"); if(!av)return; if(USER){ av.textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); nm.textContent=USER.first; } else { av.textContent="?"; nm.textContent="Sign in"; } if(typeof applyAccess==="function")applyAccess(); }
 function findPersonByName(f,l){ const nn=nameNorm(f,l); return PEOPLE.find(p=>p.nameNorm===nn); }
 function findPersonByEmail(em){ const e=(em||"").trim().toLowerCase(); if(!e)return null; return PEOPLE.find(p=>(p.email||"").trim().toLowerCase()===e); }
 
@@ -1898,7 +1977,67 @@ async function signInAs(first,last,email,token){
   toast(added?"Signed in — matching jobs linked":"Signed in");
   // Every login triggers an order pull using the shared admin key (loaded from Firebase).
   if(typeof wdAutoSync==="function") setTimeout(()=>wdAutoSync(), 1500);
+  applyAccess();
+  // First login on this device: offer the tutorial (only if they can actually see the app).
+  if(!localStorage.getItem("tut_done") && userAccessAllowed()) setTimeout(()=>openTutorial(), 600);
 }
+
+/* ---------- Access control (basic, not security — an honest gate) ---------- */
+// Rule: @arctic.biz email = in. Otherwise blocked, unless a supervisor flips the
+// per-person toggle in Admin → Manage People. Toggle: "" (auto by email) / "allowed" / "blocked".
+function userAccessAllowed(){
+  if(!USER) return false;
+  const p=PEOPLE.find(x=>x.id===USER.id);
+  const override=p?(p.access||""):"";
+  if(override==="allowed") return true;
+  if(override==="blocked") return false;
+  const em=(USER.email||(p?p.email:"")||"").trim().toLowerCase();
+  return em.endsWith("@arctic.biz");
+}
+function applyAccess(){
+  const lock=$("lockScreen"); if(!lock) return;
+  const ok=!USER || userAccessAllowed();   // no user yet -> name modal handles it, don't double-lock
+  const blocked=USER && !userAccessAllowed();
+  document.querySelector(".tabs").style.display=blocked?"none":"";
+  document.querySelectorAll("main .view, .view").forEach(v=>{ if(blocked)v.classList.remove("active"); });
+  lock.style.display=blocked?"block":"none";
+  if(!blocked && USER){ const anyActive=document.querySelector(".view.active"); if(!anyActive) setView("feed"); }
+}
+
+/* ---------- Tutorial ---------- */
+const TUT_SHIP=[
+ ["Logging an arrival","Tap the orange <b>+</b> button (bottom right of Arrivals) whenever material shows up. Fill in the job #, what it is, where you stored it, and snap a photo. That's the whole job — everyone can see it instantly."],
+ ["Editing & photos","Tap any arrival card to open it. Inside you can edit details, add more photos 📷, or delete it. The <b>Copy Name</b> button copies the item's name for texts or emails."],
+ ["Marking delivered","The <b>truck icon</b> on a card opens the delivery editor — check it off when it goes out, pick full or partial. The truck turns green everywhere once it's delivered."],
+ ["The Deliveries tab","This is the Webduct order calendar. Days show 📦 equipment, 🚚 job-site deliveries, and 🆙 pickups with counts. Tap a day to see every job going out, with who ordered it."],
+ ["Inside a day","Tap a job name to open its orders. Tap the <b>category pills</b> to see items, and ⬜ check items off as you gather them. When everything's checked, the order gets its ✅ automatically."],
+ ["Times & trucks","In the day view, ⏰ sets a delivery time (real time picker) and 🚚 records which truck. \"Sort deliveries by time\" reorders the day by earliest first."],
+ ["Pairing equipment","When a Webduct order has equipment we logged as an arrival, use <b>Pair with an arrival</b> — pick the arrival, choose full or partial. Paired items show the arrival's photo and status right on the order."],
+ ["Notes that follow","📝 on an order = delivery notes (time/truck/extra). 📝 on a paired arrival = an equipment note that shows on every page. Both sync to everyone."],
+ ["Calendar view & auto-import","Arrivals has a List/Calendar toggle — the calendar shows what got logged each day. The <b>Last updated</b> badge shows when Bobby's sheet was auto-imported."],
+];
+const TUT_FIELD=[
+ ["Finding material","The <b>Arrivals</b> tab lists everything the shop has received, newest first. Search by job #, item, or supplier. Tap a card for details and the photo."],
+ ["Order with the right name","When you order in Webduct, use your real name — the app matches orders to you by name/email and links your jobs automatically. Sign in here with the same name."],
+ ["My Jobs","Star ★ any job (or it auto-stars from your orders) and it shows in <b>My Jobs</b> — your material, arrivals, and order status in one place."],
+ ["Order status","Arrival cards from your orders show a purple WEBDUCT strip: order #, dates, and status. <b>Tap it</b> to jump straight to that order on the Deliveries calendar."],
+ ["The Deliveries calendar","See when everything's going out. Days show 📦 equipment, 🚚 deliveries, 🆙 pickups. Tap a day, then a job name, to see exactly what's coming and when."],
+ ["Delivered or not","✅ on an item means the shop gathered it. A green truck means it's been delivered to your site. ◑ PARTIAL means only part of the order came — tap it to flip to complete."],
+ ["Copy & share","<b>Copy Name</b> copies an item's name for texts. The share button sends an arrival to a coworker or copies a direct link."],
+ ["Your personal link","Your My Jobs page has its own URL (#yourname). Bookmark it, or swap the name in the URL to view a coworker's jobs read-only."],
+ ["Need it again?","That's it! Retake this anytime with the <b>? Tutorial</b> button in the header."],
+];
+let TUT_LIST=null, TUT_I=0;
+function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; openModal("tutModal"); }
+function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; tutRender(); }
+function tutRender(){
+  const [t,b]=TUT_LIST[TUT_I];
+  $("tutProg").textContent=`Step ${TUT_I+1} of ${TUT_LIST.length}`;
+  $("tutStepTitle").textContent=t; $("tutStepBody").innerHTML=b;
+  $("tutBack").style.visibility=TUT_I===0?"hidden":"visible";
+  $("tutNext").textContent=TUT_I===TUT_LIST.length-1?"Done ✓":"Next ›";
+}
+function tutFinish(){ localStorage.setItem("tut_done","1"); closeModal("tutModal"); }
 
 // (Legacy Webduct-login handlers removed — sign-in is now name + email only.
 //  Webduct order pulls use the shared admin key, loaded from Firebase.)
@@ -2005,7 +2144,7 @@ async function dismissShare(id){ if(fbReady){ try{ await setDoc(doc(db,"shares",
 
 /* ---------- People management ---------- */
 $("btnPeople").addEventListener("click",()=>{ renderPeople(); openModal("peopleModal"); });
-function renderPeople(){ const list=$("peopleList"); const sorted=[...PEOPLE].sort((a,b)=>(a.first+a.last).toLowerCase()<(b.first+b.last).toLowerCase()?-1:1); list.innerHTML=`<div style="font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px;color:var(--steel);margin:0 0 8px">${sorted.length} ${sorted.length===1?"person":"people"}</div>`+ (sorted.length?sorted.map(p=>`<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line-soft)"><span class="ps-av" style="background:var(--steel)">${esc(((p.first[0]||"")+(p.last[0]||"")).toUpperCase())}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${esc(p.first+" "+p.last)}</div><div style="font-size:11px;color:var(--steel);font-family:'JetBrains Mono';margin-top:1px">#${esc(personalHashFor(p))}</div><input type="email" value="${esc(p.email||"")}" data-pemail="${esc(p.id)}" placeholder="Add email" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:13px;margin-top:5px"></div><button class="share-btn" data-psave="${esc(p.id)}" style="margin:0">Save</button></div>`).join(""):`<div class="sub-empty">No people yet. Add someone above.</div>`); }
+function renderPeople(){ const list=$("peopleList"); const sorted=[...PEOPLE].sort((a,b)=>(a.first+a.last).toLowerCase()<(b.first+b.last).toLowerCase()?-1:1); const accChip=p=>{ const a=p.access||""; const auto=(p.email||"").toLowerCase().trim().endsWith("@arctic.biz"); const lbl=a==="allowed"?"✓ Allowed":a==="blocked"?"✕ Blocked":(auto?"Auto · in":"Auto · out"); const cls=a==="allowed"?"acc-on":a==="blocked"?"acc-off":(auto?"acc-auto-in":"acc-auto-out"); return `<button class="acc-chip ${cls}" data-paccess="${esc(p.id)}" data-cur="${esc(a)}" title="Tap to cycle: Auto → Allowed → Blocked">${lbl}</button>`; }; list.innerHTML=`<div style="font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px;color:var(--steel);margin:0 0 8px">${sorted.length} ${sorted.length===1?"person":"people"}</div><div style="font-size:11.5px;color:var(--steel);margin-bottom:10px">Access: <b>Auto</b> lets @arctic.biz emails in and blocks everyone else. Tap a chip to override per person.</div>`+ (sorted.length?sorted.map(p=>`<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line-soft)"><span class="ps-av" style="background:var(--steel)">${esc(((p.first[0]||"")+(p.last[0]||"")).toUpperCase())}</span><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${esc(p.first+" "+p.last)} ${accChip(p)}</div><div style="font-size:11px;color:var(--steel);font-family:'JetBrains Mono';margin-top:1px">#${esc(personalHashFor(p))}</div><input type="email" value="${esc(p.email||"")}" data-pemail="${esc(p.id)}" placeholder="Add email" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:13px;margin-top:5px"></div><button class="share-btn" data-psave="${esc(p.id)}" style="margin:0">Save</button></div>`).join(""):`<div class="sub-empty">No people yet. Add someone above.</div>`); }
 onActivate($("pp_add"),async()=>{ const f=$("pp_first").value.trim(),l=$("pp_last").value.trim(),em=$("pp_email").value.trim(); if(!f||!l){toast("Enter first and last name");return;} if(em&&!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");return;} if(!fbReady){toast("No connection");return;} const id=personId(f,l); try{ await setDoc(doc(db,"people",id),{first:f,last:l,nameNorm:nameNorm(f,l),email:em,updatedAt:serverTimestamp()},{merge:true}); $("pp_first").value="";$("pp_last").value="";$("pp_email").value=""; toast("Saved "+f); setTimeout(renderPeople,400); }catch(e){toast("Failed: "+(e.code||e.message));} });
 document.addEventListener("click",async e=>{ const sv=e.target.closest("[data-psave]"); if(sv){ const id=sv.dataset.psave; const inp=document.querySelector(`[data-pemail="${id}"]`); const em=inp?inp.value.trim():""; if(em&&!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");return;} if(!fbReady){toast("No connection");return;} try{ await setDoc(doc(db,"people",id),{email:em,updatedAt:serverTimestamp()},{merge:true}); toast("Email saved"); }catch(err){toast("Failed");} } });
 
@@ -3795,6 +3934,14 @@ document.addEventListener("click",e=>{
   const cr=e.target.closest("#calRefreshBtn"); if(cr){ if(!wdConnected()){ toast("Connect Webduct in Admin first"); return; } cr.disabled=true; cr.textContent="⟳ Syncing…"; wdAutoSync({manual:true}).finally(()=>{ cr.disabled=false; cr.textContent="⟳ Refresh"; }); return; }
   if(e.target.closest("#calWinApply")){ wdSaveWindow(parseInt($("calWinBack").value||"0",10), parseInt($("calWinFwd").value||"0",10)); wdSyncWindowInputs(); toast("Window set: "+wdWindowLabel()+" — refreshing"); if(wdConnected()) wdAutoSync({manual:true}); return; }
   if(e.target.closest("#wn_x")){ closeModal("notesModal"); return; }
+  if(e.target.closest("#btnTutorial")){ openTutorial(); return; }
+  if(e.target.closest("#lockSignIn")){ openName(); return; }
+  if(e.target.closest("#tutX")||e.target.closest("#tutSkip1")||e.target.closest("#tutSkip2")){ tutFinish(); return; }
+  if(e.target.closest("#tutPickShip")){ tutStart(TUT_SHIP,"Shipping Dept"); return; }
+  if(e.target.closest("#tutPickField")){ tutStart(TUT_FIELD,"Field / Office"); return; }
+  if(e.target.closest("#tutBack")){ if(TUT_I>0){TUT_I--; tutRender();} return; }
+  if(e.target.closest("#tutNext")){ if(TUT_I<TUT_LIST.length-1){TUT_I++; tutRender();} else tutFinish(); return; }
+  const pacc=e.target.closest("[data-paccess]"); if(pacc){ e.stopPropagation(); const id=pacc.dataset.paccess; const cur=pacc.dataset.cur||""; const next=cur===""?"allowed":(cur==="allowed"?"blocked":""); if(fbReady){ setDoc(doc(db,"people",id),{access:next,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast(next==="allowed"?"Access allowed":next==="blocked"?"Access blocked":"Back to auto (by email)")).catch(()=>toast("Couldn't save")); } return; }
   if(e.target.closest("#tp_x")){ closeModal("timeModal"); return; }
   if(e.target.closest("#pk_x")){ closeModal("pairModal"); return; }
   if(e.target.closest("#pk_full")){ wdDoPair(false); return; }
