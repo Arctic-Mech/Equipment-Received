@@ -54,7 +54,14 @@
   /* Tutorial spotlight. The giant box-shadow spread darkens the WHOLE screen except
      the highlighted element — it punches a hole around it. Impossible to miss. */
   body.tut-live #tutModal{background:transparent;backdrop-filter:none}
-  body.tut-live #tutModal .modal{max-height:50vh;box-shadow:0 -6px 34px rgba(0,0,0,.5)}
+  body.tut-live #tutModal .modal{max-height:44vh;box-shadow:0 -6px 34px rgba(0,0,0,.5)}
+  /* When the tutorial opens the real log form, dock it to the TOP so the tutorial sheet
+     at the bottom doesn't sit on top of it, and neutralise its own dimmer. */
+  body.tut-live #logModal{background:transparent;backdrop-filter:none;align-items:flex-start;z-index:95}
+  body.tut-live #logModal .modal{max-height:54vh;border-radius:0 0 20px 20px;box-shadow:0 6px 30px rgba(0,0,0,.35)}
+  body.tut-live #logModal .modal-grip{display:none}
+  /* A tutorial example must never become a real arrival. */
+  body.tut-live #logSubmit{pointer-events:none;opacity:.45}
   /* The 9999px spread gets clipped by any ancestor with overflow, and trapped by any
      ancestor stacking context. Neutralize both — but only while the tutorial runs. */
   body.tut-live .tabs{overflow:visible}
@@ -1550,7 +1557,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="7.3";
+const APP_VERSION="7.4";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -2058,11 +2065,11 @@ function applyAccess(){
 // Shipping's job is logging what shows up: the entry, the photo, and where it's stored.
 // Deliberately does NOT cover deliveries/pairing/rentals — that's not their workflow.
 const TUT_SHIP=[
- ["Log everything that arrives","This is the whole job. Material shows up → tap <b>Log Arrival</b> and record it. That's what makes it findable for everyone else.","#btnLog","admin",tutGrantAdmin],
- ["What goes in","Job #, what it is, the supplier, where you put it. Job # and description are the only required ones — but the more you fill in, the less anyone has to come ask you.","#btnLog","admin",tutGrantAdmin],
- ["Name it like Webduct","<b>This one matters.</b> Type the description the way the order reads in Webduct. When the wording matches, the app links the order to what you logged automatically — nobody has to pair it up by hand later.","#btnLog","admin",tutGrantAdmin],
- ["Where you stored it","In the form there's a <b>Stored at</b> field — the one people rely on most. \"Building 3\", \"Rack B-4\", \"back of the yard\" — whatever tells someone where to walk. Without it they're calling you.","#btnLog","admin",tutGrantAdmin],
- ["Take a photo","Snap a picture as you log it — there's an <b>Add photo</b> button right in the form. A photo answers questions no description can: is it the right part, is it damaged, how many pallets.","#btnLog","admin",tutGrantAdmin],
+ ["Start in Admin","Everything you log starts on the <b>Admin</b> tab. It's PIN protected — <b>ask your supervisor for the PIN</b> if you don't have it. (We've unlocked it just for this walkthrough.)","[data-view='admin']","admin",tutGrantAdmin],
+ ["Log Arrival","Once you're in, this is the button. Material shows up → tap <b>Log Arrival</b>. That's the whole job — logging it is what makes it findable for everyone else.","#btnLog","admin",tutGrantAdmin],
+ ["This is the form","Here's the real card, filled in as an example. Job # and description are the only required ones — but the more you fill in, the less anyone has to come ask you.","#f_desc","admin",tutOpenLogForm],
+ ["Where you stored it","<b>Stored at</b> is the field people rely on most. \"Building 3\", \"Rack B-4\", \"back of the yard\" — whatever tells someone where to walk. Leave it blank and they're calling you.","#f_location","admin",tutOpenLogForm],
+ ["Take a photo","Snap a picture as you log it. A photo answers questions no description can: is it the right part, is it damaged, how many pallets came.","#f_photoBtn","admin",tutOpenLogForm],
  ["Adding a photo later","Missed it? The 📷 button on any arrival card adds one anytime. Your name gets attached so people know who shot it.","[data-cam]","feed"],
  ["Fixing a log entry","Tap a card to open it — edit anything, add photos, or delete it if it was a mistake. Everyone sees the change instantly.",".acard","feed"],
  ["Finding what you stored","Search by job #, item, or supplier. Each card shows 📍 where it's stored and who logged it — so you can answer \"where's my stuff\" without walking the yard.","#feedSearch","feed"],
@@ -2124,6 +2131,36 @@ function tutRestoreAdmin(){
   const was=TUT_ADMIN_WAS; TUT_ADMIN_WAS=null;
   if(adminUnlocked!==was){ adminUnlocked=was; try{ syncAdminView(); }catch(_){} try{ renderAll(); }catch(_){} }
 }
+// The logging steps open the REAL log form with a realistic example filled in, so the
+// crew sees the actual card rather than a button. Cleared + closed when they move on;
+// Save is disabled while the tutorial runs so a sample can't become a real arrival.
+function tutOpenLogForm(){
+  tutGrantAdmin();
+  try{
+    editing=null;
+    $("logTitle").textContent="Log Arrival — example";
+    $("logDelete").style.display="none";
+    $("f_date").value=todayIso();
+    $("f_job").value="26-0093";
+    $("f_jobname").value="PCC Rock Creek";
+    $("f_po").value="112989";
+    $("f_desc").value='6) L212 - 2" bend 1/8"';
+    $("f_supplier").value="Ferguson";
+    $("f_location").value="Rack B-4";
+    $("f_req").value="";
+    $("jobnameHint").textContent="";
+    if(typeof logPhotoReset==="function") logPhotoReset();
+    openModal("logModal");
+  }catch(_){}
+}
+function tutCloseLogForm(){
+  try{
+    closeModal("logModal");
+    ["f_po","f_job","f_req","f_jobname","f_desc","f_supplier","f_location"].forEach(i=>{ const el=$(i); if(el) el.value=""; });
+    $("logTitle").textContent="Log Arrival";
+    if(typeof logPhotoReset==="function") logPhotoReset();
+  }catch(_){}
+}
 function tutOpenJobCard(seg){
   try{
     TUT_DEMO=true;
@@ -2146,8 +2183,9 @@ function tutRender(){
   $("tutStepTitle").textContent=t; $("tutStepBody").innerHTML=b;
   $("tutBack").style.visibility=TUT_I===0?"hidden":"visible";
   $("tutNext").textContent=TUT_I===TUT_LIST.length-1?"Done ✓":"Next ›";
-  // Switch to the tab this step lives on, run any setup (open a card, flip a segment),
-  // then spotlight the element it describes.
+  // Switch to the tab this step lives on, run any setup (open the log form, open a card,
+  // flip a segment), then spotlight the element it describes.
+  if(setup!==tutOpenLogForm) tutCloseLogForm();
   if(tab && typeof setView==="function"){ try{ setView(tab); }catch(_){} }
   if(typeof setup==="function"){ try{ setup(); }catch(_){} }
   tutClearSpot();
@@ -2163,7 +2201,7 @@ function tutRender(){
     },90);
   }
 }
-function tutFinish(){ localStorage.setItem("tut_done","1"); document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); tutRestoreAdmin(); closeModal("tutModal"); }
+function tutFinish(){ localStorage.setItem("tut_done","1"); document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); tutCloseLogForm(); tutRestoreAdmin(); closeModal("tutModal"); }
 
 /* ---------- Manual import trigger (GitHub workflow_dispatch) ---------- */
 // Repo details are fixed — no reason to make anyone type them. Only the token is
