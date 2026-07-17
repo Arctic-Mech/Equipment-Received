@@ -45,6 +45,8 @@
   .who-name{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:12px;color:var(--ink);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .export-btn{display:flex;align-items:center;gap:6px;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:12px;color:#1a6b32;background:#e7f5ec;border:1px solid #b9e2c7;padding:6px 10px;border-radius:9px;white-space:nowrap}
   .tut-btn{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:12px;color:#1f6fe0;background:#e8f0fd;border:1px solid #bcd4f6;padding:6px 10px;border-radius:9px;white-space:nowrap}
+  .run-import{flex:none;font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:12px;color:#fff;background:var(--hivis);padding:8px 12px;border-radius:9px;white-space:nowrap}
+  .run-import:disabled{opacity:.55}
   .acc-chip{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:10px;padding:2px 8px;border-radius:9px;margin-left:6px;vertical-align:middle}
   .acc-chip.acc-on{background:#cdeede;color:#0d7a73}
   .acc-chip.acc-off{background:#fbe0da;color:#c0341a}
@@ -831,6 +833,18 @@
   <button class="submit" id="lockSignIn" style="max-width:220px;margin:18px auto 0">Sign in</button>
 </div>
 
+<!-- MANUAL IMPORT TRIGGER SETUP (one-time) -->
+<div class="modal-back" id="ghModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3>Set up Run Import</h3><button class="x" id="ghX">✕</button></div>
+  <div class="modal-body">
+    <p style="font-size:12.5px;color:var(--steel);line-height:1.45;margin:0 0 12px">One-time setup so the <b>Run import now</b> button can start the email import for everyone. Needs a GitHub fine-grained token with <b>Actions: Read and write</b> on the repo (github.com → Settings → Developer settings → Fine-grained tokens).</p>
+    <div class="field-2"><div class="field"><label>Repo owner</label><input id="ghOwner" type="text" placeholder="e.g. arctic-mech" autocomplete="off" spellcheck="false"></div><div class="field"><label>Repo name</label><input id="ghRepo" type="text" placeholder="e.g. Equipment-Received" autocomplete="off" spellcheck="false"></div></div>
+    <div class="field-2"><div class="field"><label>Branch</label><input id="ghBranch" type="text" placeholder="main" autocomplete="off" spellcheck="false"></div><div class="field"><label>Token</label><input id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off"></div></div>
+    <button class="submit" id="ghSave">Save</button>
+    <div class="hint" id="ghHint" style="margin-top:8px"></div>
+  </div>
+</div></div>
+
 <!-- TUTORIAL MODAL -->
 <div class="modal-back" id="tutModal"><div class="modal"><div class="modal-grip"></div>
   <div class="modal-head"><h3 id="tutTitle">Welcome!</h3><button class="x" id="tutX">✕</button></div>
@@ -864,7 +878,7 @@
       <div class="selwrap"><select class="filter" id="monthSel"><option value="">All months</option></select></div>
     </div>
     <div class="meta-row"><span id="feedMeta">Loading…</span><span>Newest first</span></div>
-    <div class="auto-import" id="autoImport" style="display:none"></div>
+    <div style="display:flex;gap:8px;align-items:flex-start;margin:0 14px 10px"><div class="auto-import" id="autoImport" style="display:none;flex:1;margin:0"></div><button class="run-import" id="runImportBtn" style="display:none">▶ Run import now</button></div>
     <div id="feedList" class="rows"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
     </div>
     <div id="arrCalWrap" style="display:none">
@@ -1510,7 +1524,7 @@ function copyToClipboard(text){
 }
 
 /* ---------- Sync ---------- */
-const APP_VERSION="6.3";
+const APP_VERSION="6.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
@@ -1525,6 +1539,7 @@ function startSync(){
   onSnapshot(doc(db,"config","lastSync"),snap=>{ if(snap.exists()){ WD_LAST_SYNC=snap.data(); wdRenderLastSync(); } }, e=>console.error("lastSync",e));
   onSnapshot(doc(db,"config","lastImport"),snap=>{ if(snap.exists()){ LAST_IMPORT=snap.data(); renderAutoImport(); } }, e=>console.error("lastImport",e));
   onSnapshot(doc(db,"config","lastToolImport"),snap=>{ if(snap.exists()){ LAST_TOOL_IMPORT=snap.data(); renderAutoImport(); } }, e=>console.error("lastToolImport",e));
+  onSnapshot(doc(db,"config","ghActions"),snap=>{ GH_CFG=snap.exists()?snap.data():null; ghRenderBtn(); }, e=>console.error("ghActions",e));
   onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>console.error("webductOrderNotes",e));
   onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>console.error("webductEquipNotes",e));
   wdWatchAdminKey();
@@ -1630,6 +1645,7 @@ function refreshMonths(){
 /* ---------- Render: Arrivals ---------- */
 function renderFeed(){
   if(typeof renderAutoImport==="function") renderAutoImport();
+  if(typeof ghRenderBtn==="function") ghRenderBtn();
   if(arrViewMode==="cal" && typeof renderArrCalendar==="function") renderArrCalendar();
   const q=$("feedSearch").value.trim().toLowerCase(),month=$("monthSel").value;
   $("feedClr").style.display=q?"block":"none";
@@ -2038,6 +2054,47 @@ function tutRender(){
   $("tutNext").textContent=TUT_I===TUT_LIST.length-1?"Done ✓":"Next ›";
 }
 function tutFinish(){ localStorage.setItem("tut_done","1"); closeModal("tutModal"); }
+
+/* ---------- Manual import trigger (GitHub workflow_dispatch) ---------- */
+let GH_CFG=null;   // {owner, repo, branch, token} from config/ghActions — shared with the team
+let ghCooldown=0;
+function ghRenderBtn(){
+  const b=$("runImportBtn"); if(b) b.style.display="block";   // always there for everyone
+  if(GH_CFG){ const o=$("ghOwner"),r=$("ghRepo"),br=$("ghBranch");
+    if(o&&!o.value)o.value=GH_CFG.owner||""; if(r&&!r.value)r.value=GH_CFG.repo||""; if(br&&!br.value)br.value=GH_CFG.branch||""; }
+}
+async function ghSaveCfg(){
+  const owner=$("ghOwner").value.trim(), repo=$("ghRepo").value.trim();
+  const branch=$("ghBranch").value.trim()||"main", token=$("ghToken").value.trim();
+  if(!owner||!repo||!token){ $("ghHint").textContent="Owner, repo, and token are all required."; return; }
+  if(!fbReady){ toast("No connection"); return; }
+  try{
+    await setDoc(doc(db,"config","ghActions"),{owner,repo,branch,token,updatedAt:serverTimestamp()},{merge:true});
+    $("ghToken").value="";
+    closeModal("ghModal");
+    toast("Saved — tap Run import now again to start it");
+  }catch(e){ console.error(e); $("ghHint").textContent="Couldn't save — check the config Firestore rule."; }
+}
+async function ghRunImport(){
+  if(!GH_CFG||!GH_CFG.token){ openModal("ghModal"); return; }   // first use: set it up right here
+  if(Date.now()<ghCooldown){ toast("Already triggered — give it a minute"); return; }
+  // If today's sheet is already in, a plain run would no-op; offer force instead.
+  const alreadyToday=!!(LAST_IMPORT&&LAST_IMPORT.at&&sameLocalDay(LAST_IMPORT.at,Date.now()));
+  const force=alreadyToday?confirm("Today's sheet is already imported. Force a re-import of the newest email?"):false;
+  if(alreadyToday&&!force) return;
+  const b=$("runImportBtn"); b.disabled=true; b.textContent="Starting…";
+  try{
+    const r=await fetch(`https://api.github.com/repos/${encodeURIComponent(GH_CFG.owner)}/${encodeURIComponent(GH_CFG.repo)}/actions/workflows/email-arrivals.yml/dispatches`,{
+      method:"POST",
+      headers:{ "Accept":"application/vnd.github+json", "Authorization":"Bearer "+GH_CFG.token, "X-GitHub-Api-Version":"2022-11-28" },
+      body:JSON.stringify({ ref:GH_CFG.branch||"main", inputs:{ dry_run:"false", force:force?"true":"false" } })
+    });
+    if(r.status===204){ ghCooldown=Date.now()+60000; toast("Import started — results in ~1-2 min"); b.textContent="Running…"; setTimeout(()=>{ b.disabled=false; b.textContent="▶ Run import now"; },60000); }
+    else if(r.status===401||r.status===403){ toast("GitHub rejected the token — re-save it in Admin"); b.disabled=false; b.textContent="▶ Run import now"; }
+    else if(r.status===404){ toast("Repo/workflow not found — check owner + repo in Admin"); b.disabled=false; b.textContent="▶ Run import now"; }
+    else { toast("GitHub said "+r.status); b.disabled=false; b.textContent="▶ Run import now"; }
+  }catch(e){ console.error(e); toast("Couldn't reach GitHub"); b.disabled=false; b.textContent="▶ Run import now"; }
+}
 
 // (Legacy Webduct-login handlers removed — sign-in is now name + email only.
 //  Webduct order pulls use the shared admin key, loaded from Firebase.)
@@ -3935,6 +3992,9 @@ document.addEventListener("click",e=>{
   if(e.target.closest("#calWinApply")){ wdSaveWindow(parseInt($("calWinBack").value||"0",10), parseInt($("calWinFwd").value||"0",10)); wdSyncWindowInputs(); toast("Window set: "+wdWindowLabel()+" — refreshing"); if(wdConnected()) wdAutoSync({manual:true}); return; }
   if(e.target.closest("#wn_x")){ closeModal("notesModal"); return; }
   if(e.target.closest("#btnTutorial")){ openTutorial(); return; }
+  if(e.target.closest("#runImportBtn")){ ghRunImport(); return; }
+  if(e.target.closest("#ghX")){ closeModal("ghModal"); return; }
+  if(e.target.closest("#ghSave")){ ghSaveCfg(); return; }
   if(e.target.closest("#lockSignIn")){ openName(); return; }
   if(e.target.closest("#tutX")||e.target.closest("#tutSkip1")||e.target.closest("#tutSkip2")){ tutFinish(); return; }
   if(e.target.closest("#tutPickShip")){ tutStart(TUT_SHIP,"Shipping Dept"); return; }
