@@ -449,6 +449,30 @@
   .acard.compact .ac-job,.acard.compact .ac-name{display:none}
   .acard.compact .acard-head{grid-template-columns:1fr auto;grid-template-areas:"desc icons" "foot foot"}
 
+  /* Survive a zoomed-in browser. Safari page zoom shrinks the effective viewport — at 125%
+     a 390px phone lays out as 312px — and iOS deliberately ignores maximum-scale for
+     accessibility, so we can't stop people zooming. The icon row is fixed-width and was
+     holding the page to a 331px floor, which made everything scroll sideways and look
+     broken. Below 360px, give the icons their own row and let them wrap: zoomed-in users
+     get a correct narrow layout instead of a broken wide one. */
+  @media (max-width:360px){
+    .acard-head{grid-template-columns:auto 1fr;grid-template-areas:"job name" "icons icons" "desc desc" "foot foot"}
+    .acard.compact .acard-head{grid-template-columns:1fr;grid-template-areas:"desc" "icons" "foot"}
+    .ac-icons{flex-wrap:wrap;justify-content:flex-end}
+    /* The header was the other floor. The logo is 681x120, so at height:30px it is 170px
+       wide, and as a flex item it will not shrink past its intrinsic size. Let the row wrap
+       so the buttons drop to their own line, let the logo scale down, and drop the wordmark
+       — the logo and the tab bar still identify the app. */
+    .appbar{padding-left:10px;padding-right:10px}
+    .appbar-row{flex-wrap:wrap}
+    .brand{flex:1 1 100%}
+    .brand .divider,.brand .appname{display:none}
+    .brand img{min-width:0;max-width:100%;height:auto;max-height:30px}
+    /* "Run import now" is 154px wide and carries flex:none, i.e. flex-shrink:0, so it could
+       never compress. Allow it to shrink and wrap rather than push the whole page sideways. */
+    .run-import{white-space:normal;min-width:0;flex:0 1 auto}
+  }
+
   /* ---------- PDF viewer ---------- */
   .pdf-modal .modal{max-width:760px;height:92vh}
   .pdf-toolbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--card)}

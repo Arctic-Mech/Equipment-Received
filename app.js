@@ -1059,8 +1059,11 @@ async function wdDoPair(partial){
   if(thenDeliver && order){
     // Mark the arrival delivered using the order's scheduled date.
     const schedIso=order.requestedDate||order.deliveryDate||order.orderedDate||"";
-    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=d.toISOString().slice(0,10); }
-    if(!schedDate) schedDate=(new Date()).toISOString().slice(0,10);
+    // Local calendar day, not UTC. toISOString() rolls over at 5pm Pacific, so anything
+    // checked off in the evening was being dated tomorrow. fmtDateKey/todayIso read the
+    // local day, matching what the manual delivery modal already writes.
+    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=fmtDateKey(d); }
+    if(!schedDate) schedDate=todayIso();
     try{ await setDoc(doc(db,"arrivals",arrivalId),{delivered:true,deliveredDate:schedDate,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error(e); }
     toast(partial?"Delivered (partial)":"Marked delivered");
   } else {
@@ -1458,8 +1461,11 @@ async function wdToggleItemGathered(docId, ik){
     // Use the order's SCHEDULED delivery date (requested/delivery), not today — deliveries are often
     // checked off the day before while prepping. Fall back to today only if the order has no date.
     const schedIso=o.requestedDate||o.deliveryDate||o.orderedDate||"";
-    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=d.toISOString().slice(0,10); }
-    if(!schedDate) schedDate=(new Date()).toISOString().slice(0,10);
+    // Local calendar day, not UTC. toISOString() rolls over at 5pm Pacific, so anything
+    // checked off in the evening was being dated tomorrow. fmtDateKey/todayIso read the
+    // local day, matching what the manual delivery modal already writes.
+    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=fmtDateKey(d); }
+    if(!schedDate) schedDate=todayIso();
     const patch=nowChecked?{delivered:true, deliveredDate:schedDate}:{delivered:false, deliveredDate:""};
     await setDoc(doc(db,"arrivals",eq.arrivalId),{...patch,updatedAt:serverTimestamp()},{merge:true});
     toast(nowChecked?"Marked delivered":"Delivery cleared");
