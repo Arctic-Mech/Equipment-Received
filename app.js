@@ -946,9 +946,16 @@ const GH_OWNER="Arctic-Mech", GH_REPO="Equipment-Received", GH_BRANCH="main";
 const GH_WORKFLOW="email-arrivals.yml";
 let GH_CFG=null;   // {token} from config/ghActions — shared with the team
 let ghCooldown=0;
+// Re-running the import by hand is an escape hatch for whoever looks after the sheet, not
+// something the whole crew needs staring at them. It stays hidden until someone taps the
+// "Last updated … · emailed … · N rows" banner, which reveals it; tapping again hides it.
+// Deliberately no cursor or hover hint — if you don't already know it's there, you won't
+// find it by accident, which is the point.
+let ghRevealed=false;
 function ghRenderBtn(){
-  const b=$("runImportBtn"); if(b) b.style.display="block";   // always there for everyone
+  const b=$("runImportBtn"); if(b) b.style.display=ghRevealed?"block":"none";
 }
+onActivate($("autoImport"),()=>{ ghRevealed=!ghRevealed; ghRenderBtn(); });
 async function ghSaveCfg(){
   const token=$("ghToken").value.trim();
   if(!token){ $("ghHint").textContent="Paste the token to save."; return; }
