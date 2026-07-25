@@ -368,7 +368,7 @@ function rentalLine(r){
   return `<div class="tline" data-type="rental" data-id="${esc(r.id)}">
     <div class="tl-tool">${esc(r.equipment)||"Equipment"}${r.rentalId?` <span class="tid">${esc(r.rentalId)}</span>`:""}</div>
     <div class="tl-status"><span class="status ${ret?'returned':'renting'}">${esc(r.status||"Renting")}</span></div>
-    <div class="tl-meta"><span>Rented <b>${esc(longDate(r.dateRented).split(",")[0])||"—"}</b></span><span>Returned <b>${ret&&r.dateReturned?esc(longDate(r.dateReturned).split(",")[0]):"—"}</b></span>${r.rate?`<span>Rate <b>${esc(r.rate)}</b></span>`:""}${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}${r.po?`<span>PO <b>${esc(r.po)}</b></span>`:""}${r.orderedBy?`<span>By <b>${esc(r.orderedBy)}</b></span>`:""}</div>
+    <div class="tl-meta"><span>Rented <b>${esc(longDate(r.dateRented).split(",")[0])||"—"}</b></span><span>Returned <b>${ret&&r.dateReturned?esc(longDate(r.dateReturned).split(",")[0]):"—"}</b></span>${r.rate?`<span class="tl-rate">Rate ${rateChips(r.rate)}</span>`:""}${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}${r.po?`<span>PO <b>${esc(r.po)}</b></span>`:""}${r.orderedBy?`<span>By <b>${esc(r.orderedBy)}</b></span>`:""}</div>
     ${adminUnlocked?`<div class="tl-act">${adminActs("rental",r.id)}</div>`:""}
   </div>`;
 }

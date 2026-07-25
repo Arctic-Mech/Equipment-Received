@@ -21,7 +21,12 @@ function longDate(iso){ if(!iso)return""; const[y,mo,da]=iso.split("-").map(Numb
 function todayIso(){ return fmtDateKey(new Date()); }
 function monthKey(iso){ return iso?iso.slice(0,7):""; }
 function monthLabel(k){ const[y,m]=k.split("-").map(Number); return MON[m-1]+" "+y; }
-function rateChips(rate){ if(!rate)return""; const parts=String(rate).split("/").map(s=>s.replace(/,+$/,"").trim()).filter(Boolean); const labels=["Daily","Weekly","Monthly"]; if(parts.length>=2&&parts.length<=3) return `<div class="rate-line">${parts.map((p,i)=>`<span class="rate-chip"><span class="rl">${labels[i]}</span><b>${esc(p)}</b></span>`).join("")}</div>`; return `<span class="v">${esc(rate)}</span>`; }
+// Daily/Weekly/Monthly are assigned by POSITION, so only label a split rate when every part is
+// actually a number. The Rate column is free text, and "$310/wk" would otherwise render as
+// Daily $310 / Weekly "wk". Anything that isn't a clean 2-3 number split falls through to the
+// rate printed as-is, which is always correct if less pretty.
+const rateNum=p=>/^\$?\s*\d[\d,]*(\.\d+)?$/.test(p);
+function rateChips(rate){ if(!rate)return""; const parts=String(rate).split("/").map(s=>s.replace(/,+$/,"").trim()).filter(Boolean); const labels=["Daily","Weekly","Monthly"]; if(parts.length>=2&&parts.length<=3&&parts.every(rateNum)) return `<div class="rate-line">${parts.map((p,i)=>`<span class="rate-chip"><span class="rl">${labels[i]}</span><b>${esc(p)}</b></span>`).join("")}</div>`; return `<span class="v">${esc(rate)}</span>`; }
 function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(s==="-"||s==="")return"—"; return s.startsWith("$")?s:"$"+s; }
 
 export {

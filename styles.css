@@ -419,6 +419,10 @@
   .tline .tl-status{grid-column:2;justify-self:end}
   .tline .tl-meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--steel);margin-top:1px}
   .tline .tl-meta span b{font-family:'JetBrains Mono';color:var(--ink-soft);font-weight:700}
+  /* rateChips() emits a block .rate-line, which would drop the chips onto their own line.
+     Keep the "Rate" label and its chips on one line like every other .tl-meta entry. */
+  .tline .tl-meta .tl-rate{display:inline-flex;align-items:baseline;gap:6px}
+  .tline .tl-meta .tl-rate .rate-line{display:inline-flex;gap:8px}
   .tline .tl-act{grid-column:1/-1;display:flex;gap:3px;justify-content:flex-end;margin-top:4px}
   .tline .status{font-size:9.5px;padding:2px 7px}
   /* Equipment rental job cards — blue variant of the tool card */
