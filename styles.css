@@ -102,6 +102,8 @@
   .sync-dot i{width:8px;height:8px;border-radius:50%;background:var(--steel-light);display:block}
   .sync-dot.live i{background:var(--green);box-shadow:0 0 0 3px rgba(31,157,87,.2)}
   .sync-dot.err i{background:var(--hivis)}
+  /* Serving the offline cache: real data, but as of the last time there was signal. */
+  .sync-dot.cache i{background:var(--amber)}
 
   .tabs{display:flex;gap:0;margin-top:12px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
   .tabs::-webkit-scrollbar{display:none}
@@ -419,6 +421,10 @@
   .tline .tl-status{grid-column:2;justify-self:end}
   .tline .tl-meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--steel);margin-top:1px}
   .tline .tl-meta span b{font-family:'JetBrains Mono';color:var(--ink-soft);font-weight:700}
+  /* rateChips() emits a block .rate-line, which would drop the chips onto their own line.
+     Keep the "Rate" label and its chips on one line like every other .tl-meta entry. */
+  .tline .tl-meta .tl-rate{display:inline-flex;align-items:baseline;gap:6px}
+  .tline .tl-meta .tl-rate .rate-line{display:inline-flex;gap:8px}
   .tline .tl-act{grid-column:1/-1;display:flex;gap:3px;justify-content:flex-end;margin-top:4px}
   .tline .status{font-size:9.5px;padding:2px 7px}
   /* Equipment rental job cards — blue variant of the tool card */
@@ -442,6 +448,30 @@
   /* compact arrival card (My Jobs — job tag/name already shown by folder) */
   .acard.compact .ac-job,.acard.compact .ac-name{display:none}
   .acard.compact .acard-head{grid-template-columns:1fr auto;grid-template-areas:"desc icons" "foot foot"}
+
+  /* Survive a zoomed-in browser. Safari page zoom shrinks the effective viewport — at 125%
+     a 390px phone lays out as 312px — and iOS deliberately ignores maximum-scale for
+     accessibility, so we can't stop people zooming. The icon row is fixed-width and was
+     holding the page to a 331px floor, which made everything scroll sideways and look
+     broken. Below 360px, give the icons their own row and let them wrap: zoomed-in users
+     get a correct narrow layout instead of a broken wide one. */
+  @media (max-width:360px){
+    .acard-head{grid-template-columns:auto 1fr;grid-template-areas:"job name" "icons icons" "desc desc" "foot foot"}
+    .acard.compact .acard-head{grid-template-columns:1fr;grid-template-areas:"desc" "icons" "foot"}
+    .ac-icons{flex-wrap:wrap;justify-content:flex-end}
+    /* The header was the other floor. The logo is 681x120, so at height:30px it is 170px
+       wide, and as a flex item it will not shrink past its intrinsic size. Let the row wrap
+       so the buttons drop to their own line, let the logo scale down, and drop the wordmark
+       — the logo and the tab bar still identify the app. */
+    .appbar{padding-left:10px;padding-right:10px}
+    .appbar-row{flex-wrap:wrap}
+    .brand{flex:1 1 100%}
+    .brand .divider,.brand .appname{display:none}
+    .brand img{min-width:0;max-width:100%;height:auto;max-height:30px}
+    /* "Run import now" is 154px wide and carries flex:none, i.e. flex-shrink:0, so it could
+       never compress. Allow it to shrink and wrap rather than push the whole page sideways. */
+    .run-import{white-space:normal;min-width:0;flex:0 1 auto}
+  }
 
   /* ---------- PDF viewer ---------- */
   .pdf-modal .modal{max-width:760px;height:92vh}
@@ -658,7 +688,10 @@
   .cal-layout{display:block}
   .cal-lastsync{font-size:11px;color:var(--steel-light);margin-bottom:8px}
   .arr-viewseg button{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-  .auto-import{margin:0 14px 10px;padding:7px 11px;background:var(--teal-soft);border:1px solid #bfe3de;border-radius:8px;font-size:12px;color:var(--teal)}
+  /* Tappable (it reveals the manual import button) — touch-action stops iOS treating a
+     quick second tap as double-tap-to-zoom. No cursor change: the reveal is meant to be
+     unobtrusive, not advertised. */
+  .auto-import{margin:0 14px 10px;padding:7px 11px;background:var(--teal-soft);border:1px solid #bfe3de;border-radius:8px;font-size:12px;color:var(--teal);touch-action:manipulation}
   .ai-next{display:block;margin-top:3px;font-size:10.5px;opacity:.75}
   .cal-daycount{color:rgba(255,255,255,.85);font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:13px;margin:2px 0 8px}
   .cal-cnt{position:absolute;top:3px;right:4px;font-family:'JetBrains Mono';font-size:9px;font-weight:700;color:var(--steel-light)}

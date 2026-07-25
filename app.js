@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp }
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+         collection, onSnapshot, doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 /* Pure helpers, split out of this file. Relative paths so they resolve under the
@@ -15,7 +16,19 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudf
 
 const firebaseConfig={apiKey:"AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",authDomain:"equipment-received.firebaseapp.com",projectId:"equipment-received",storageBucket:"equipment-received.firebasestorage.app",messagingSenderId:"164676400073",appId:"1:164676400073:web:552cc0e3dcc8e06951ae18"};
 let db=null,fbReady=false;
-try{ db=getFirestore(initializeApp(firebaseConfig)); fbReady=true; }catch(e){ console.error("FB",e); }
+/* Offline cache. Crews open this on job sites with no signal; without it the app showed
+   "Can't reach Firebase" and nothing else, even for data loaded minutes earlier. With the
+   persistent cache the last synced arrivals/rentals still render, and edits queue locally
+   and flush when signal returns. Multi-tab manager because people leave this open on a
+   desktop as well as a phone. Falls back to the plain in-memory client if the browser
+   refuses persistence (private browsing, storage full, an older engine) — losing offline
+   is better than losing the app. */
+try{
+  const fbApp=initializeApp(firebaseConfig);
+  try{ db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})}); }
+  catch(e){ console.warn("Offline cache unavailable, using memory-only Firestore",e); db=getFirestore(fbApp); }
+  fbReady=true;
+}catch(e){ console.error("FB",e); }
 
 /* ---------- State ---------- */
 let ARRIVALS=[],RENTALS=[],TOOLS=[];
@@ -225,10 +238,13 @@ function clearNotif(){ if(!confirm("Clear all new-arrival alerts on My Jobs?"))r
 
 /* ---------- Sync ---------- */
 const APP_VERSION="7.5";
-function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":"Connecting"; }
+// "cache" means the offline cache answered — real rows, but as of the last time there was
+// signal. Saying "Live" there would be a lie, and on a job site knowing your data is stale
+// is the whole point.
+function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":s==="cache"?"cache":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":s==="cache"?"Saved data":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
-  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; setSync("live"); autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
+  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; setSync(snap.metadata&&snap.metadata.fromCache?"cache":"live"); autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
   onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("rentList",e.code);});
   onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("toolList",e.code);});
   onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>console.error("pdfmeta",e));
@@ -368,7 +384,7 @@ function rentalLine(r){
   return `<div class="tline" data-type="rental" data-id="${esc(r.id)}">
     <div class="tl-tool">${esc(r.equipment)||"Equipment"}${r.rentalId?` <span class="tid">${esc(r.rentalId)}</span>`:""}</div>
     <div class="tl-status"><span class="status ${ret?'returned':'renting'}">${esc(r.status||"Renting")}</span></div>
-    <div class="tl-meta"><span>Rented <b>${esc(longDate(r.dateRented).split(",")[0])||"—"}</b></span><span>Returned <b>${ret&&r.dateReturned?esc(longDate(r.dateReturned).split(",")[0]):"—"}</b></span>${r.rate?`<span>Rate <b>${esc(r.rate)}</b></span>`:""}${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}${r.po?`<span>PO <b>${esc(r.po)}</b></span>`:""}${r.orderedBy?`<span>By <b>${esc(r.orderedBy)}</b></span>`:""}</div>
+    <div class="tl-meta"><span>Rented <b>${esc(longDate(r.dateRented).split(",")[0])||"—"}</b></span><span>Returned <b>${ret&&r.dateReturned?esc(longDate(r.dateReturned).split(",")[0]):"—"}</b></span>${r.rate?`<span class="tl-rate">Rate ${rateChips(r.rate)}</span>`:""}${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}${r.po?`<span>PO <b>${esc(r.po)}</b></span>`:""}${r.orderedBy?`<span>By <b>${esc(r.orderedBy)}</b></span>`:""}</div>
     ${adminUnlocked?`<div class="tl-act">${adminActs("rental",r.id)}</div>`:""}
   </div>`;
 }
@@ -930,9 +946,16 @@ const GH_OWNER="Arctic-Mech", GH_REPO="Equipment-Received", GH_BRANCH="main";
 const GH_WORKFLOW="email-arrivals.yml";
 let GH_CFG=null;   // {token} from config/ghActions — shared with the team
 let ghCooldown=0;
+// Re-running the import by hand is an escape hatch for whoever looks after the sheet, not
+// something the whole crew needs staring at them. It stays hidden until someone taps the
+// "Last updated … · emailed … · N rows" banner, which reveals it; tapping again hides it.
+// Deliberately no cursor or hover hint — if you don't already know it's there, you won't
+// find it by accident, which is the point.
+let ghRevealed=false;
 function ghRenderBtn(){
-  const b=$("runImportBtn"); if(b) b.style.display="block";   // always there for everyone
+  const b=$("runImportBtn"); if(b) b.style.display=ghRevealed?"block":"none";
 }
+onActivate($("autoImport"),()=>{ ghRevealed=!ghRevealed; ghRenderBtn(); });
 async function ghSaveCfg(){
   const token=$("ghToken").value.trim();
   if(!token){ $("ghHint").textContent="Paste the token to save."; return; }
@@ -1043,8 +1066,11 @@ async function wdDoPair(partial){
   if(thenDeliver && order){
     // Mark the arrival delivered using the order's scheduled date.
     const schedIso=order.requestedDate||order.deliveryDate||order.orderedDate||"";
-    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=d.toISOString().slice(0,10); }
-    if(!schedDate) schedDate=(new Date()).toISOString().slice(0,10);
+    // Local calendar day, not UTC. toISOString() rolls over at 5pm Pacific, so anything
+    // checked off in the evening was being dated tomorrow. fmtDateKey/todayIso read the
+    // local day, matching what the manual delivery modal already writes.
+    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=fmtDateKey(d); }
+    if(!schedDate) schedDate=todayIso();
     try{ await setDoc(doc(db,"arrivals",arrivalId),{delivered:true,deliveredDate:schedDate,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error(e); }
     toast(partial?"Delivered (partial)":"Marked delivered");
   } else {
@@ -1442,8 +1468,11 @@ async function wdToggleItemGathered(docId, ik){
     // Use the order's SCHEDULED delivery date (requested/delivery), not today — deliveries are often
     // checked off the day before while prepping. Fall back to today only if the order has no date.
     const schedIso=o.requestedDate||o.deliveryDate||o.orderedDate||"";
-    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=d.toISOString().slice(0,10); }
-    if(!schedDate) schedDate=(new Date()).toISOString().slice(0,10);
+    // Local calendar day, not UTC. toISOString() rolls over at 5pm Pacific, so anything
+    // checked off in the evening was being dated tomorrow. fmtDateKey/todayIso read the
+    // local day, matching what the manual delivery modal already writes.
+    let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=fmtDateKey(d); }
+    if(!schedDate) schedDate=todayIso();
     const patch=nowChecked?{delivered:true, deliveredDate:schedDate}:{delivered:false, deliveredDate:""};
     await setDoc(doc(db,"arrivals",eq.arrivalId),{...patch,updatedAt:serverTimestamp()},{merge:true});
     toast(nowChecked?"Marked delivered":"Delivery cleared");

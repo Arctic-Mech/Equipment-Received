@@ -1,0 +1,33 @@
+name: JS/Python contract
+
+# normJob, makeId and fmtDateKey in format.js are mirrored in email_import.py as norm_job,
+# make_id and fmt_date_key. Both sides build Firestore document IDs from the same master
+# spreadsheet, so any disagreement writes the same row twice as a duplicate arrival.
+# This ran as a comment for a long time and drifted; now it fails the build instead.
+
+on:
+  push:
+    paths: [format.js, email_import.py, contract_check.py, .github/workflows/contract-check.yml]
+  pull_request:
+    paths: [format.js, email_import.py, contract_check.py, .github/workflows/contract-check.yml]
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # No third-party packages on purpose: the checker execs the helper block out of
+      # email_import.py rather than importing it, so openpyxl and google-cloud-firestore
+      # are not needed to verify the contract.
+      - name: Check format.js and email_import.py agree
+        run: python3 contract_check.py
