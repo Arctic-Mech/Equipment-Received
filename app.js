@@ -2,6 +2,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+/* Pure helpers, split out of this file. Relative paths so they resolve under the
+   /Equipment-Received/ Pages subpath. idb.js has no callers left (photos moved to
+   Firestore) but is imported so the module still loads with the rest. */
+import { $ } from "./dom.js";
+import { idbOpen, idbSet, idbGet, idbDel, idbKeys } from "./idb.js";
+import { toast, copyToClipboard } from "./toast.js";
+import { esc, normJob, isRealJob, makeId, fmtDateKey, MON, rowDate, longDate,
+         todayIso, monthKey, monthLabel, rateChips, money } from "./format.js";
+
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const firebaseConfig={apiKey:"AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",authDomain:"equipment-received.firebaseapp.com",projectId:"equipment-received",storageBucket:"equipment-received.firebasestorage.app",messagingSenderId:"164676400073",appId:"1:164676400073:web:552cc0e3dcc8e06951ae18"};
@@ -144,8 +153,6 @@ const EXPANDED_RENTALS=new Set();   // equipment rental job cards currently open
 const EXPANDED_ARR=new Set();       // arrival cards currently expanded
 const EXPANDED_FOLDERS=new Set();   // My Jobs folders currently open
 
-const $=id=>document.getElementById(id);
-const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* Reliable tap: fire on touchend (so a tap registers on the first try even while the
    keyboard is up) and on click for mouse, de-duplicated so it never double-fires. */
 function onActivate(el,fn){ if(!el)return; let t=0; el.addEventListener("touchend",e=>{ e.preventDefault(); t=Date.now(); fn(e); },{passive:false}); el.addEventListener("click",e=>{ if(Date.now()-t<700)return; fn(e); }); }
@@ -215,51 +222,6 @@ function updateNotif(){
   return news;
 }
 function clearNotif(){ if(!confirm("Clear all new-arrival alerts on My Jobs?"))return; SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); updateNotif(); renderJobs(); toast("All cleared"); }
-
-/* ---------- IndexedDB (photos, device-only) ---------- */
-function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open("erPhotos",1); r.onupgradeneeded=()=>r.result.createObjectStore("photos"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
-async function idbSet(k,v){ const d=await idbOpen(); return new Promise((res,rej)=>{ const t=d.transaction("photos","readwrite"); t.objectStore("photos").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }
-async function idbGet(k){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readonly"); const q=t.objectStore("photos").get(k); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }); }
-async function idbDel(k){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readwrite"); t.objectStore("photos").delete(k); t.oncomplete=()=>res(); }); }
-async function idbKeys(){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readonly"); const q=t.objectStore("photos").getAllKeys(); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>res([]); }); }
-
-/* ---------- Utils ---------- */
-function normJob(j){ return String(j==null?"":j).trim().toUpperCase(); }
-function isRealJob(j){ const n=normJob(j); return n&&n!=="NA"&&n!=="N/A"&&n!=="-"; }
-function makeId(parts){ const key=parts.join("|").toLowerCase(); let h=5381; for(let i=0;i<key.length;i++){h=((h<<5)+h)^key.charCodeAt(i);} return "a"+(h>>>0).toString(36)+key.length.toString(36); }
-function fmtDateKey(d){ if(!d)return""; if(d instanceof Date&&!isNaN(d))return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); const s=String(d).trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0"); m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){let y=m[3];if(y.length===2)y="20"+y;return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");} const p=new Date(s); if(!isNaN(p))return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0"); return""; }
-const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function rowDate(iso){ if(!iso)return{top:"—",bot:""}; const[y,mo,da]=iso.split("-").map(Number); const d=new Date(y,mo-1,da); if(isNaN(d))return{top:iso,bot:""}; const today=new Date(); today.setHours(0,0,0,0); const diff=Math.round((today-d)/86400000); const top=MON[mo-1]+" "+da; if(diff===0)return{top,bot:"Today",rel:true}; if(diff===1)return{top,bot:"Yesterday",rel:true}; return{top,bot:String(y)}; }
-function longDate(iso){ if(!iso)return""; const[y,mo,da]=iso.split("-").map(Number); if(!mo)return iso; return MON[mo-1]+" "+da+", "+y; }
-function todayIso(){ return fmtDateKey(new Date()); }
-function monthKey(iso){ return iso?iso.slice(0,7):""; }
-function monthLabel(k){ const[y,m]=k.split("-").map(Number); return MON[m-1]+" "+y; }
-function rateChips(rate){ if(!rate)return""; const parts=String(rate).split("/").map(s=>s.replace(/,+$/,"").trim()).filter(Boolean); const labels=["Daily","Weekly","Monthly"]; if(parts.length>=2&&parts.length<=3) return `<div class="rate-line">${parts.map((p,i)=>`<span class="rate-chip"><span class="rl">${labels[i]}</span><b>${esc(p)}</b></span>`).join("")}</div>`; return `<span class="v">${esc(rate)}</span>`; }
-function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(s==="-"||s==="")return"—"; return s.startsWith("$")?s:"$"+s; }
-
-/* ---------- Toast ---------- */
-let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
-// Copy text to clipboard with a fallback for browsers where navigator.clipboard is unavailable
-// or blocked (older iOS Safari, non-secure contexts). Returns nothing; shows a toast.
-function copyToClipboard(text){
-  if(!text){ toast("No name to copy"); return; }
-  const done=()=>toast("Name copied");
-  const fail=()=>{
-    // Fallback: temporary textarea + execCommand("copy")
-    try{
-      const ta=document.createElement("textarea");
-      ta.value=text; ta.setAttribute("readonly",""); ta.style.position="fixed"; ta.style.top="-1000px"; ta.style.opacity="0";
-      document.body.appendChild(ta);
-      ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
-      const ok=document.execCommand("copy");
-      document.body.removeChild(ta);
-      toast(ok?"Name copied":"Couldn't copy — long-press to select");
-    }catch(_){ toast("Couldn't copy — long-press to select"); }
-  };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(done).catch(fail);
-  } else { fail(); }
-}
 
 /* ---------- Sync ---------- */
 const APP_VERSION="7.5";
