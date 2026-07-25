@@ -39,6 +39,9 @@
      the highlighted element — it punches a hole around it. Impossible to miss. */
   body.tut-live #tutModal{background:transparent;backdrop-filter:none}
   body.tut-live #tutModal .modal{max-height:44vh;box-shadow:0 -6px 34px rgba(0,0,0,.5)}
+  /* Steps that spotlight nothing (the Home Screen / bookmark step) don't need to keep the
+     page visible behind the sheet, so they get the room their content actually needs. */
+  body.tut-live #tutModal.tut-nospot .modal{max-height:82vh}
   /* When the tutorial opens the real log form, dock it to the TOP so the tutorial sheet
      at the bottom doesn't sit on top of it, and neutralise its own dimmer. */
   body.tut-live #logModal{background:transparent;backdrop-filter:none;align-items:flex-start;z-index:95}
@@ -52,6 +55,13 @@
   body.tut-live .acard{overflow:visible}
   body.tut-live .appbar{z-index:70}
   body.tut-live .cards,body.tut-live .rows,body.tut-live .drows{overflow:visible}
+  /* Numbered how-to rows inside a tutorial step body (Add to Home Screen / bookmark).
+     Kept compact so the step still fits the sheet on a phone. */
+  .tut-how{list-style:none;margin:8px 0;padding:0;counter-reset:tuthow}
+  .tut-how li{display:flex;align-items:center;gap:8px;padding:4px 0;counter-increment:tuthow}
+  .tut-how li::before{content:counter(tuthow);flex:0 0 18px;font-family:'JetBrains Mono';font-size:11px;font-weight:700;color:var(--steel-light);text-align:center}
+  .tut-how svg{flex:0 0 18px;width:18px;height:18px;color:var(--steel)}
+  .tut-how span{flex:1 1 auto}
   .tut-spot{
     position:relative !important; z-index:60 !important;
     outline:4px solid var(--hivis) !important; outline-offset:4px;

@@ -2,6 +2,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+/* Pure helpers, split out of this file. Relative paths so they resolve under the
+   /Equipment-Received/ Pages subpath. idb.js has no callers left (photos moved to
+   Firestore) but is imported so the module still loads with the rest. */
+import { $ } from "./dom.js";
+import { idbOpen, idbSet, idbGet, idbDel, idbKeys } from "./idb.js";
+import { toast, copyToClipboard } from "./toast.js";
+import { esc, normJob, isRealJob, makeId, fmtDateKey, MON, rowDate, longDate,
+         todayIso, monthKey, monthLabel, rateChips, money } from "./format.js";
+
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const firebaseConfig={apiKey:"AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",authDomain:"equipment-received.firebaseapp.com",projectId:"equipment-received",storageBucket:"equipment-received.firebasestorage.app",messagingSenderId:"164676400073",appId:"1:164676400073:web:552cc0e3dcc8e06951ae18"};
@@ -144,8 +153,6 @@ const EXPANDED_RENTALS=new Set();   // equipment rental job cards currently open
 const EXPANDED_ARR=new Set();       // arrival cards currently expanded
 const EXPANDED_FOLDERS=new Set();   // My Jobs folders currently open
 
-const $=id=>document.getElementById(id);
-const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* Reliable tap: fire on touchend (so a tap registers on the first try even while the
    keyboard is up) and on click for mouse, de-duplicated so it never double-fires. */
 function onActivate(el,fn){ if(!el)return; let t=0; el.addEventListener("touchend",e=>{ e.preventDefault(); t=Date.now(); fn(e); },{passive:false}); el.addEventListener("click",e=>{ if(Date.now()-t<700)return; fn(e); }); }
@@ -215,51 +222,6 @@ function updateNotif(){
   return news;
 }
 function clearNotif(){ if(!confirm("Clear all new-arrival alerts on My Jobs?"))return; SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); updateNotif(); renderJobs(); toast("All cleared"); }
-
-/* ---------- IndexedDB (photos, device-only) ---------- */
-function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open("erPhotos",1); r.onupgradeneeded=()=>r.result.createObjectStore("photos"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
-async function idbSet(k,v){ const d=await idbOpen(); return new Promise((res,rej)=>{ const t=d.transaction("photos","readwrite"); t.objectStore("photos").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }
-async function idbGet(k){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readonly"); const q=t.objectStore("photos").get(k); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }); }
-async function idbDel(k){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readwrite"); t.objectStore("photos").delete(k); t.oncomplete=()=>res(); }); }
-async function idbKeys(){ const d=await idbOpen(); return new Promise((res)=>{ const t=d.transaction("photos","readonly"); const q=t.objectStore("photos").getAllKeys(); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>res([]); }); }
-
-/* ---------- Utils ---------- */
-function normJob(j){ return String(j==null?"":j).trim().toUpperCase(); }
-function isRealJob(j){ const n=normJob(j); return n&&n!=="NA"&&n!=="N/A"&&n!=="-"; }
-function makeId(parts){ const key=parts.join("|").toLowerCase(); let h=5381; for(let i=0;i<key.length;i++){h=((h<<5)+h)^key.charCodeAt(i);} return "a"+(h>>>0).toString(36)+key.length.toString(36); }
-function fmtDateKey(d){ if(!d)return""; if(d instanceof Date&&!isNaN(d))return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); const s=String(d).trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0"); m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){let y=m[3];if(y.length===2)y="20"+y;return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");} const p=new Date(s); if(!isNaN(p))return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0"); return""; }
-const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function rowDate(iso){ if(!iso)return{top:"—",bot:""}; const[y,mo,da]=iso.split("-").map(Number); const d=new Date(y,mo-1,da); if(isNaN(d))return{top:iso,bot:""}; const today=new Date(); today.setHours(0,0,0,0); const diff=Math.round((today-d)/86400000); const top=MON[mo-1]+" "+da; if(diff===0)return{top,bot:"Today",rel:true}; if(diff===1)return{top,bot:"Yesterday",rel:true}; return{top,bot:String(y)}; }
-function longDate(iso){ if(!iso)return""; const[y,mo,da]=iso.split("-").map(Number); if(!mo)return iso; return MON[mo-1]+" "+da+", "+y; }
-function todayIso(){ return fmtDateKey(new Date()); }
-function monthKey(iso){ return iso?iso.slice(0,7):""; }
-function monthLabel(k){ const[y,m]=k.split("-").map(Number); return MON[m-1]+" "+y; }
-function rateChips(rate){ if(!rate)return""; const parts=String(rate).split("/").map(s=>s.replace(/,+$/,"").trim()).filter(Boolean); const labels=["Daily","Weekly","Monthly"]; if(parts.length>=2&&parts.length<=3) return `<div class="rate-line">${parts.map((p,i)=>`<span class="rate-chip"><span class="rl">${labels[i]}</span><b>${esc(p)}</b></span>`).join("")}</div>`; return `<span class="v">${esc(rate)}</span>`; }
-function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(s==="-"||s==="")return"—"; return s.startsWith("$")?s:"$"+s; }
-
-/* ---------- Toast ---------- */
-let toastT; function toast(m){ const t=$("toast"); t.textContent=m; void t.offsetWidth; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
-// Copy text to clipboard with a fallback for browsers where navigator.clipboard is unavailable
-// or blocked (older iOS Safari, non-secure contexts). Returns nothing; shows a toast.
-function copyToClipboard(text){
-  if(!text){ toast("No name to copy"); return; }
-  const done=()=>toast("Name copied");
-  const fail=()=>{
-    // Fallback: temporary textarea + execCommand("copy")
-    try{
-      const ta=document.createElement("textarea");
-      ta.value=text; ta.setAttribute("readonly",""); ta.style.position="fixed"; ta.style.top="-1000px"; ta.style.opacity="0";
-      document.body.appendChild(ta);
-      ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
-      const ok=document.execCommand("copy");
-      document.body.removeChild(ta);
-      toast(ok?"Name copied":"Couldn't copy — long-press to select");
-    }catch(_){ toast("Couldn't copy — long-press to select"); }
-  };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(done).catch(fail);
-  } else { fail(); }
-}
 
 /* ---------- Sync ---------- */
 const APP_VERSION="7.5";
@@ -786,9 +748,38 @@ function applyAccess(){
 
 /* ---------- Tutorial ---------- */
 // [title, body, selector-to-highlight, tab-to-switch-to, setupFn]
+
+// iPadOS 13+ reports itself as "MacIntel", so the platform string alone can't tell an iPad
+// from a desktop Mac — the touch-point count is what separates them.
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+
+// Step 1 for both tracks: keep the app somewhere you can find it again. index.html already
+// sets apple-touch-icon and apple-mobile-web-app-title, so iOS offers the right icon and the
+// name "Equipment Received" on its own — this step just tells people the option is there.
+// Written to be read now and done after: you can't reach Safari's Share button while the
+// tutorial sheet is open. Both bodies stay short so the step fits the sheet on a phone —
+// it spotlights nothing, so tutRender gives it the taller .tut-nospot layout.
+const TUT_SAVE_IOS=`Put it on your Home Screen — it opens full screen, like an app.
+<ol class="tut-how">
+  <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8.5 6.5 12 3l3.5 3.5"/><path d="M20 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6"/></svg><span>Tap <b>Share</b> in Safari's toolbar.</span></li>
+  <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 10.5 12 14.5 16 10.5"/></svg><span>Tap <b>View More</b> if you need to.</span></li>
+  <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li>
+</ol>
+Leave <b>Open as Web App</b> on.`;
+const TUT_SAVE_DESKTOP=`Save this page so it's always one click away.
+<ol class="tut-how">
+  <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg><span>Press <b>Ctrl + D</b> (<b>⌘ D</b> on a Mac), or click the ☆ in the address bar.</span></li>
+</ol>
+Use it daily? Drag the tab onto your bookmarks bar.`;
+const TUT_SAVE = IS_IOS
+  ? ["Keep it on your Home Screen", TUT_SAVE_IOS, "", ""]
+  : ["Bookmark this page", TUT_SAVE_DESKTOP, "", ""];
+
 // Shipping's job is logging what shows up: the entry, the photo, and where it's stored.
 // Deliberately does NOT cover deliveries/pairing/rentals — that's not their workflow.
 const TUT_SHIP=[
+ TUT_SAVE,
  ["Start in Admin","Everything you log starts on the <b>Admin</b> tab. It's PIN protected — <b>ask your supervisor for the PIN</b> if you don't have it. (We've unlocked it just for this walkthrough.)","[data-view='admin']","admin",tutGrantAdmin],
  ["Log Arrival","Once you're in, this is the button. Material shows up → tap <b>Log Arrival</b>. That's the whole job — logging it is what makes it findable for everyone else.","#btnLog","admin",tutGrantAdmin],
  ["This is the form","Here's the real card, filled in as an example. Job # and description are the only required ones — but the more you fill in, the less anyone has to come ask you.","#f_desc","admin",tutOpenLogForm],
@@ -801,6 +792,7 @@ const TUT_SHIP=[
  ["That's it","Log it, photo it, say where it is. Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
 const TUT_FIELD=[
+ TUT_SAVE,
  ["Finding material","The <b>Arrivals</b> tab lists everything the shop has received, newest first. Search by job #, item, or supplier.","#feedSearch","feed"],
  ["Order with the right name","Sign in with the same name you order under in Webduct — that's how the app matches orders to you and links your jobs automatically.","#whoChip","feed"],
  ["Arrival cards","Tap any card to see everything — details, photo, and who logged it.",".acard","feed"],
@@ -909,6 +901,10 @@ function tutRender(){
   $("tutNext").textContent=TUT_I===TUT_LIST.length-1?"Done ✓":"Next ›";
   // Switch to the tab this step lives on, run any setup (open the log form, open a card,
   // flip a segment), then spotlight the element it describes.
+  // The sheet is normally capped short so the spotlighted element stays visible above it.
+  // A step with nothing to spotlight has no such constraint, so let it use the full height
+  // rather than cramming its content into a sheet sized for a page it isn't pointing at.
+  $("tutModal").classList.toggle("tut-nospot", !sel);
   if(setup!==tutOpenLogForm) tutCloseLogForm();
   if(tab && typeof setView==="function"){ try{ setView(tab); }catch(_){} }
   if(typeof setup==="function"){ try{ setup(); }catch(_){} }
