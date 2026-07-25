@@ -748,9 +748,38 @@ function applyAccess(){
 
 /* ---------- Tutorial ---------- */
 // [title, body, selector-to-highlight, tab-to-switch-to, setupFn]
+
+// iPadOS 13+ reports itself as "MacIntel", so the platform string alone can't tell an iPad
+// from a desktop Mac — the touch-point count is what separates them.
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+
+// Step 1 for both tracks: keep the app somewhere you can find it again. index.html already
+// sets apple-touch-icon and apple-mobile-web-app-title, so iOS offers the right icon and the
+// name "Equipment Received" on its own — this step just tells people the option is there.
+// Written to be read now and done after: you can't reach Safari's Share button while the
+// tutorial sheet is open. Both bodies stay short so the step fits the sheet on a phone —
+// it spotlights nothing, so tutRender gives it the taller .tut-nospot layout.
+const TUT_SAVE_IOS=`Put it on your Home Screen — it opens full screen, like an app.
+<ol class="tut-how">
+  <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8.5 6.5 12 3l3.5 3.5"/><path d="M20 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6"/></svg><span>Tap <b>Share</b> in Safari's toolbar.</span></li>
+  <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 10.5 12 14.5 16 10.5"/></svg><span>Tap <b>View More</b> if you need to.</span></li>
+  <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></li>
+</ol>
+Leave <b>Open as Web App</b> on.`;
+const TUT_SAVE_DESKTOP=`Save this page so it's always one click away.
+<ol class="tut-how">
+  <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg><span>Press <b>Ctrl + D</b> (<b>⌘ D</b> on a Mac), or click the ☆ in the address bar.</span></li>
+</ol>
+Use it daily? Drag the tab onto your bookmarks bar.`;
+const TUT_SAVE = IS_IOS
+  ? ["Keep it on your Home Screen", TUT_SAVE_IOS, "", ""]
+  : ["Bookmark this page", TUT_SAVE_DESKTOP, "", ""];
+
 // Shipping's job is logging what shows up: the entry, the photo, and where it's stored.
 // Deliberately does NOT cover deliveries/pairing/rentals — that's not their workflow.
 const TUT_SHIP=[
+ TUT_SAVE,
  ["Start in Admin","Everything you log starts on the <b>Admin</b> tab. It's PIN protected — <b>ask your supervisor for the PIN</b> if you don't have it. (We've unlocked it just for this walkthrough.)","[data-view='admin']","admin",tutGrantAdmin],
  ["Log Arrival","Once you're in, this is the button. Material shows up → tap <b>Log Arrival</b>. That's the whole job — logging it is what makes it findable for everyone else.","#btnLog","admin",tutGrantAdmin],
  ["This is the form","Here's the real card, filled in as an example. Job # and description are the only required ones — but the more you fill in, the less anyone has to come ask you.","#f_desc","admin",tutOpenLogForm],
@@ -763,6 +792,7 @@ const TUT_SHIP=[
  ["That's it","Log it, photo it, say where it is. Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
 const TUT_FIELD=[
+ TUT_SAVE,
  ["Finding material","The <b>Arrivals</b> tab lists everything the shop has received, newest first. Search by job #, item, or supplier.","#feedSearch","feed"],
  ["Order with the right name","Sign in with the same name you order under in Webduct — that's how the app matches orders to you and links your jobs automatically.","#whoChip","feed"],
  ["Arrival cards","Tap any card to see everything — details, photo, and who logged it.",".acard","feed"],
@@ -871,6 +901,10 @@ function tutRender(){
   $("tutNext").textContent=TUT_I===TUT_LIST.length-1?"Done ✓":"Next ›";
   // Switch to the tab this step lives on, run any setup (open the log form, open a card,
   // flip a segment), then spotlight the element it describes.
+  // The sheet is normally capped short so the spotlighted element stays visible above it.
+  // A step with nothing to spotlight has no such constraint, so let it use the full height
+  // rather than cramming its content into a sheet sized for a page it isn't pointing at.
+  $("tutModal").classList.toggle("tut-nospot", !sel);
   if(setup!==tutOpenLogForm) tutCloseLogForm();
   if(tab && typeof setView==="function"){ try{ setView(tab); }catch(_){} }
   if(typeof setup==="function"){ try{ setup(); }catch(_){} }
