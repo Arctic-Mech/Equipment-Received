@@ -51,12 +51,18 @@ def make_id(parts):
     We reproduce 32-bit unsigned overflow and base36 exactly.
     """
     key = "|".join("" if p is None else str(p) for p in parts).lower()
+    # JS strings are UTF-16: charCodeAt() yields code UNITS and .length counts them, so a
+    # non-BMP character (an emoji pasted into a description) is two units there and one
+    # code point here. Iterating Python characters gave a different hash and a different
+    # document ID for the same row. Encode to UTF-16 so both sides see the same sequence.
+    units = key.encode("utf-16-le")
     h = 5381
-    for ch in key:
+    for i in range(0, len(units), 2):
+        cu = units[i] | (units[i + 1] << 8)
         # ((h<<5)+h) ^ charCode, kept in 32-bit space like JS bitwise ops
-        h = (((h << 5) + h) & 0xFFFFFFFF) ^ (ord(ch) & 0xFFFFFFFF)
+        h = (((h << 5) + h) & 0xFFFFFFFF) ^ cu
         h &= 0xFFFFFFFF
-    return "a" + _base36(h) + _base36(len(key))
+    return "a" + _base36(h) + _base36(len(units) // 2)
 
 
 def _base36(n):
@@ -82,6 +88,12 @@ def fmt_date_key(d):
     such as "Thursday, July 16, 2026" or "July 16, 2026". Those show up in the master
     sheet whenever a row is filled in by hand instead of picked, and silently produced
     dateless arrivals before this was handled. Returns "" if unparseable.
+
+    The rules below are deliberately explicit rather than "try to parse anything". The JS
+    side used to fall back to new Date(), which accepted "2026/07/09", "7-9-26" and bare
+    numbers that these rules reject — so the same row got a date here and no date there,
+    two different document IDs, and imported as a duplicate. Both sides now implement the
+    same five rules; contract_check.py fails the build if they drift again.
     """
     if d is None or d == "":
         return ""

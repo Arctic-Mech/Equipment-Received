@@ -6,7 +6,11 @@
    ID from makeId([...normJob(job), fmtDateKey(date)...]) — so if these three drift
    from their Python mirrors the IDs stop matching, and the daily email import writes
    duplicate arrivals instead of updating the existing ones. Change any of the three
-   here and change email_import.py in the same commit. */
+   here and change email_import.py in the same commit.
+
+   This is enforced now, not just documented: contract_check.py runs both real
+   implementations over a shared corpus and fails CI on any disagreement. It was added
+   after the two had already drifted — see the notes on fmtDateKey and on make_id. */
 
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -14,7 +18,14 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 function normJob(j){ return String(j==null?"":j).trim().toUpperCase(); }
 function isRealJob(j){ const n=normJob(j); return n&&n!=="NA"&&n!=="N/A"&&n!=="-"; }
 function makeId(parts){ const key=parts.join("|").toLowerCase(); let h=5381; for(let i=0;i<key.length;i++){h=((h<<5)+h)^key.charCodeAt(i);} return "a"+(h>>>0).toString(36)+key.length.toString(36); }
-function fmtDateKey(d){ if(!d)return""; if(d instanceof Date&&!isNaN(d))return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); const s=String(d).trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0"); m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){let y=m[3];if(y.length===2)y="20"+y;return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");} const p=new Date(s); if(!isNaN(p))return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0"); return""; }
+// The written-out forms below are spelled out rather than handed to new Date(), because
+// new Date() also accepts things fmt_date_key() in email_import.py rejects — "2026/07/09",
+// "7-9-26", and any bare number ("12345" parsed as the year 12345). Those produced a real
+// date key here and "" in the importer, so the same spreadsheet row got two different
+// document IDs and imported as a duplicate arrival. Keep these rules in lockstep with
+// fmt_date_key(); contract_check.py fails the build if they drift.
+const monIdx=n=>MON.findIndex(m=>m.toLowerCase()===String(n).slice(0,3).toLowerCase())+1;
+function fmtDateKey(d){ if(!d)return""; if(d instanceof Date&&!isNaN(d))return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); const s=String(d).trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0"); m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){let y=m[3];if(y.length===2)y="20"+y;return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");} m=s.match(/([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})/); if(m&&monIdx(m[1]))return String(Number(m[3])).padStart(4,"0")+"-"+String(monIdx(m[1])).padStart(2,"0")+"-"+String(Number(m[2])).padStart(2,"0"); m=s.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?\s*,?\s*(\d{4})/); if(m&&monIdx(m[2]))return String(Number(m[3])).padStart(4,"0")+"-"+String(monIdx(m[2])).padStart(2,"0")+"-"+String(Number(m[1])).padStart(2,"0"); return""; }
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function rowDate(iso){ if(!iso)return{top:"—",bot:""}; const[y,mo,da]=iso.split("-").map(Number); const d=new Date(y,mo-1,da); if(isNaN(d))return{top:iso,bot:""}; const today=new Date(); today.setHours(0,0,0,0); const diff=Math.round((today-d)/86400000); const top=MON[mo-1]+" "+da; if(diff===0)return{top,bot:"Today",rel:true}; if(diff===1)return{top,bot:"Yesterday",rel:true}; return{top,bot:String(y)}; }
 function longDate(iso){ if(!iso)return""; const[y,mo,da]=iso.split("-").map(Number); if(!mo)return iso; return MON[mo-1]+" "+da+", "+y; }
