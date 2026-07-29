@@ -21,10 +21,15 @@ Env vars (provided by the workflow from repo secrets):
                         Bobby emails from ever being imported as arrivals.
   FIREBASE_SA_JSON      full service-account JSON (as a string)
   MAX_AGE_HOURS         optional; only accept an email newer than this (default 26)
+  MAX_BODIES            optional; most message bodies to download in one run (default 12).
+                        Emails are opened newest-first and we stop once the sheet and the
+                        tool PDF are both found, so this only bites on an abnormal inbox —
+                        and when it does, the run says so rather than pretending it looked
+                        at everything.
   DRY_RUN               optional; "1" parses + validates but does not write
 """
 
-import os, sys, ssl, json, re, imaplib, email, hashlib, datetime
+import os, sys, ssl, json, re, imaplib, email, email.utils, hashlib, datetime
 from email.header import decode_header
 
 # ---- third-party (installed in the workflow): openpyxl, google-cloud-firestore ----
@@ -403,6 +408,12 @@ def _clean_filename(raw):
     # RFC2231 can leave things like "utf-8''Name.xlsm" or stray quotes.
     name = re.sub(r"^[A-Za-z0-9\-]+''", "", name)
     name = name.strip().strip("'\"").strip()
+    # A long filename gets folded across lines in the MIME header, and the fold survives
+    # decoding as a newline + leading space INSIDE the name — the relay really does send
+    # "Equipment Received & Rentals\n MASTER.xlsm". That only matched FILENAME_MUST_CONTAIN
+    # by luck of where it wrapped; one word earlier and the break lands inside "Equipment
+    # Received" and the sheet is silently never found. Collapse interior whitespace.
+    name = re.sub(r"\s+", " ", name)
     # ...and sometimes percent-encoding survives ("Equipment%20Received.xlsm").
     if "%" in name:
         try:
@@ -416,83 +427,188 @@ def _clean_filename(raw):
 _ATTACH_CACHE = None
 
 
+# Message bodies are the only expensive thing here (the master workbook is ~90 KB, and it
+# is re-sent in full every time). We walk newest-first, so the sheet we want is almost
+# always the first body opened. This cap is the backstop for the day that isn't true: a
+# relay loop once left hundreds of copies of the same workbook in the inbox and every poll
+# re-walked all of them, which is what pushed a 10-second job past a 10-minute timeout.
+MAX_BODIES = int(os.environ.get("MAX_BODIES", "12"))
+
+_IMAP_MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+# Each tuple in a batched FETCH response starts "<seq> (BODY[...". Responses do not come
+# back in request order, so the sequence number is how a header gets matched to its message.
+_FETCH_SEQ = re.compile(rb"^\s*(\d+)\s+\(")
+
+
+def _imap_date(d):
+    """IMAP wants DD-Mon-YYYY with an English month, whatever the runner's locale is."""
+    return f"{d.day:02d}-{_IMAP_MON[d.month - 1]}-{d.year}"
+
+
+def _imap_quote(s):
+    """Quote a value for an IMAP search term."""
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _search_ids(imap, since, expected_sender, expected_subject):
+    """
+    Let the SERVER do the filtering. Gmail can match FROM and SUBJECT itself, which turns
+    "every message in the window" into "only the ones that could be the relay".
+
+    Falls back to a date-only search if the server won't take the narrower query — a slow
+    correct search beats a fast empty one, and the caller re-checks every header anyway.
+    """
+    terms = [f"SINCE {since}"]
+    if expected_sender:
+        terms.append(f"FROM {_imap_quote(expected_sender)}")
+    if expected_subject:
+        terms.append(f"SUBJECT {_imap_quote(expected_subject)}")
+    narrow = "(" + " ".join(terms) + ")"
+    if len(terms) > 1:
+        try:
+            status, data = imap.search(None, narrow)
+            if status == "OK":
+                return data[0].split(), "sender+subject+date"
+            print(f"      (server search returned {status} — falling back to date only)")
+        except Exception as e:
+            print(f"      (server search rejected: {e} — falling back to date only)")
+    status, data = imap.search(None, f"(SINCE {since})")
+    if status != "OK":
+        raise RuntimeError("IMAP search failed")
+    return data[0].split(), "date only"
+
+
+def _fetch_headers(imap, ids, chunk=300):
+    """
+    Headers for many messages in ONE fetch rather than a round trip each.
+
+    This is the difference between a job that finishes in seconds and one that times out:
+    the old loop paid a network round trip per message in the window, so an inbox holding a
+    few hundred relay copies cost a few hundred sequential round trips before any real work.
+    """
+    out = {}
+    for i in range(0, len(ids), chunk):
+        status, data = imap.fetch(b",".join(ids[i:i + chunk]),
+                                  "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])")
+        if status != "OK" or not data:
+            continue
+        for item in data:
+            if not isinstance(item, tuple) or len(item) < 2 or not item[1]:
+                continue
+            m = _FETCH_SEQ.match(item[0] or b"")
+            if m:
+                out[m.group(1)] = email.message_from_bytes(item[1])
+    return out
+
+
+def _hdr_subject(hdr):
+    """Decoded Subject, or "" — encoded-word subjects would otherwise never match."""
+    raw = hdr.get("Subject", "")
+    if not raw:
+        return ""
+    dec = decode_header(raw)[0]
+    return (dec[0].decode(dec[1] or "utf-8", errors="replace")
+            if isinstance(dec[0], bytes) else str(dec[0] or ""))
+
+
 def fetch_attachments(user, app_password, expected_sender, max_age_hours, expected_subject=""):
     """
-    ONE IMAP pass that returns every attachment on matching emails as
+    ONE IMAP pass that returns the attachments we need as
     [(msg_date, filename, bytes), ...]. Cached for the life of the process so the
     master-sheet and tool-PDF importers share a single fetch instead of doing two.
 
-    Headers are checked first so we only download the bodies of emails that actually
-    match — important when this polls every 5 minutes.
+    Three things keep this independent of how much mail is in the box:
+      1. the server filters on FROM/SUBJECT, so we never see unrelated mail;
+      2. every header arrives in one batched fetch, not one round trip per message;
+      3. bodies are opened newest-first and we stop as soon as both files are in hand.
     """
     global _ATTACH_CACHE
     if _ATTACH_CACHE is not None:
         return _ATTACH_CACHE
 
-    imap = imaplib.IMAP4_SSL("imap.gmail.com", ssl_context=ssl.create_default_context())
-    imap.login(user, app_password)
-    imap.select("INBOX")
-
-    since = (datetime.date.today() - datetime.timedelta(days=3)).strftime("%d-%b-%Y")
-    status, data = imap.search(None, f'(SINCE {since})')
-    if status != "OK":
-        imap.logout()
-        raise RuntimeError("IMAP search failed")
-    ids = data[0].split()
-    if not ids:
-        imap.logout()
-        _ATTACH_CACHE = []
-        return _ATTACH_CACHE
-
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=max_age_hours)
-    keep = []
-
-    # --- pass 1: headers only (cheap) ---
-    for msg_id in ids:
-        status, hdata = imap.fetch(msg_id, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])")
-        if status != "OK" or not hdata or not hdata[0]:
-            continue
-        hdr = email.message_from_bytes(hdata[0][1])
-
-        frm = str(hdr.get("From", "")).lower()
-        if expected_sender and expected_sender.lower() not in frm:
-            continue
-
-        if expected_subject:
-            subj = hdr.get("Subject", "")
-            dec = decode_header(subj)[0] if subj else ("", None)
-            subj = (dec[0].decode(dec[1] or "utf-8", errors="replace")
-                    if isinstance(dec[0], bytes) else str(dec[0] or ""))
-            if expected_subject.lower() not in subj.lower():
-                continue
-
-        try:
-            msg_date = email.utils.parsedate_to_datetime(hdr.get("Date"))
-            if msg_date.tzinfo is None:
-                msg_date = msg_date.replace(tzinfo=datetime.timezone.utc)
-        except Exception:
-            msg_date = datetime.datetime.now(datetime.timezone.utc)
-        if msg_date < cutoff:
-            continue
-
-        keep.append((msg_id, msg_date))
-
-    # --- pass 2: full body only for the emails that survived ---
     out = []
-    for msg_id, msg_date in keep:
-        status, msg_data = imap.fetch(msg_id, "(RFC822)")
-        if status != "OK":
-            continue
-        msg = email.message_from_bytes(msg_data[0][1])
-        for part in msg.walk():
-            fname = _clean_filename(part.get_filename())
-            if not fname:
-                continue
-            payload = part.get_payload(decode=True)
-            if payload:
-                out.append((msg_date, fname, payload))
+    imap = imaplib.IMAP4_SSL("imap.gmail.com", ssl_context=ssl.create_default_context())
+    try:
+        imap.login(user, app_password)
+        imap.select("INBOX")
 
-    imap.logout()
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=max_age_hours)
+        # A day of slack on the search: IMAP SINCE is whole-day and server-local, so asking
+        # for exactly the cutoff's date can drop a message that is still inside the hour
+        # window. The exact cutoff is applied below, against the real Date header.
+        since = _imap_date((cutoff - datetime.timedelta(days=1)).date())
+
+        ids, how = _search_ids(imap, since, expected_sender, expected_subject)
+        print(f"  IMAP search ({how}, since {since}) matched {len(ids)} message(s)")
+        if not ids:
+            _ATTACH_CACHE = []
+            return _ATTACH_CACHE
+
+        # Re-check sender/subject/date here even when the server already filtered. It costs
+        # nothing (no network) and keeps the accept/reject rule identical on both the fast
+        # path and the date-only fallback, so the two can never disagree about an email.
+        keep = []
+        for msg_id, hdr in _fetch_headers(imap, ids).items():
+            if expected_sender and expected_sender.lower() not in str(hdr.get("From", "")).lower():
+                continue
+            if expected_subject and expected_subject.lower() not in _hdr_subject(hdr).lower():
+                continue
+            try:
+                msg_date = email.utils.parsedate_to_datetime(hdr.get("Date"))
+                if msg_date.tzinfo is None:
+                    msg_date = msg_date.replace(tzinfo=datetime.timezone.utc)
+            except Exception:
+                msg_date = datetime.datetime.now(datetime.timezone.utc)
+            if msg_date < cutoff:
+                continue
+            keep.append((msg_id, msg_date))
+
+        keep.sort(key=lambda k: k[1], reverse=True)   # newest first
+        print(f"  {len(keep)} from the expected sender/subject inside the last {max_age_hours}h")
+
+        xl_want = os.environ.get("FILENAME_MUST_CONTAIN", "Equipment Received").strip().lower()
+        pdf_want = os.environ.get("PDF_FILENAME_MUST_CONTAIN", "Tool Rental").strip().lower()
+        got_xl = got_pdf = False
+        opened = 0
+
+        for msg_id, msg_date in keep:
+            if got_xl and got_pdf:
+                break
+            if opened >= MAX_BODIES:
+                # Never silent: a cap that isn't reported reads as "found everything".
+                missing = [w for w, ok in (("master sheet", got_xl), ("tool PDF", got_pdf)) if not ok]
+                print(f"  Stopped at MAX_BODIES={MAX_BODIES} with {len(keep) - opened} older "
+                      f"message(s) unopened"
+                      + (f" — still looking for the {' and '.join(missing)}" if missing else ""))
+                break
+            status, msg_data = imap.fetch(msg_id, "(RFC822)")
+            opened += 1
+            if status != "OK" or not msg_data or not msg_data[0]:
+                continue
+            msg = email.message_from_bytes(msg_data[0][1])
+            for part in msg.walk():
+                fname = _clean_filename(part.get_filename())
+                if not fname:
+                    continue
+                payload = part.get_payload(decode=True)
+                if not payload:
+                    continue
+                out.append((msg_date, fname, payload))
+                low = fname.lower()
+                if low.endswith((".xlsx", ".xlsm")) and xl_want in low:
+                    got_xl = True
+                elif low.endswith(".pdf") and pdf_want in low:
+                    got_pdf = True
+
+        print(f"  Opened {opened} message body/bodies")
+    finally:
+        try:
+            imap.logout()
+        except Exception:
+            pass
+
     _ATTACH_CACHE = out
     return out
 

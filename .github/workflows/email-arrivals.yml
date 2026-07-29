@@ -6,16 +6,27 @@ name: Daily Arrivals & Tools Email Import
 # They arrive in separate emails and are imported independently.
 
 on:
+  # INSTANT PATH. The relay flow can POST to
+  #   https://api.github.com/repos/Arctic-Mech/Equipment-Received/dispatches
+  #   {"event_type": "arrivals-email"}
+  # right after it sends, and the import starts within seconds. Nothing below depends on
+  # this being wired up; the cron keeps working on its own either way.
+  repository_dispatch:
+    types: [arrivals-email]
+
   schedule:
     # Bobby emails Mon-Fri, roughly 5am-7am Pacific.
-    # GitHub cron is ALWAYS UTC and ignores daylight saving, so each window below is
-    # sized to cover Pacific in BOTH PST (UTC-8) and PDT (UTC-7).
+    # GitHub cron is ALWAYS UTC and ignores daylight saving, so the window is sized to
+    # cover Pacific in BOTH PST (UTC-8) and PDT (UTC-7).
     #
-    # HOT WINDOW - every 10 minutes. 12:00-15:59 UTC covers 5:30-7:00am Pacific
-    # year-round (5:30am = 12:30 UTC in PDT, 13:30 UTC in PST).
-    - cron: "*/10 12-15 * * 1-5"
-    # SAFETY NET - every 30 minutes afterwards, in case Bobby sends late.
-    - cron: "0,30 16-17 * * 1-5"
+    # Every 5 minutes, 12:00-18:59 UTC = 4am-noon Pacific year-round. This used to be a
+    # 10-minute "hot window" plus a half-hourly safety net, kept narrow because each run
+    # was expensive. A run is seconds now, and the repo is public (free Actions minutes),
+    # so there's no reason to be stingy. Note GitHub throttles scheduled workflows under
+    # load - on 2026-07-29 the whole 12:00-15:00 window produced ONE run - which is why
+    # the repository_dispatch above is the only route to genuinely prompt imports.
+    - cron: "*/5 12-18 * * 1-5"
+
   workflow_dispatch:
     # lets you trigger it by hand from the Actions tab
     inputs:
@@ -36,7 +47,9 @@ concurrency:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # A healthy run is seconds. This is a backstop, not headroom - keeping it tight means a
+    # hang is reported in five minutes instead of ten.
+    timeout-minutes: 5
     permissions:
       issues: write
     steps:
@@ -64,13 +77,21 @@ jobs:
           SOFT_IF_MISSING: "1"
           FORCE: ${{ (github.event.inputs.force == 'true') && '1' || '0' }}
           DRY_RUN: ${{ (github.event.inputs.dry_run == 'true') && '1' || '0' }}
-        run: python email_import.py
+        # -u because stdout to a pipe is block-buffered: when the 2026-07-29 run was killed
+        # at the timeout, every line it had printed died unflushed in the buffer and the log
+        # showed NOTHING about how far it got. Unbuffered, a killed run still explains itself.
+        run: python -u email_import.py
 
       - name: Flag failure as an issue
         # Only real problems reach here — "no email yet" exits cleanly, so a quiet
         # early poll never opens an issue. Reuses one issue per day so a repeated
         # failure across the morning's polls doesn't spam you.
-        if: failure()
+        #
+        # cancelled() matters as much as failure(): a job killed by timeout-minutes is
+        # reported as CANCELLED, not failed. With `if: failure()` alone this step was
+        # skipped, which is how the import stayed dead from 2026-07-28 evening through the
+        # next morning without opening an issue or sending a single notification.
+        if: failure() || cancelled()
         uses: actions/github-script@v7
         with:
           script: |
@@ -87,7 +108,8 @@ jobs:
               return;
             }
             const body = [
-              "The arrivals email import hit a real error (not just 'no email yet').",
+              "The arrivals email import hit a real error (not just 'no email yet'), or was",
+              "killed by the job timeout.",
               "",
               `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               "",
@@ -95,6 +117,9 @@ jobs:
               "- The attachment wasn't the Equipment Received master sheet",
               "- A column header in the sheet changed",
               "- Gmail or Firebase credentials stopped working",
+              "- Timed out: check the log for the IMAP search / matched / opened counts.",
+              "  A large search count means the relay inbox is holding far more mail than",
+              "  expected — clear it, or raise MAX_BODIES.",
               "",
               "No data was written (the importer aborts on anything unexpected).",
             ].join("\n");
