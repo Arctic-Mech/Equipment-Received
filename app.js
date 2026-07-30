@@ -54,6 +54,11 @@ let SF_META={};                     // {points:{count,updatedAt,by}, training:{.
 let SF_TAB="points";                // which sub-pill is showing
 let SF_TRAIN_FILTER="all";
 let SF_DRUG_FILTER="all";
+const SF_TRAIN_OPEN=new Set();      // which people are expanded on the training list
+const SF_SDS_OPEN=new Set();        // which chemicals are expanded
+// A rejected read leaves the pane empty, which reads as "nothing uploaded". Remember WHY so
+// the pane can say so instead — a missing Firestore rule is the usual cause.
+const SF_ERR={};
 let WD_NOTES={};                    // per-order notes keyed by order docId {deliveryTime, truck, extra, highlight}
 let WD_LAST_SYNC=null;              // {by, at, summary} — who forced the last refresh and when
 let LAST_IMPORT=null;               // {at, emailDateMs, sourceFile, count, rentals}
@@ -268,10 +273,10 @@ function startSync(){
   onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>console.error("webductOrderNotes",e));
 
   // ---- Safety collections. Read-only here; Admin uploads are what write them. ----
-  onSnapshot(collection(db,"safetyPoints"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_POINTS=l; renderSafety(); }, e=>console.error("safetyPoints",e));
-  onSnapshot(collection(db,"safetyTraining"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_TRAINING=l; renderSafety(); }, e=>console.error("safetyTraining",e));
-  onSnapshot(collection(db,"safetySds"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_SDS=l; renderSafety(); }, e=>console.error("safetySds",e));
-  onSnapshot(collection(db,"safetyDrugCards"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_DRUG=l; renderSafety(); }, e=>console.error("safetyDrugCards",e));
+  onSnapshot(collection(db,"safetyPoints"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_POINTS=l; renderSafety(); }, e=>{ console.error("safetyPoints",e); SF_ERR.points=e; renderSafety(); });
+  onSnapshot(collection(db,"safetyTraining"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_TRAINING=l; renderSafety(); }, e=>{ console.error("safetyTraining",e); SF_ERR.training=e; renderSafety(); });
+  onSnapshot(collection(db,"safetySds"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_SDS=l; renderSafety(); }, e=>{ console.error("safetySds",e); SF_ERR.sds=e; renderSafety(); });
+  onSnapshot(collection(db,"safetyDrugCards"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_DRUG=l; renderSafety(); }, e=>{ console.error("safetyDrugCards",e); SF_ERR.drug=e; renderSafety(); });
   onSnapshot(doc(db,"config","safetyMeta"),d=>{ SF_META=d.exists()?d.data():{}; renderSafety(); }, e=>console.error("safetyMeta",e));
   onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>console.error("webductEquipNotes",e));
   wdWatchAdminKey();
@@ -1945,6 +1950,13 @@ function sfMetaLine(key,noun){
   return `${m.count.toLocaleString()} ${noun}${when?` · updated ${longDate(fmtDateKey(when))}`:""}${by}`;
 }
 function sfEmpty(ico,title,msg){ return `<div class="empty"><div class="ico">${ico}</div><h3>${esc(title)}</h3><p>${esc(msg)}</p></div>`; }
+function sfErrBox(what,coll,e){
+  const denied=/permission|insufficient/i.test(String((e&&e.code)||(e&&e.message)||e));
+  return `<div class="empty"><div class="ico">${denied?"\uD83D\uDD12":"\u26A0\uFE0F"}</div><h3>Couldn't load ${esc(what)}</h3>`
+    +`<p>${denied
+      ? `Firestore refused the read. Add a rule for <code>${esc(coll)}</code>, then reload.`
+      : `${esc(String((e&&e.message)||e))}`}</p></div>`;
+}
 function sfQuery(id){ const el=$(id); return el?el.value.trim().toLowerCase():""; }
 
 function renderSafety(){
@@ -1955,6 +1967,7 @@ function renderSafety(){
 function renderSfDrug(){
   const list=$("sfDrugList"), meta=$("sfDrugMeta"); if(!list) return;
   if(meta) meta.textContent=sfMetaLine("drug","cards");
+  if(SF_ERR.drug){ list.innerHTML=sfErrBox("drug cards","safetyDrugCards",SF_ERR.drug); return; }
   if(!SF_DRUG.length){ list.innerHTML=sfEmpty("🪪","No drug cards loaded","They come in on the Arctic Training Matrix workbook — upload it from the Admin tab."); return; }
   const q=sfQuery("sfDrugSearch");
   let rows=SF_DRUG.filter(r=>{
@@ -1977,22 +1990,25 @@ function renderSfDrug(){
     b.textContent=(k==="all"?"All":k==="expiring"?"Expiring soon":"Expired")+(n?` (${n})`:"");
   });
   if(!rows.length){ list.innerHTML=sfEmpty("🔍","Nothing here","No drug cards match that filter."); return; }
-  list.innerHTML=rows.map(r=>{
+  // One line per person, matching Training and SDS — the tested date rides on the same row.
+  list.innerHTML=`<div class="sf-list">`+rows.map(r=>{
     const st=sfExpiryState(r.expires);
     const badge=st==="expired"?`<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`
       :st==="soon"?`<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`
       :st==="ok"?`<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`
       :`<span class="sf-badge none">No expiry on file</span>`;
-    return `<div class="sf-row tr">
-      <div class="sf-row-main"><div class="sf-name">${esc(r.name||"—")}</div>${badge}</div>
-      <div class="sf-sub">${r.tested?`<span>Tested <b>${esc(longDate(r.tested))}</b></span>`:""}</div>
-    </div>`;
-  }).join("");
+    return `<div class="sf-grp"><div class="sf-lrow static">
+      <span class="sf-lname">${esc(r.name||"—")}</span>
+      ${r.tested?`<span class="sf-ltested">${esc(longDate(r.tested))}</span>`:""}
+      ${badge}
+    </div></div>`;
+  }).join("")+`</div>`;
 }
 
 function renderSfPoints(){
   const list=$("sfPointsList"), meta=$("sfPointsMeta"); if(!list) return;
   if(meta) meta.textContent=sfMetaLine("points","people");
+  if(SF_ERR.points){ list.innerHTML=sfErrBox("safety points","safetyPoints",SF_ERR.points); return; }
   if(!SF_POINTS.length){ list.innerHTML=sfEmpty("📊","No safety points loaded","Upload the Safety Point Program totals PDF from the Admin tab."); return; }
   const q=sfQuery("sfPointsSearch");
   const rows=SF_POINTS.filter(r=>!q||String(r.name||"").toLowerCase().includes(q))
@@ -2018,69 +2034,108 @@ function renderSfPoints(){
   }).join("");
 }
 
+// Grouped by person, one dense line each, so a 160-name roster is scannable on a phone.
+// Tapping a name opens that person's courses.
 function renderSfTraining(){
   const list=$("sfTrainList"), meta=$("sfTrainMeta"); if(!list) return;
   if(meta) meta.textContent=sfMetaLine("training","records");
-  if(!SF_TRAINING.length){ list.innerHTML=sfEmpty("🎓","No training records loaded","Upload the Arctic training matrix PDF from the Admin tab."); return; }
+  if(SF_ERR.training){ list.innerHTML=sfErrBox("training records","safetyTraining",SF_ERR.training); return; }
+  if(!SF_TRAINING.length){ list.innerHTML=sfEmpty("🎓","No training records loaded","Upload the Arctic Training Matrix workbook from the Admin tab."); return; }
   const q=sfQuery("sfTrainSearch");
-  let rows=SF_TRAINING.filter(r=>{
-    if(q && ![r.name,r.course,r.instructor,r.notes].some(v=>String(v||"").toLowerCase().includes(q))) return false;
-    const st=sfExpiryState(r.expires);
-    if(SF_TRAIN_FILTER==="expiring") return st==="soon";
-    if(SF_TRAIN_FILTER==="expired")  return st==="expired";
-    return true;
-  });
-  // Expiring/expired first when unfiltered, so the thing that needs action is at the top.
+
+  const people=new Map();
+  for(const r of SF_TRAINING){
+    const key=String(r.name||"—").trim();
+    if(!people.has(key)) people.set(key,[]);
+    people.get(key).push(r);
+  }
   const rank={expired:0,soon:1,ok:2,none:3};
-  rows.sort((a,b)=>{
-    const d=rank[sfExpiryState(a.expires)]-rank[sfExpiryState(b.expires)];
-    if(d) return d;
-    return String(a.name||"").localeCompare(String(b.name||"")) || String(b.date||"").localeCompare(String(a.date||""));
+  let groups=[...people.entries()].map(([name,recs])=>{
+    const counts={expired:0,soon:0,ok:0,none:0};
+    recs.forEach(r=>counts[sfExpiryState(r.expires)]++);
+    const worst=counts.expired?"expired":counts.soon?"soon":counts.ok?"ok":"none";
+    recs.sort((a,b)=>rank[sfExpiryState(a.expires)]-rank[sfExpiryState(b.expires)]
+      || String(b.date||"").localeCompare(String(a.date||"")));
+    return {name,recs,counts,worst};
   });
-  const counts={expired:0,soon:0};
-  SF_TRAINING.forEach(r=>{ const s=sfExpiryState(r.expires); if(counts[s]!==undefined) counts[s]++; });
+
+  // Chip counts are per-PERSON here, matching what the list shows.
+  const pc={expired:0,soon:0};
+  groups.forEach(g=>{ if(g.counts.expired)pc.expired++; else if(g.counts.soon)pc.soon++; });
   document.querySelectorAll("[data-trainfilter]").forEach(b=>{
     const k=b.dataset.trainfilter;
     b.classList.toggle("active",k===SF_TRAIN_FILTER);
-    const n=k==="expiring"?counts.soon:k==="expired"?counts.expired:0;
+    const n=k==="expiring"?pc.soon:k==="expired"?pc.expired:0;
     b.textContent=(k==="all"?"All":k==="expiring"?"Expiring soon":"Expired")+(n?` (${n})`:"");
   });
-  if(!rows.length){ list.innerHTML=sfEmpty("🔍","Nothing here","No training records match that filter."); return; }
-  list.innerHTML=rows.map(r=>{
-    const st=sfExpiryState(r.expires);
-    const badge=st==="expired"?`<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`
-      :st==="soon"?`<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`
-      :st==="ok"?`<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`
-      :`<span class="sf-badge none">No expiry</span>`;
-    return `<div class="sf-row tr">
-      <div class="sf-row-main"><div class="sf-name">${esc(r.name||"—")}</div>${badge}</div>
-      <div class="sf-course">${esc(r.course||"—")}</div>
-      <div class="sf-sub">
-        ${r.date?`<span>Trained <b>${esc(longDate(r.date))}</b></span>`:""}
-        ${r.instructor?`<span>By <b>${esc(r.instructor)}</b></span>`:""}
-        ${r.notes?`<span>${esc(r.notes)}</span>`:""}
-      </div>
+
+  groups=groups.filter(g=>{
+    if(SF_TRAIN_FILTER==="expiring" && !g.counts.soon) return false;
+    if(SF_TRAIN_FILTER==="expired"  && !g.counts.expired) return false;
+    if(!q) return true;
+    return g.name.toLowerCase().includes(q)
+      || g.recs.some(r=>[r.course,r.instructor,r.notes].some(v=>String(v||"").toLowerCase().includes(q)));
+  });
+  groups.sort((a,b)=>rank[a.worst]-rank[b.worst] || a.name.localeCompare(b.name));
+  if(!groups.length){ list.innerHTML=sfEmpty("🔍","Nothing here","Nobody matches that search or filter."); return; }
+
+  // A name search that matches one person opens them; a course search opens every match, so
+  // you can see WHICH course hit without a second tap.
+  const auto=q && groups.length<=8;
+  list.innerHTML=`<div class="sf-list">`+groups.map(g=>{
+    const open=SF_TRAIN_OPEN.has(g.name)||auto;
+    const tag=g.counts.expired?`<span class="sf-tag bad">${g.counts.expired} expired</span>`
+      :g.counts.soon?`<span class="sf-tag warn">${g.counts.soon} due</span>`:"";
+    return `<div class="sf-grp${open?" open":""}">
+      <button class="sf-lrow" data-sfperson="${esc(g.name)}">
+        <span class="sf-chev">›</span>
+        <span class="sf-lname">${esc(g.name)}</span>
+        ${tag}
+        <span class="sf-lcount">${g.recs.length}</span>
+      </button>
+      ${open?`<div class="sf-body">${g.recs.map(r=>{
+        const st=sfExpiryState(r.expires);
+        const badge=st==="expired"?`<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`
+          :st==="soon"?`<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`
+          :st==="ok"?`<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`
+          :`<span class="sf-badge none">No expiry</span>`;
+        return `<div class="sf-crs">
+          <div class="sf-crs-top"><span class="sf-crs-name">${esc(r.course||"—")}</span>${badge}</div>
+          <div class="sf-sub">${r.date?`<span>Trained <b>${esc(longDate(r.date))}</b></span>`:""}${r.instructor?`<span>By <b>${esc(r.instructor)}</b></span>`:""}${r.notes?`<span>${esc(r.notes)}</span>`:""}</div>
+        </div>`;
+      }).join("")}</div>`:""}
     </div>`;
-  }).join("");
+  }).join("")+`</div>`;
 }
 
+// Dense alphabetical list; tap a chemical for its vendor, use, issue date and page count.
 function renderSfSds(){
   const list=$("sfSdsList"), meta=$("sfSdsMeta"); if(!list) return;
   if(meta) meta.textContent=sfMetaLine("sds","sheets");
+  if(SF_ERR.sds){ list.innerHTML=sfErrBox("SDS inventory","safetySds",SF_ERR.sds); return; }
   if(!SF_SDS.length){ list.innerHTML=sfEmpty("🧪","No SDS inventory loaded","Upload the Safety Data Sheet inventory workbook from the Admin tab."); return; }
   const q=sfQuery("sfSdsSearch");
   const rows=SF_SDS.filter(r=>!q||[r.product,r.vendor,r.use,r.dept].some(v=>String(v||"").toLowerCase().includes(q)))
     .sort((a,b)=>String(a.product||"").localeCompare(String(b.product||"")));
   if(!rows.length){ list.innerHTML=sfEmpty("🔍","No match",`Nothing matches “${sfQuery("sfSdsSearch")}”.`); return; }
-  list.innerHTML=rows.map(r=>`<div class="sf-row sds">
-      <div class="sf-row-main"><div class="sf-name">${esc(r.product||"—")}</div>${r.dept?`<span class="sf-dept">${esc(r.dept)}</span>`:""}</div>
-      <div class="sf-sub">
+  const auto=q && rows.length<=8;
+  list.innerHTML=`<div class="sf-list">`+rows.map(r=>{
+    const open=SF_SDS_OPEN.has(r.id)||auto;
+    return `<div class="sf-grp${open?" open":""}">
+      <button class="sf-lrow" data-sfsds="${esc(r.id)}">
+        <span class="sf-chev">›</span>
+        <span class="sf-lname">${esc(r.product||"—")}</span>
+        ${r.dept?`<span class="sf-dept">${esc(r.dept)}</span>`:""}
+      </button>
+      ${open?`<div class="sf-body"><div class="sf-crs"><div class="sf-sub">
         ${r.use?`<span>${esc(r.use)}</span>`:""}
         ${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}
         ${r.issueDate?`<span>Issued <b>${esc(longDate(r.issueDate))}</b></span>`:""}
         ${r.pages?`<span>${esc(String(r.pages))} pages</span>`:""}
-      </div>
-    </div>`).join("");
+        ${r.record?`<span>Record <b>#${esc(String(r.record))}</b></span>`:""}
+      </div></div></div>`:""}
+    </div>`;
+  }).join("")+`</div>`;
 }
 
 // Sub-tab pills + searches
@@ -2093,6 +2148,13 @@ document.querySelectorAll("[data-safety]").forEach(b=>b.addEventListener("click"
 document.querySelectorAll("[data-trainfilter]").forEach(b=>b.addEventListener("click",()=>{
   SF_TRAIN_FILTER=b.dataset.trainfilter; renderSfTraining();
 }));
+// Delegated so the rows can be re-rendered freely without re-binding.
+document.addEventListener("click",e=>{
+  const pr=e.target.closest("[data-sfperson]");
+  if(pr){ const n=pr.dataset.sfperson; SF_TRAIN_OPEN.has(n)?SF_TRAIN_OPEN.delete(n):SF_TRAIN_OPEN.add(n); renderSfTraining(); return; }
+  const sr=e.target.closest("[data-sfsds]");
+  if(sr){ const i=sr.dataset.sfsds; SF_SDS_OPEN.has(i)?SF_SDS_OPEN.delete(i):SF_SDS_OPEN.add(i); renderSfSds(); return; }
+});
 document.querySelectorAll("[data-drugfilter]").forEach(b=>b.addEventListener("click",()=>{
   SF_DRUG_FILTER=b.dataset.drugfilter; renderSfDrug();
 }));

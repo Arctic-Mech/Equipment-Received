@@ -972,3 +972,33 @@
   .tab-menu-item .tmi-pill{background:var(--line-soft);color:var(--steel);font-family:'JetBrains Mono';
     font-weight:700;font-size:10px;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center;flex:none}
   .tab-menu-item.on .tmi-pill{background:var(--hivis);color:#fff}
+
+  /* --- Dense Safety lists: grouped training, SDS and drug cards.
+         Small type on purpose — these run to 160 people / 91 chemicals, and the point of the
+         default view is to fit as many names on screen as possible. Detail is one tap away. --- */
+  .sf-list{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden}
+  .sf-grp + .sf-grp{border-top:1px solid var(--line-soft)}
+  .sf-lrow{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;text-align:left;
+    transition:background .12s}
+  .sf-lrow:not(.static):hover{background:var(--line-soft)}
+  .sf-lrow.static{cursor:default}
+  .sf-chev{color:var(--steel-light);font-size:15px;line-height:1;flex:none;width:10px;
+    transition:transform .15s}
+  .sf-grp.open .sf-chev{transform:rotate(90deg);color:var(--ink)}
+  .sf-lname{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sf-lcount{font-family:'JetBrains Mono';font-size:10px;font-weight:700;color:var(--steel);
+    background:var(--line-soft);padding:1px 6px;border-radius:20px;min-width:20px;text-align:center;flex:none}
+  .sf-ltested{font-size:11px;color:var(--steel);flex:none}
+  .sf-tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:5px;flex:none;white-space:nowrap}
+  .sf-tag.bad{color:#c0341a;background:#fdecea}
+  .sf-tag.warn{color:var(--amber);background:var(--amber-soft)}
+  .sf-body{background:var(--surface);border-top:1px solid var(--line-soft);padding:4px 12px 8px 30px}
+  .sf-crs{padding:7px 0}
+  .sf-crs + .sf-crs{border-top:1px solid var(--line)}
+  .sf-crs-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px}
+  .sf-crs-name{font-size:12.5px;font-weight:600;color:var(--ink-soft);min-width:0}
+  .sf-grp .sf-sub{font-size:11px}
+  .empty code{font-family:'JetBrains Mono';font-size:11.5px;background:var(--line-soft);
+    padding:1px 5px;border-radius:4px;color:var(--ink)}
