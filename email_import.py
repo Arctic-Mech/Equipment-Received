@@ -19,6 +19,11 @@ Env vars (provided by the workflow from repo secrets):
   FILENAME_MUST_CONTAIN substring the attachment's filename must contain (default
                         "Equipment Received"). This is what stops OTHER spreadsheets
                         Bobby emails from ever being imported as arrivals.
+  PDF_FILENAME_MUST_CONTAIN
+                        substring the tool-rental PDF's filename must contain (default "Tool
+                        Rental"). NOTE this report is emailed ONCE A MONTH, so on almost every
+                        run there is no PDF in the window and "no tool rental PDF" is the
+                        normal, healthy outcome — not a fault worth chasing.
   FIREBASE_SA_JSON      full service-account JSON (as a string)
   MAX_AGE_HOURS         optional; only accept an email newer than this (default 26)
   MAX_BODIES            optional; most message bodies to download in one run (default 12).
@@ -503,6 +508,51 @@ def _fetch_headers(imap, ids, chunk=300):
     return out
 
 
+def _fetch_structures(imap, ids, chunk=300):
+    """
+    BODYSTRUCTURE for many messages in one batched fetch — the MIME shape of each message,
+    including attachment filenames, WITHOUT downloading any of the attachments.
+
+    Returns {seq: lowercased raw structure} or None if the server won't answer, in which
+    case the caller falls back to opening bodies and looking properly.
+    """
+    out = {}
+    for i in range(0, len(ids), chunk):
+        try:
+            status, data = imap.fetch(b",".join(ids[i:i + chunk]), "(BODYSTRUCTURE)")
+        except Exception as e:
+            print(f"      (BODYSTRUCTURE unavailable: {e} — will scan bodies instead)")
+            return None
+        if status != "OK" or not data:
+            return None
+        for item in data:
+            # Normally one flat bytes line per message, but a server may hand back a tuple
+            # when the structure contains a literal (a filename sent as {n}).
+            if isinstance(item, tuple):
+                blob = b"".join(p for p in item if isinstance(p, (bytes, bytearray)))
+            elif isinstance(item, (bytes, bytearray)):
+                blob = bytes(item)
+            else:
+                continue
+            m = _FETCH_SEQ.match(blob)
+            if m:
+                out[m.group(1)] = blob.lower()
+    return out
+
+
+def _structure_has(blob, exts):
+    """
+    Does this BODYSTRUCTURE mention an attachment with one of these extensions?
+
+    Deliberately matches the EXTENSION only, not FILENAME_MUST_CONTAIN: RFC2231 splits a long
+    filename across name*0*/name*1* continuations, and a four-character extension is far less
+    likely to land on the seam than a two-word phrase. This only decides which bodies are
+    worth opening — the authoritative filename check still happens in _clean_filename once
+    the body is actually parsed.
+    """
+    return any(e.encode() in blob for e in exts)
+
+
 def _hdr_subject(hdr):
     """Decoded Subject, or "" — encoded-word subjects would otherwise never match."""
     raw = hdr.get("Subject", "")
@@ -570,16 +620,42 @@ def fetch_attachments(user, app_password, expected_sender, max_age_hours, expect
 
         xl_want = os.environ.get("FILENAME_MUST_CONTAIN", "Equipment Received").strip().lower()
         pdf_want = os.environ.get("PDF_FILENAME_MUST_CONTAIN", "Tool Rental").strip().lower()
+
+        # Ask what each message CARRIES before opening any of it. One more batched round
+        # trip, no attachment data.
+        #
+        # This is what makes the tool PDF's absence free. It is emailed once a month, so on
+        # the other ~29 days "stop when both files are found" never fires and every run used
+        # to open the full MAX_BODIES hunting something nobody sent. When the structures come
+        # back and none of them mentions a .pdf, that is a definite answer, not a failed
+        # search: stop as soon as the sheet is in hand.
+        targets, pdf_possible = keep, True
+        structs = _fetch_structures(imap, [m for m, _ in keep]) if keep else {}
+        if structs:
+            xl_c = [(m, d) for m, d in keep if _structure_has(structs.get(m, b""), (".xlsm", ".xlsx"))]
+            pdf_c = [(m, d) for m, d in keep if _structure_has(structs.get(m, b""), (".pdf",))]
+            if xl_c:
+                merged = dict(xl_c)
+                merged.update(dict(pdf_c))
+                targets = sorted(merged.items(), key=lambda k: k[1], reverse=True)
+                pdf_possible = bool(pdf_c)
+                print(f"  Carrying a sheet: {len(xl_c)} | carrying a PDF: {len(pdf_c)}"
+                      + ("" if pdf_c else "  (none — the tool PDF is monthly, so this is normal)"))
+            else:
+                # Structures parsed but no spreadsheet in any of them. Could be a filename
+                # folded across an RFC2231 continuation, so don't trust it — open bodies.
+                print("  No .xlsm/.xlsx seen in the message structures — scanning bodies instead")
+
         got_xl = got_pdf = False
         opened = 0
 
-        for msg_id, msg_date in keep:
-            if got_xl and got_pdf:
+        for msg_id, msg_date in targets:
+            if got_xl and (got_pdf or not pdf_possible):
                 break
             if opened >= MAX_BODIES:
                 # Never silent: a cap that isn't reported reads as "found everything".
                 missing = [w for w, ok in (("master sheet", got_xl), ("tool PDF", got_pdf)) if not ok]
-                print(f"  Stopped at MAX_BODIES={MAX_BODIES} with {len(keep) - opened} older "
+                print(f"  Stopped at MAX_BODIES={MAX_BODIES} with {len(targets) - opened} "
                       f"message(s) unopened"
                       + (f" — still looking for the {' and '.join(missing)}" if missing else ""))
                 break
