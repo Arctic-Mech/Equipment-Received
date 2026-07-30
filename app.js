@@ -260,7 +260,26 @@ const APP_VERSION="7.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":s==="cache"?"cache":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":s==="cache"?"Saved data":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
-  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; setSync(snap.metadata&&snap.metadata.fromCache?"cache":"live"); autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
+  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
+
+  /* ---- Connection badge ----
+     This used to hang off the arrivals listener, which is why it could sit on "Saved data"
+     forever while everything else synced fine. Two reasons it got stuck:
+
+       1. onSnapshot does NOT fire for metadata-only changes unless includeMetadataChanges is
+          set. On load the cache answers first (fromCache: true), and when the server then
+          confirms the SAME arrivals, that's metadata-only — no callback, so the badge was
+          never told it had gone live.
+       2. Even with the flag, arrivals is the wrong source: it only speaks when arrivals
+          change. Rentals, safety and Webduct data could all be streaming from the server
+          while the badge still reported the stale answer from page load.
+
+     So the badge now has its own listener on one small document, with the flag set, and it
+     is the only thing that writes to it. config/lastImport is a good probe: the importer
+     keeps it current, and one doc costs almost nothing to watch. */
+  onSnapshot(doc(db,"config","lastImport"), {includeMetadataChanges:true},
+    s=>setSync(s.metadata && s.metadata.fromCache ? "cache" : "live"),
+    e=>{ console.error("sync probe", e); setSync("err"); });
   onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("rentList",e.code);});
   onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("toolList",e.code);});
   onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>console.error("pdfmeta",e));
@@ -808,8 +827,8 @@ async function signInAs(first,last,email,token){
   // Every login triggers an order pull using the shared admin key (loaded from Firebase).
   if(typeof wdAutoSync==="function") setTimeout(()=>wdAutoSync(), 1500);
   applyAccess();
-  // First login on this device: offer the tutorial (only if they can actually see the app).
-  if(!localStorage.getItem("tut_done") && userAccessAllowed()) setTimeout(()=>openTutorial(), 600);
+  // The tutorial no longer opens itself on a first login. It is available any time from the
+  // "? Tutorial" button in the header, which is where people looked for it anyway.
 }
 
 /* ---------- Access control (basic, not security — an honest gate) ---------- */
