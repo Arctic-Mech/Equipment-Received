@@ -718,7 +718,20 @@ def _connect(dry_run):
 
 
 def _already_done(db, marker, email_ms, force):
-    """True if this exact email was already imported (so repeat polls are cheap)."""
+    """
+    True if this exact email was already imported (so repeat polls are cheap).
+
+    If the marker can't be READ, this returns True — it skips rather than importing.
+    That direction matters. It used to assume "not imported yet" and carry on, which turned a
+    Firestore quota problem into a much worse one: the read fails with 429, the importer
+    decides it must import, writes 800+ documents, that fails with 429 too, the marker is
+    never updated, and the next poll does it all again. A read failure now costs one skipped
+    cycle instead, and the next poll retries. Since this polls all morning, a cycle is cheap;
+    re-writing the whole sheet on a guess is not.
+
+    Skipping forever if reads stay broken is not a real risk: writes go through the same
+    connection, so an import could not have succeeded either.
+    """
     if db is None or force:
         return False
     try:
@@ -727,9 +740,12 @@ def _already_done(db, marker, email_ms, force):
             prev_ms = prev.to_dict().get("emailDateMs")
             if prev_ms and int(prev_ms) == email_ms:
                 return True
+        return False
     except Exception as e:
-        print(f"      (couldn't read {marker}: {e} - continuing)")
-    return False
+        print(f"      !! couldn't read {marker}: {e}")
+        print(f"      !! SKIPPING this import rather than risk re-writing everything blind.")
+        print(f"      !! Nothing was written. The next poll will try again.")
+        return True
 
 
 def _write_docs(db, coll, docs, base_offset=0):
