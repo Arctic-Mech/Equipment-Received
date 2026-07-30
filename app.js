@@ -45,7 +45,8 @@ let PEOPLE=[];                      // people directory {id,first,last,nameNorm,
 let SHARES=[];                      // pending shares addressed to me
 let WD_EQUIP=[];                    // Webduct shop-equipment order items (synced) {docId, order#, job, dates, status, notes, label, arrivalId, matchState}
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
-// ---- Safety tab. Each is uploaded whole from Admin and replaces what was there. ----
+// ---- Safety tab. Uploaded whole from Admin; an import replaces what was there, except rows
+//      pinned or hand-edited in the Safety tab — see sfConflicts/sfReplace. ----
 let SF_POINTS=[];                   // {id, name, shirt, start, awards:{label:pts}, used, extra, total}
 let SF_TRAINING=[];                 // {id, name, course, instructor, date, expires, notes}
 let SF_SDS=[];                      // {id, record, product, use, vendor, issueDate, dept, pages}
@@ -1996,10 +1997,13 @@ function sfQuery(id){ const el=$(id); return el?el.value.trim().toLowerCase():""
 /* ---------- Safety: editing by hand (admin) ----------
    The uploads are a bulk starting point, not the only way in. Everything the spreadsheet can
    express is editable here: add or correct a row, ignore an expiry warning that doesn't apply,
-   or remove a person outright. Edits live in the same collections as the imports — but note
-   that re-uploading REPLACES a category, so a hand-edit to a row that still exists in the next
-   report will be overwritten by it. Rows added by hand that aren't in the report are removed by
-   the same rule. The editor says so. */
+   or remove a person outright. Edits live in the same collections as the imports, and an
+   import still replaces a category wholesale — but not over a hand edit without asking. Rows
+   saved here are stamped source:"admin-edit", and sfConflicts flags them before any write, so
+   the next upload that would change or delete one stops for an answer (replace / keep once /
+   keep permanently / cancel). "Keep permanently" sets `pinned`, which sfReplace skips outright
+   from then on. Silenced flags need none of this: the parsers never emit the field and every
+   import write is {merge:true}, so silence survives on its own. */
 
 const SF_FIELDS={
   points:[
@@ -2082,7 +2086,7 @@ function sfOpenEdit(kind,id){
       ${f.hint?`<div class="hint">${esc(f.hint)}</div>`:""}</div>`;
   }).join("");
   $("sfEditDelete").style.display=id?"block":"none";
-  $("sfEditHint").innerHTML="Re-uploading this category replaces it, so a change here is overwritten by the next import that still contains this row.";
+  $("sfEditHint").innerHTML="Saved by hand, this row is protected: an upload that would change or remove it asks you first. Tick <b>Keep this row through future uploads</b> to skip the question and never let an import touch it.";
   openModal("sfEditModal");
 }
 
@@ -2372,9 +2376,10 @@ document.querySelectorAll("[data-drugfilter]").forEach(b=>b.addEventListener("cl
 $("btnImport").addEventListener("click",()=>{ $("importTitle").textContent="Import Excel"; $("importBody").innerHTML=dropHTML("excel"); wireDrop("excel"); openModal("importModal"); });
 $("btnToolImport").addEventListener("click",()=>{ $("importTitle").textContent="Upload Tool Report"; $("importBody").innerHTML=dropHTML("pdf"); wireDrop("pdf"); openModal("importModal"); });
 /* ---------- Safety uploads (Admin) ---------- */
-// Each upload REPLACES its category. Doc ids are derived from the row content with makeId, so
+// Each upload replaces its category. Doc ids are derived from the row content with makeId, so
 // re-uploading the same report rewrites the same docs instead of duplicating them, and anything
-// that vanished from the report gets deleted.
+// that vanished from the report gets deleted. Two exceptions, both in sfReplace: pinned rows are
+// skipped silently, and hand-edited rows are held back for the sfConflicts prompt first.
 
 const SF_UPLOADS={
   points  :{coll:"safetyPoints",  state:()=>SF_POINTS,  title:"Upload Safety Points",   ico:"📊", accept:".pdf",             what:"Safety Point Program totals PDF"},
@@ -2387,7 +2392,7 @@ const SF_UPLOADS={
 function sfDropHTML(kind){
   const c=SF_UPLOADS[kind];
   return `<div class="dropzone" id="dropzone"><div class="dz-ico">${c.ico}</div><h4>${esc(c.title)}</h4>
-    <p>Drop the <b>${esc(c.what)}</b> here, or pick it from your device. This replaces everything currently in that category.</p>
+    <p>Drop the <b>${esc(c.what)}</b> here, or pick it from your device. This replaces that category — rows missing from the file are removed. Rows you edited by hand are asked about first; pinned rows are left alone.</p>
     <label class="dz-btn">Choose file<input id="fileInput" type="file" accept="${c.accept}" hidden></label></div>`;
 }
 
