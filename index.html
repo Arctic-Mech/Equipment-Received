@@ -24,14 +24,22 @@
       <span class="divider"></span>
       <span class="appname">Equipment<br>Received &amp; Rentals</span>
     </div>
-    <div class="appbar-right"><button class="tut-btn" id="btnTutorial" title="Take the tutorial">? Tutorial</button><button class="who-chip" id="whoChip" title="Your account"><span class="who-av" id="whoAv">?</span><span class="who-name" id="whoName">Sign in</span></button><button class="export-btn" id="btnExport" title="Export everything to Excel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Excel</button><div class="sync-dot" id="syncDot"><i></i><span id="syncTxt">Connecting</span></div><div class="wd-hdr-light" id="wdHdrLight" title="Webduct connection"><span class="wd-hdr-dot" id="wdHdrDot"></span><span id="wdHdrTxt">Webduct</span></div></div>
+    <div class="appbar-right"><button class="tut-btn" id="btnTutorial" title="Take the tutorial">? Tutorial</button><button class="admin-btn" id="btnAdminOpen" title="Admin — log, edit and import"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Admin</button><button class="who-chip" id="whoChip" title="Your account"><span class="who-av" id="whoAv">?</span><span class="who-name" id="whoName">Sign in</span></button><button class="export-btn" id="btnExport" title="Export everything to Excel"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Excel</button><div class="sync-dot" id="syncDot"><i></i><span id="syncTxt">Connecting</span></div><div class="wd-hdr-light" id="wdHdrLight" title="Webduct connection"><span class="wd-hdr-dot" id="wdHdrDot"></span><span id="wdHdrTxt">Webduct</span></div></div>
   </div>
+  <!-- Three tabs. Rentals and Deliveries live behind the caret on the first tab: they are
+       still their own views with their own permissions, just not their own tab. -->
   <nav class="tabs">
-    <button class="tab active" data-view="feed">Arrivals <span class="pill" id="pillFeed">0</span></button>
-    <button class="tab" data-view="rentals">Rentals <span class="pill" id="pillRent">0</span></button>
+    <div class="tab-group" id="feedGroup">
+      <button class="tab active" data-view="feed" id="feedGroupTab"><span id="feedGroupLabel">Arrivals</span> <span class="pill" id="pillGroup">0</span></button>
+      <button class="tab-caret" id="feedGroupCaret" aria-haspopup="true" aria-expanded="false" title="Switch to Rentals or Deliveries"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <div class="tab-menu" id="feedGroupMenu" role="menu">
+        <button class="tab-menu-item" data-groupview="feed" role="menuitem"><span class="tmi-ico">📦</span><span class="tmi-txt"><b>Arrivals</b><i>Everything that came in</i></span><span class="tmi-pill" id="pillFeed">0</span><span class="tmi-check">✓</span></button>
+        <button class="tab-menu-item" data-groupview="rentals" role="menuitem"><span class="tmi-ico">🏗️</span><span class="tmi-txt"><b>Rentals</b><i>Equipment out on rent</i></span><span class="tmi-pill" id="pillRent">0</span><span class="tmi-check">✓</span></button>
+        <button class="tab-menu-item" data-groupview="deliveries" role="menuitem"><span class="tmi-ico">🚚</span><span class="tmi-txt"><b>Deliveries</b><i>The delivery calendar</i></span><span class="tmi-check">✓</span></button>
+      </div>
+    </div>
     <button class="tab" data-view="jobs">My Jobs <span class="notif" id="jobsNotif">0</span></button>
-    <button class="tab" data-view="deliveries">Deliveries</button>
-    <button class="tab" data-view="admin">Admin</button>
+    <button class="tab" data-view="safety">Safety</button>
   </nav>
 </header>
 
@@ -189,6 +197,49 @@
     <div id="foldersList"></div>
   </section>
 
+  <!-- SAFETY -->
+  <section class="view" id="view-safety">
+    <div class="safety-subtabs" id="safetySubtabs">
+      <button class="sub-pill active" data-safety="points">Points</button>
+      <button class="sub-pill" data-safety="training">Training</button>
+      <button class="sub-pill" data-safety="sds">SDS</button>
+      <button class="sub-pill" data-safety="drug">Drug Cards</button>
+    </div>
+
+    <div class="safety-pane active" id="safety-points">
+      <div class="sf-head">
+        <div class="sf-title"><h2>Safety Point Program</h2><div class="sf-meta" id="sfPointsMeta">—</div></div>
+        <input class="sf-search" id="sfPointsSearch" type="search" placeholder="Search a name…" autocomplete="off">
+      </div>
+      <div id="sfPointsList"></div>
+    </div>
+
+    <div class="safety-pane" id="safety-training">
+      <div class="sf-head">
+        <div class="sf-title"><h2>Training Matrix</h2><div class="sf-meta" id="sfTrainMeta">—</div></div>
+        <input class="sf-search" id="sfTrainSearch" type="search" placeholder="Search name, course, instructor…" autocomplete="off">
+      </div>
+      <div class="sf-filters" id="sfTrainFilters">
+        <button class="sf-chip active" data-trainfilter="all">All</button>
+        <button class="sf-chip" data-trainfilter="expiring">Expiring soon</button>
+        <button class="sf-chip" data-trainfilter="expired">Expired</button>
+      </div>
+      <div id="sfTrainList"></div>
+    </div>
+
+    <div class="safety-pane" id="safety-sds">
+      <div class="sf-head">
+        <div class="sf-title"><h2>Safety Data Sheets</h2><div class="sf-meta" id="sfSdsMeta">—</div></div>
+        <input class="sf-search" id="sfSdsSearch" type="search" placeholder="Search chemical, vendor, use…" autocomplete="off">
+      </div>
+      <div id="sfSdsList"></div>
+    </div>
+
+    <div class="safety-pane" id="safety-drug">
+      <div class="empty"><div class="ico">🪪</div><h3>Drug cards coming soon</h3><p>This is where current drug card status will live. Nothing has been loaded yet — the format is still being worked out.</p></div>
+    </div>
+  </section>
+
   <!-- ADMIN -->
   <section class="view" id="view-admin">
     <div id="adminLocked">
@@ -216,6 +267,18 @@
         <button class="act imp" id="btnImport"><div class="a-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div><div class="a-title">Import Excel</div><div class="a-sub">Load past arrivals + rentals.</div></button>
         <button class="act" id="btnPeople"><div class="a-ico" style="background:var(--steel)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div><div class="a-title">Manage People</div><div class="a-sub">Add names and edit emails.</div></button>
       </div>
+
+      <div class="sf-uploadbox">
+        <div class="wd-keybox-title">🦺 Safety Tab Uploads</div>
+        <p class="sf-upload-note">Each upload replaces that category outright — the file you send is the new source of truth, so re-upload the whole report rather than a partial one.</p>
+        <div class="actions">
+          <button class="act sf-up" id="btnSfPoints"><div class="a-ico">📊</div><div class="a-title">Safety Points</div><div class="a-sub">The Safety Point Program totals PDF.</div></button>
+          <button class="act sf-up" id="btnSfTraining"><div class="a-ico">🎓</div><div class="a-title">Training Matrix</div><div class="a-sub">The Arctic training log PDF.</div></button>
+          <button class="act sf-up" id="btnSfSds"><div class="a-ico">🧪</div><div class="a-title">SDS Inventory</div><div class="a-sub">The Safety Data Sheet inventory workbook.</div></button>
+          <button class="act sf-up disabled" id="btnSfDrug" disabled><div class="a-ico">🪪</div><div class="a-title">Drug Cards</div><div class="a-sub">Waiting on the file format.</div></button>
+        </div>
+      </div>
+
       <div class="wd-keybox">
         <div class="wd-keybox-title">🔑 Webduct Company Connection</div>
         <div class="wd-key-status" id="wdKeyStatus"><span class="wd-key-dot" id="wdKeyDot"></span><span id="wdKeyStatusTxt">Checking…</span></div>
