@@ -49,9 +49,11 @@ let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for t
 let SF_POINTS=[];                   // {id, name, shirt, start, awards:{label:pts}, used, extra, total}
 let SF_TRAINING=[];                 // {id, name, course, instructor, date, expires, notes}
 let SF_SDS=[];                      // {id, record, product, use, vendor, issueDate, dept, pages}
+let SF_DRUG=[];                     // {id, name, tested, expires} — same workbook as the training log
 let SF_META={};                     // {points:{count,updatedAt,by}, training:{...}, sds:{...}}
 let SF_TAB="points";                // which sub-pill is showing
 let SF_TRAIN_FILTER="all";
+let SF_DRUG_FILTER="all";
 let WD_NOTES={};                    // per-order notes keyed by order docId {deliveryTime, truck, extra, highlight}
 let WD_LAST_SYNC=null;              // {by, at, summary} — who forced the last refresh and when
 let LAST_IMPORT=null;               // {at, emailDateMs, sourceFile, count, rentals}
@@ -269,6 +271,7 @@ function startSync(){
   onSnapshot(collection(db,"safetyPoints"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_POINTS=l; renderSafety(); }, e=>console.error("safetyPoints",e));
   onSnapshot(collection(db,"safetyTraining"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_TRAINING=l; renderSafety(); }, e=>console.error("safetyTraining",e));
   onSnapshot(collection(db,"safetySds"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_SDS=l; renderSafety(); }, e=>console.error("safetySds",e));
+  onSnapshot(collection(db,"safetyDrugCards"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_DRUG=l; renderSafety(); }, e=>console.error("safetyDrugCards",e));
   onSnapshot(doc(db,"config","safetyMeta"),d=>{ SF_META=d.exists()?d.data():{}; renderSafety(); }, e=>console.error("safetyMeta",e));
   onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>console.error("webductEquipNotes",e));
   wdWatchAdminKey();
@@ -1946,7 +1949,45 @@ function sfQuery(id){ const el=$(id); return el?el.value.trim().toLowerCase():""
 
 function renderSafety(){
   if(!document.getElementById("view-safety")) return;
-  renderSfPoints(); renderSfTraining(); renderSfSds();
+  renderSfPoints(); renderSfTraining(); renderSfSds(); renderSfDrug();
+}
+
+function renderSfDrug(){
+  const list=$("sfDrugList"), meta=$("sfDrugMeta"); if(!list) return;
+  if(meta) meta.textContent=sfMetaLine("drug","cards");
+  if(!SF_DRUG.length){ list.innerHTML=sfEmpty("🪪","No drug cards loaded","They come in on the Arctic Training Matrix workbook — upload it from the Admin tab."); return; }
+  const q=sfQuery("sfDrugSearch");
+  let rows=SF_DRUG.filter(r=>{
+    if(q && !String(r.name||"").toLowerCase().includes(q)) return false;
+    const st=sfExpiryState(r.expires);
+    if(SF_DRUG_FILTER==="expiring") return st==="soon";
+    if(SF_DRUG_FILTER==="expired")  return st==="expired";
+    return true;
+  });
+  const rank={expired:0,soon:1,ok:2,none:3};
+  rows.sort((a,b)=>(rank[sfExpiryState(a.expires)]-rank[sfExpiryState(b.expires)])
+    || String(a.expires||"").localeCompare(String(b.expires||""))
+    || String(a.name||"").localeCompare(String(b.name||"")));
+  const counts={expired:0,soon:0};
+  SF_DRUG.forEach(r=>{ const s=sfExpiryState(r.expires); if(counts[s]!==undefined) counts[s]++; });
+  document.querySelectorAll("[data-drugfilter]").forEach(b=>{
+    const k=b.dataset.drugfilter;
+    b.classList.toggle("active",k===SF_DRUG_FILTER);
+    const n=k==="expiring"?counts.soon:k==="expired"?counts.expired:0;
+    b.textContent=(k==="all"?"All":k==="expiring"?"Expiring soon":"Expired")+(n?` (${n})`:"");
+  });
+  if(!rows.length){ list.innerHTML=sfEmpty("🔍","Nothing here","No drug cards match that filter."); return; }
+  list.innerHTML=rows.map(r=>{
+    const st=sfExpiryState(r.expires);
+    const badge=st==="expired"?`<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`
+      :st==="soon"?`<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`
+      :st==="ok"?`<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`
+      :`<span class="sf-badge none">No expiry on file</span>`;
+    return `<div class="sf-row tr">
+      <div class="sf-row-main"><div class="sf-name">${esc(r.name||"—")}</div>${badge}</div>
+      <div class="sf-sub">${r.tested?`<span>Tested <b>${esc(longDate(r.tested))}</b></span>`:""}</div>
+    </div>`;
+  }).join("");
 }
 
 function renderSfPoints(){
@@ -2052,9 +2093,15 @@ document.querySelectorAll("[data-safety]").forEach(b=>b.addEventListener("click"
 document.querySelectorAll("[data-trainfilter]").forEach(b=>b.addEventListener("click",()=>{
   SF_TRAIN_FILTER=b.dataset.trainfilter; renderSfTraining();
 }));
-["sfPointsSearch","sfTrainSearch","sfSdsSearch"].forEach(id=>{
+document.querySelectorAll("[data-drugfilter]").forEach(b=>b.addEventListener("click",()=>{
+  SF_DRUG_FILTER=b.dataset.drugfilter; renderSfDrug();
+}));
+["sfPointsSearch","sfTrainSearch","sfSdsSearch","sfDrugSearch"].forEach(id=>{
   const el=$(id); if(el) el.addEventListener("input",()=>{
-    if(id==="sfPointsSearch")renderSfPoints(); else if(id==="sfTrainSearch")renderSfTraining(); else renderSfSds();
+    if(id==="sfPointsSearch")renderSfPoints();
+    else if(id==="sfTrainSearch")renderSfTraining();
+    else if(id==="sfDrugSearch")renderSfDrug();
+    else renderSfSds();
   });
 });
 
@@ -2066,9 +2113,11 @@ $("btnToolImport").addEventListener("click",()=>{ $("importTitle").textContent="
 // that vanished from the report gets deleted.
 
 const SF_UPLOADS={
-  points  :{coll:"safetyPoints",  state:()=>SF_POINTS,  title:"Upload Safety Points",   ico:"📊", accept:".pdf",              what:"Safety Point Program totals PDF"},
-  training:{coll:"safetyTraining",state:()=>SF_TRAINING,title:"Upload Training Matrix", ico:"🎓", accept:".pdf",              what:"Arctic training matrix PDF"},
-  sds     :{coll:"safetySds",     state:()=>SF_SDS,     title:"Upload SDS Inventory",   ico:"🧪", accept:".xlsx,.xlsm,.xls",  what:"Safety Data Sheet inventory workbook"},
+  points  :{coll:"safetyPoints",  state:()=>SF_POINTS,  title:"Upload Safety Points",   ico:"📊", accept:".pdf",             what:"Safety Point Program totals PDF"},
+  // One workbook, two tabs, two collections — see parseTrainingWorkbook/parseDrugCards.
+  training:{coll:"safetyTraining",state:()=>SF_TRAINING,title:"Upload Training & Drug Cards", ico:"🎓", accept:".xlsx,.xlsm,.xls", what:"Arctic Training Matrix workbook"},
+  drug    :{coll:"safetyDrugCards",state:()=>SF_DRUG,   title:"Drug Cards",             ico:"🪪", accept:".xlsx,.xlsm,.xls", what:"Arctic Training Matrix workbook", viaTraining:true},
+  sds     :{coll:"safetySds",     state:()=>SF_SDS,     title:"Upload SDS Inventory",   ico:"🧪", accept:".xlsx,.xlsm,.xls", what:"Safety Data Sheet inventory workbook"},
 };
 
 function sfDropHTML(kind){
@@ -2155,40 +2204,66 @@ function parseSafetyPointsPdf(pages){
   return out;
 }
 
-function parseTrainingPdf(pages){
-  const DATE=/^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
-  const flat=[].concat(...pages);
-  // Columns come from the real log header. Page 1 also carries the spreadsheet's autofilter
-  // legend (loose NAME / COURSE / INSTRUCTOR lists at completely different x positions); those
-  // rows are rejected below by requiring a date in the DATE column, so the legend can't be
-  // mistaken for records.
-  const hi=flat.findIndex(r=>r.cells.some(c=>/date\s*of\s*training/i.test(c.s)));
-  if(hi<0) throw new Error("Couldn't find the log header (expected “DATE OF TRAINING … NOTES”). Is this the training matrix PDF?");
-  const cols=flat[hi].cells.map(c=>({label:c.s.trim(),x:c.x}));
-  const iOf=re=>cols.findIndex(c=>re.test(c.label));
-  const iDate=iOf(/date/i), iName=iOf(/name/i), iCourse=iOf(/course/i),
-        iInstr=iOf(/instructor/i), iExp=iOf(/expires/i), iNotes=iOf(/notes/i);
-  const out=[];
-  for(const row of flat){
-    const cells=row.cells;
-    if(!cells.length) continue;
-    const rec={name:"",course:"",instructor:"",date:"",expires:"",notes:""};
-    let sawDate=false;
-    for(const c of cells){
-      const ci=sfColAt(c.x,cols);
-      const put=(k,v)=>{ rec[k]=rec[k]?rec[k]+" "+v:v; };
-      if(ci===iDate){ if(!DATE.test(c.s)){ sawDate=false; break; } rec.date=fmtDateKey(c.s); sawDate=true; }
-      else if(ci===iName)   put("name",c.s);
-      else if(ci===iCourse) put("course",c.s);
-      else if(ci===iInstr)  put("instructor",c.s);
-      else if(ci===iExp)    rec.expires=DATE.test(c.s)?fmtDateKey(c.s):"";
-      else if(ci===iNotes)  put("notes",c.s);
-    }
-    if(!sawDate || !rec.name) continue;
-    out.push(rec);
+// The training log and the drug cards are two tabs of ONE workbook, so a single upload fills
+// both. Sheet names are matched loosely — the tabs really are called "Training Log- ALL" and
+// "Drug Cards", with the spacing and capitalisation that implies — and the exact match is tried
+// first so "Training Log-Architectural" and the other per-department tabs can't win by prefix.
+function sfFindSheet(wb,...wanted){
+  const norm=s=>String(s).toLowerCase().replace(/[^a-z]/g,"");
+  for(const w of wanted){
+    const want=norm(w);
+    const hit=wb.SheetNames.find(n=>norm(n)===want) || wb.SheetNames.find(n=>norm(n).includes(want));
+    if(hit) return hit;
   }
-  if(!out.length) throw new Error("No dated training rows found. Is this the training matrix PDF?");
-  return out;
+  return null;
+}
+function sfRows(wb,sheet){
+  return XLSX.utils.sheet_to_json(wb.Sheets[sheet],{header:1,raw:true,defval:"",cellDates:true});
+}
+// Header text is matched per column rather than assumed by position: this log starts in column
+// C with two blank columns to its left, and a title block above it.
+function sfHeaderCols(rows,must,label){
+  const hi=rows.findIndex(r=>r.map(c=>String(c).toLowerCase()).join("|").includes(must));
+  if(hi<0) throw new Error(`Couldn't find the ${label} header (expected “${must}”).`);
+  const H=rows[hi].map(c=>String(c).trim().toLowerCase());
+  return {hi,col:(...keys)=>{ for(const k of keys){ const i=H.findIndex(h=>h.includes(k)); if(i>=0) return i; } return -1; }};
+}
+
+function parseTrainingWorkbook(buf){
+  const wb=XLSX.read(buf,{cellDates:true});
+  const sheet=sfFindSheet(wb,"training log all","training log");
+  if(!sheet) throw new Error(`No “Training Log- ALL” tab in this workbook. Found: ${wb.SheetNames.join(", ")}`);
+  const rows=sfRows(wb,sheet);
+  const {hi,col}=sfHeaderCols(rows,"date of training","training log");
+  const cD=col("date of training"),cN=col("name"),cC=col("course"),
+        cI=col("instructor"),cE=col("expires"),cX=col("notes");
+  const out=[];
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i], g=x=>x>=0?r[x]:"";
+    const name=String(g(cN)||"").trim(), date=fmtDateKey(g(cD));
+    if(!name||!date) continue;
+    out.push({name,course:String(g(cC)||"").trim(),instructor:String(g(cI)||"").trim(),
+      date,expires:fmtDateKey(g(cE)),notes:String(g(cX)||"").trim()});
+  }
+  if(!out.length) throw new Error("No dated rows found on the training log tab.");
+  return {sheet,rows:out};
+}
+
+function parseDrugCards(buf){
+  const wb=XLSX.read(buf,{cellDates:true});
+  const sheet=sfFindSheet(wb,"drug cards","drug card","drug");
+  if(!sheet) return {sheet:null,rows:[]};      // optional — the log alone is still a valid upload
+  const rows=sfRows(wb,sheet);
+  const {hi,col}=sfHeaderCols(rows,"name","drug cards");
+  const cN=col("name"),cT=col("test date","test"),cE=col("expiration","expires");
+  const out=[];
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i], g=x=>x>=0?r[x]:"";
+    const name=String(g(cN)||"").trim();
+    if(!name) continue;
+    out.push({name,tested:fmtDateKey(g(cT)),expires:fmtDateKey(g(cE))});
+  }
+  return {sheet,rows:out};
 }
 
 function parseSdsWorkbook(buf){
@@ -2251,32 +2326,46 @@ async function handleSfFile(kind,file){
   body.innerHTML=`<div class="imp-stage"><div class="imp-spin"></div><h4>Reading ${esc(file.name)}…</h4><div class="imp-bar"><i id="impBar"></i></div><div class="hint" id="impCount"></div></div>`;
   try{
     const buf=await file.arrayBuffer();
-    let recs;
-    if(kind==="sds") recs=parseSdsWorkbook(buf);
-    else{
+    const mkId=(k,r)=> k==="points" ? makeId(["sfp",r.name])
+      : k==="training" ? makeId(["sft",r.name,r.course,r.date])
+      : k==="drug" ? makeId(["sfd",r.name,r.tested])
+      : makeId(["sds",r.record||r.product,r.product]);
+    // Two rows that collapse to one id would silently drop one, so de-duplicate deliberately
+    // and report how many merged rather than quietly losing them.
+    const prep=(k,recs)=>{
+      const seen=new Map();
+      recs.forEach(r=>seen.set(mkId(k,r),{...r,id:mkId(k,r)}));
+      return {docs:[...seen.values()],dropped:recs.length-seen.size};
+    };
+
+    const parts=[];        // [{kind, label, docs, dropped}]
+    if(kind==="sds") parts.push({kind:"sds",label:"SDS sheets",...prep("sds",parseSdsWorkbook(buf))});
+    else if(kind==="points"){
       if(!window.pdfjsLib) throw new Error("PDF reader didn't load. Check your connection and retry.");
-      const pages=await sfPdfRows(buf);
-      recs=kind==="points"?parseSafetyPointsPdf(pages):parseTrainingPdf(pages);
+      parts.push({kind:"points",label:"employees",...prep("points",parseSafetyPointsPdf(await sfPdfRows(buf)))});
+    } else {
+      // The training log and the drug cards ride in the same workbook, so one drop fills both.
+      const t=parseTrainingWorkbook(buf);
+      parts.push({kind:"training",label:"training records",...prep("training",t.rows)});
+      const d=parseDrugCards(buf);
+      if(d.sheet) parts.push({kind:"drug",label:"drug cards",...prep("drug",d.rows)});
     }
-    const docs=recs.map(r=>({
-      ...r,
-      id: kind==="points" ? makeId(["sfp",r.name])
-        : kind==="training" ? makeId(["sft",r.name,r.course,r.date])
-        : makeId(["sds",r.record||r.product,r.product]),
-    }));
-    // Two rows that collapse to one id would silently drop one, so de-duplicate deliberately.
-    const seen=new Map(); docs.forEach(d=>seen.set(d.id,d));
-    const uniq=[...seen.values()];
-    const dropped=docs.length-uniq.length;
-    upd(0,uniq.length);
-    const res=await sfReplace(kind,uniq);
-    upd(uniq.length,uniq.length);
+
+    const total=parts.reduce((s,p)=>s+p.docs.length,0);
+    upd(0,total||1);
+    let done=0; const lines=[];
+    for(const p of parts){
+      const res=await sfReplace(p.kind,p.docs);
+      done+=p.docs.length; upd(done,total||1);
+      lines.push(`<b>${res.written.toLocaleString()}</b> ${p.label}${res.removed?` · ${res.removed.toLocaleString()} removed`:""}${p.dropped?` · ${p.dropped} duplicate row${p.dropped===1?"":"s"} merged`:""}`);
+    }
     body.innerHTML=`<div class="imp-stage"><div style="font-size:42px;margin-bottom:10px">✅</div>
       <h4>${esc(cfg.title.replace("Upload ",""))} updated</h4>
-      <p><b>${res.written.toLocaleString()}</b> record${res.written===1?"":"s"} loaded${res.removed?` · ${res.removed.toLocaleString()} removed`:""}${dropped?` · ${dropped} duplicate row${dropped===1?"":"s"} merged`:""}.</p>
+      <p>${lines.join("<br>")}</p>
+      ${parts.length===1&&kind==="training"?`<p class="hint">No “Drug Cards” tab in that workbook, so drug cards were left as they were.</p>`:""}
       <button class="submit" style="margin-top:20px" id="impErrClose">Done</button></div>`;
     const c=$("impErrClose"); if(c) c.addEventListener("click",()=>closeModal("importModal"));
-    toast(`${cfg.title.replace("Upload ","")}: ${res.written.toLocaleString()} loaded`);
+    toast(parts.map(p=>`${p.docs.length.toLocaleString()} ${p.label}`).join(" · "));
   }catch(e){
     console.error(e);
     body.innerHTML=stageErr((e&&e.message)||String(e));
@@ -2284,14 +2373,17 @@ async function handleSfFile(kind,file){
   }
 }
 
+function sfOpenUpload(kind){
+  $("importTitle").textContent=SF_UPLOADS[kind].title;
+  $("importBody").innerHTML=sfDropHTML(kind);
+  wireSfDrop(kind);
+  openModal("importModal");
+}
 Object.keys(SF_UPLOADS).forEach(kind=>{
   const btn=$("btnSf"+kind.charAt(0).toUpperCase()+kind.slice(1));
-  if(btn) btn.addEventListener("click",()=>{
-    $("importTitle").textContent=SF_UPLOADS[kind].title;
-    $("importBody").innerHTML=sfDropHTML(kind);
-    wireSfDrop(kind);
-    openModal("importModal");
-  });
+  // Drug cards have no upload of their own — they arrive on the training workbook, so that
+  // button opens the same drop zone rather than pretending to be a separate import.
+  if(btn) btn.addEventListener("click",()=>sfOpenUpload(SF_UPLOADS[kind].viaTraining?"training":kind));
 });
 
 function dropHTML(kind){ const isPdf=kind==="pdf"; return `<div class="dropzone" id="dropzone"><div class="dz-ico">${isPdf?"🧰":"📄"}</div><h4>${isPdf?"Upload tool report":"Upload master sheet"}</h4><p>${isPdf?'Drop the <b>Webduct Tool Rental</b> PDF here, or pick it from your device.':'Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it.'} Re-importing is safe — duplicates merge.</p><label class="dz-btn">Choose file<input id="fileInput" type="file" accept="${isPdf?'.pdf':'.xlsx,.xlsm,.xls'}" hidden></label></div><div class="field" style="margin-top:16px"><div class="hint">${isPdf?'Reads every job and tool line. Job numbers, dates, days, and rates are pulled automatically.':'Loads every monthly tab into Arrivals, plus the Equipment Rentals tab into Rentals.'}</div></div>`; }
