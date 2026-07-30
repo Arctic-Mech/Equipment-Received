@@ -422,6 +422,17 @@
   <div class="modal-body" id="importBody"></div>
 </div></div>
 
+<!-- SAFETY EDITOR (admin) — one form, fields built per category -->
+<div class="modal-back" id="sfEditModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3 id="sfEditTitle">Edit</h3><button class="x" data-close="sfEditModal">✕</button></div>
+  <div class="modal-body">
+    <div id="sfEditFields"></div>
+    <button class="submit" id="sfEditSave">Save</button>
+    <button class="submit danger" id="sfEditDelete" style="display:none;margin-top:10px">Delete</button>
+    <div class="hint" id="sfEditHint" style="margin-top:10px"></div>
+  </div>
+</div></div>
+
 <!-- PHOTO VIEWER -->
 <div class="modal-back" id="photoModal"><div class="modal"><div class="modal-grip"></div>
   <div class="modal-head"><h3>Photo</h3><button class="x" data-close="photoModal">✕</button></div>

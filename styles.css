@@ -1002,3 +1002,26 @@
   .sf-grp .sf-sub{font-size:11px}
   .empty code{font-family:'JetBrains Mono';font-size:11.5px;background:var(--line-soft);
     padding:1px 5px;border-radius:4px;color:var(--ink)}
+
+  /* --- Points as a dense list, and the admin edit layer on the Safety panes --- */
+  .sf-lpts{font-family:'JetBrains Mono';font-size:12px;font-weight:700;color:var(--ink);
+    flex:none;text-align:right;min-width:52px}
+  .sf-awards{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .sf-award{display:inline-flex;align-items:baseline;gap:4px;background:var(--line-soft);
+    border-radius:5px;padding:2px 7px;font-family:'JetBrains Mono';font-size:10.5px;
+    font-weight:700;color:var(--ink-soft)}
+  .sf-award i{font-style:normal;font-weight:500;color:var(--steel);font-size:9.5px}
+
+  .sf-add{display:block;width:100%;margin-bottom:10px;padding:9px;border-radius:9px;
+    border:1px dashed var(--steel-light);background:var(--card);color:var(--steel);
+    font-size:12.5px;font-weight:600;transition:border-color .15s,color .15s}
+  .sf-add:hover{border-color:var(--blue);color:var(--blue)}
+  .sf-acts{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+  .sf-acts.person{padding:8px 0 2px;border-top:1px solid var(--line)}
+  .sf-acts .mini-btn{font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;
+    border:1px solid var(--line);background:var(--card);color:var(--steel);width:auto;height:auto}
+  .sf-acts .mini-btn.edit:hover{border-color:var(--blue);color:var(--blue)}
+  .sf-acts .mini-btn.del:hover{border-color:#c0341a;color:#c0341a}
+  .sf-check{display:flex;align-items:center;gap:9px;padding:11px 0;font-size:13.5px;color:var(--ink)}
+  .sf-check input{width:17px;height:17px;flex:none;accent-color:var(--blue)}
+  .submit.danger{background:#c0341a}
