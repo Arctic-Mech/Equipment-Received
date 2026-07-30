@@ -1025,3 +1025,12 @@
   .sf-check{display:flex;align-items:center;gap:9px;padding:11px 0;font-size:13.5px;color:var(--ink)}
   .sf-check input{width:17px;height:17px;flex:none;accent-color:var(--blue)}
   .submit.danger{background:#c0341a}
+  .sf-conflicts{max-height:210px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;
+    padding:4px 0;margin-bottom:14px;background:var(--surface)}
+  .sf-conflict{display:flex;flex-direction:column;gap:1px;padding:7px 12px;font-size:12.5px}
+  .sf-conflict + .sf-conflict{border-top:1px solid var(--line-soft)}
+  .sf-conflict b{color:var(--ink);font-weight:650}
+  .sf-conflict i{font-style:normal;color:var(--steel);font-size:11px}
+  .sf-conflict.more{color:var(--steel);font-size:11.5px;font-style:italic}
+  .sf-acts .mini-btn.silence:hover{border-color:var(--amber);color:var(--amber)}
+  .sf-acts .mini-btn.unsilence{border-color:var(--amber);color:var(--amber)}

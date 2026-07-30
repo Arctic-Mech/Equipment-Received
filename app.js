@@ -1940,8 +1940,9 @@ const SF_SOON_DAYS=90;   // "expiring soon" horizon
 // `ignored` is set by hand in Admin to silence a warning that doesn't apply — someone who has
 // left, a certification that was renewed off-system, a row the report gets wrong. Ignored rows
 // keep their dates but stop counting as expired or due anywhere.
+const sfSilenced=r=>!!(r&&(r.silenced||r.ignored));
 function sfExpiryState(iso,rec){
-  if(rec&&rec.ignored) return "ignored";
+  if(sfSilenced(rec)) return "silenced";
   if(!iso) return "none";
   const today=todayIso();
   if(iso<today) return "expired";
@@ -1950,7 +1951,7 @@ function sfExpiryState(iso,rec){
 }
 function sfBadge(r){
   const st=sfExpiryState(r.expires,r);
-  if(st==="ignored") return `<span class="sf-badge none" title="Warning ignored in Admin">Ignored</span>`;
+  if(st==="silenced") return `<span class="sf-badge none" title="Silenced in Admin — not counted as expired">Silenced</span>`;
   if(st==="expired") return `<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`;
   if(st==="soon")    return `<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`;
   if(st==="ok")      return `<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`;
@@ -1997,13 +1998,13 @@ const SF_FIELDS={
     {k:"date",      l:"Date of training", t:"date"},
     {k:"expires",   l:"Expires", t:"date", hint:"Leave blank if it doesn't expire."},
     {k:"notes",     l:"Notes", t:"text"},
-    {k:"ignored",   l:"Ignore expiry warnings for this row", t:"check"},
+    {k:"silenced",  l:"Silence the expiry warning for this row", t:"check"},
   ],
   drug:[
     {k:"name",   l:"Name", t:"text", req:true},
     {k:"tested", l:"Test date", t:"date"},
     {k:"expires",l:"Expiration date", t:"date"},
-    {k:"ignored",l:"Ignore expiry warnings for this card", t:"check"},
+    {k:"silenced",l:"Silence the expiry warning for this card", t:"check"},
   ],
   sds:[
     {k:"product",  l:"Chemical / product name", t:"text", req:true},
@@ -2015,15 +2016,30 @@ const SF_FIELDS={
     {k:"record",   l:"Record #", t:"text"},
   ],
 };
+const SF_PIN_FIELD={k:"pinned",l:"Keep this row through future uploads",t:"check",hint:"Pinned rows are skipped by imports without asking."};
 const SF_KIND_LABEL={points:"points entry",training:"training record",drug:"drug card",sds:"SDS sheet"};
 let SF_EDIT={kind:null,id:null};
 
-function sfAdminActs(kind,id){
+function sfAdminActs(kind,id,rec){
   if(!adminUnlocked) return "";
+  // Silencing is the light-touch alternative to editing dates or deleting somebody: the row
+  // stays exactly as imported, it just stops being counted as expired.
+  const canSilence=(kind==="training"||kind==="drug");
+  const on=canSilence&&sfSilenced(rec);
   return `<div class="sf-acts">
+    ${canSilence?`<button class="mini-btn ${on?"unsilence":"silence"}" data-sfsilence="${kind}:${esc(id)}:${on?0:1}">${on?"🔔 Unsilence":"🔕 Silence warning"}</button>`:""}
     <button class="mini-btn edit" data-sfedit="${kind}:${esc(id)}" title="Edit">✎ Edit</button>
     <button class="mini-btn del" data-sfdel="${kind}:${esc(id)}" title="Delete">🗑 Delete</button>
   </div>`;
+}
+
+async function sfSetSilenced(kind,id,on){
+  if(!fbReady){ toast("No Firebase connection"); return; }
+  try{
+    // source stays whatever it was; silencing alone shouldn't make a row look hand-authored.
+    await setDoc(doc(db,sfColl(kind),id),{silenced:on,ignored:on,updatedAt:serverTimestamp()},{merge:true});
+    toast(on?"Warning silenced":"Warning back on");
+  }catch(e){ console.error(e); toast("Couldn't save: "+(e.code||e.message)); }
 }
 function sfAddBtn(kind){
   if(!adminUnlocked) return "";
@@ -2039,7 +2055,7 @@ function sfOpenEdit(kind,id){
   SF_EDIT={kind,id:id||null};
   const rec=id?sfRecord(kind,id):{};
   $("sfEditTitle").textContent=(id?"Edit ":"Add ")+SF_KIND_LABEL[kind];
-  $("sfEditFields").innerHTML=SF_FIELDS[kind].map(f=>{
+  $("sfEditFields").innerHTML=SF_FIELDS[kind].concat([SF_PIN_FIELD]).map(f=>{
     const v=rec&&rec[f.k]!=null?rec[f.k]:"";
     if(f.t==="check") return `<label class="sf-check"><input type="checkbox" id="sfF_${f.k}" ${v?"checked":""}><span>${esc(f.l)}</span></label>`;
     return `<div class="field"><label>${esc(f.l)}${f.req?" *":""}</label>
@@ -2055,7 +2071,7 @@ async function sfSaveEdit(){
   const {kind,id}=SF_EDIT; if(!kind) return;
   if(!fbReady){ toast("No Firebase connection"); return; }
   const data={};
-  for(const f of SF_FIELDS[kind]){
+  for(const f of SF_FIELDS[kind].concat([SF_PIN_FIELD])){
     const el=$("sfF_"+f.k); if(!el) continue;
     if(f.t==="check") data[f.k]=el.checked;
     else if(f.t==="number") data[f.k]=el.value===""?0:Number(el.value);
@@ -2064,6 +2080,7 @@ async function sfSaveEdit(){
   }
   // Same id scheme as the importers, so a hand-added row and the imported one for the same
   // person/course collapse together instead of both showing.
+  if("silenced" in data) data.ignored=data.silenced;
   const newId = kind==="points" ? makeId(["sfp",data.name])
     : kind==="training" ? makeId(["sft",data.name,data.course,data.date])
     : kind==="drug" ? makeId(["sfd",data.name.toLowerCase().replace(/\s+/g," ")])
@@ -2113,6 +2130,8 @@ document.addEventListener("click",e=>{
   if(ed){ e.stopPropagation(); const i=ed.dataset.sfedit.indexOf(":"); sfOpenEdit(ed.dataset.sfedit.slice(0,i),ed.dataset.sfedit.slice(i+1)); return; }
   const dl=e.target.closest("[data-sfdel]");
   if(dl){ e.stopPropagation(); const i=dl.dataset.sfdel.indexOf(":"); SF_EDIT={kind:dl.dataset.sfdel.slice(0,i),id:dl.dataset.sfdel.slice(i+1)}; sfDeleteEdit(false); return; }
+  const sl=e.target.closest("[data-sfsilence]");
+  if(sl){ e.stopPropagation(); const [k,i,v]=sl.dataset.sfsilence.split(":"); sfSetSilenced(k,i,v==="1"); return; }
   const rp=e.target.closest("[data-sfdelperson]");
   if(rp){ e.stopPropagation(); sfDeletePerson(rp.dataset.sfdelperson); return; }
 });
@@ -2135,19 +2154,20 @@ function renderSfDrug(){
     const st=sfExpiryState(r.expires,r);
     if(SF_DRUG_FILTER==="expiring") return st==="soon";
     if(SF_DRUG_FILTER==="expired")  return st==="expired";
+    if(SF_DRUG_FILTER==="silenced") return st==="silenced";
     return true;
   });
-  const rank={expired:0,soon:1,ok:2,none:3};
+  const rank={expired:0,soon:1,ok:2,none:3,silenced:4};
   rows.sort((a,b)=>(rank[sfExpiryState(a.expires,a)]-rank[sfExpiryState(b.expires,b)])
     || String(a.expires||"").localeCompare(String(b.expires||""))
     || String(a.name||"").localeCompare(String(b.name||"")));
-  const counts={expired:0,soon:0};
+  const counts={expired:0,soon:0,silenced:0};
   SF_DRUG.forEach(r=>{ const s=sfExpiryState(r.expires,r); if(counts[s]!==undefined) counts[s]++; });
   document.querySelectorAll("[data-drugfilter]").forEach(b=>{
     const k=b.dataset.drugfilter;
     b.classList.toggle("active",k===SF_DRUG_FILTER);
-    const n=k==="expiring"?counts.soon:k==="expired"?counts.expired:0;
-    b.textContent=(k==="all"?"All":k==="expiring"?"Expiring soon":"Expired")+(n?` (${n})`:"");
+    const n=k==="expiring"?counts.soon:k==="expired"?counts.expired:k==="silenced"?counts.silenced:0;
+    b.textContent=(k==="all"?"All":k==="expiring"?"Expiring soon":k==="expired"?"Expired":"Silenced")+(n?` (${n})`:"");
   });
   if(!rows.length){ list.innerHTML=sfEmpty("🔍","Nothing here","No drug cards match that filter."); return; }
   // One line per person, matching Training and SDS — the tested date rides on the same row.
@@ -2161,7 +2181,7 @@ function renderSfDrug(){
         ${r.tested?`<span class="sf-ltested">${esc(longDate(r.tested))}</span>`:""}
         ${badge}
       </button>
-      ${open?`<div class="sf-body"><div class="sf-crs">${sfAdminActs("drug",r.id)}</div></div>`:""}
+      ${open?`<div class="sf-body"><div class="sf-crs">${sfAdminActs("drug",r.id,r)}</div></div>`:""}
     </div>`;
   }).join("")+`</div>`;
 }
@@ -2193,7 +2213,7 @@ function renderSfPoints(){
           ${r.extra?`<span>Extra <b>${Number(r.extra).toLocaleString()}</b></span>`:""}
         </div>
         ${awards.length?`<div class="sf-awards">${awards.map(([k,v])=>`<span class="sf-award"><i>${esc(k)}</i>${Number(v).toLocaleString()}</span>`).join("")}</div>`:""}
-        ${sfAdminActs("points",r.id)}
+        ${sfAdminActs("points",r.id,r)}
       </div></div>`:""}
     </div>`;
   }).join("")+`</div>`;
@@ -2214,9 +2234,9 @@ function renderSfTraining(){
     if(!people.has(key)) people.set(key,[]);
     people.get(key).push(r);
   }
-  const rank={expired:0,soon:1,ok:2,none:3};
+  const rank={expired:0,soon:1,ok:2,none:3,silenced:4};
   let groups=[...people.entries()].map(([name,recs])=>{
-    const counts={expired:0,soon:0,ok:0,none:0};
+    const counts={expired:0,soon:0,ok:0,none:0,silenced:0};
     recs.forEach(r=>counts[sfExpiryState(r.expires,r)]++);
     const worst=counts.expired?"expired":counts.soon?"soon":counts.ok?"ok":"none";
     recs.sort((a,b)=>rank[sfExpiryState(a.expires,a)]-rank[sfExpiryState(b.expires,b)]
@@ -2225,18 +2245,19 @@ function renderSfTraining(){
   });
 
   // Chip counts are per-PERSON here, matching what the list shows.
-  const pc={expired:0,soon:0};
-  groups.forEach(g=>{ if(g.counts.expired)pc.expired++; else if(g.counts.soon)pc.soon++; });
+  const pc={expired:0,soon:0,silenced:0};
+  groups.forEach(g=>{ if(g.counts.expired)pc.expired++; else if(g.counts.soon)pc.soon++; if(g.counts.silenced)pc.silenced++; });
   document.querySelectorAll("[data-trainfilter]").forEach(b=>{
     const k=b.dataset.trainfilter;
     b.classList.toggle("active",k===SF_TRAIN_FILTER);
-    const n=k==="expiring"?pc.soon:k==="expired"?pc.expired:0;
-    b.textContent=(k==="all"?"All":k==="expiring"?"Expiring soon":"Expired")+(n?` (${n})`:"");
+    const n=k==="expiring"?pc.soon:k==="expired"?pc.expired:k==="silenced"?pc.silenced:0;
+    b.textContent=(k==="all"?"All":k==="expiring"?"Expiring soon":k==="expired"?"Expired":"Silenced")+(n?` (${n})`:"");
   });
 
   groups=groups.filter(g=>{
     if(SF_TRAIN_FILTER==="expiring" && !g.counts.soon) return false;
     if(SF_TRAIN_FILTER==="expired"  && !g.counts.expired) return false;
+    if(SF_TRAIN_FILTER==="silenced" && !g.counts.silenced) return false;
     if(!q) return true;
     return g.name.toLowerCase().includes(q)
       || g.recs.some(r=>[r.course,r.instructor,r.notes].some(v=>String(v||"").toLowerCase().includes(q)));
@@ -2260,7 +2281,7 @@ function renderSfTraining(){
         return `<div class="sf-crs">
           <div class="sf-crs-top"><span class="sf-crs-name">${esc(r.course||"—")}</span>${badge}</div>
           <div class="sf-sub">${r.date?`<span>Trained <b>${esc(longDate(r.date))}</b></span>`:""}${r.instructor?`<span>By <b>${esc(r.instructor)}</b></span>`:""}${r.notes?`<span>${esc(r.notes)}</span>`:""}</div>
-          ${sfAdminActs("training",r.id)}
+          ${sfAdminActs("training",r.id,r)}
         </div>`;
       }).join("")}${adminUnlocked?`<div class="sf-acts person"><button class="mini-btn del" data-sfdelperson="${esc(g.name)}">🗑 Remove ${esc(g.name)} completely</button></div>`:""}</div>`:""}
     </div>`;
@@ -2291,7 +2312,7 @@ function renderSfSds(){
         ${r.issueDate?`<span>Issued <b>${esc(longDate(r.issueDate))}</b></span>`:""}
         ${r.pages?`<span>${esc(String(r.pages))} pages</span>`:""}
         ${r.record?`<span>Record <b>#${esc(String(r.record))}</b></span>`:""}
-      </div>${sfAdminActs("sds",r.id)}</div></div>`:""}
+      </div>${sfAdminActs("sds",r.id,r)}</div></div>`:""}
     </div>`;
   }).join("")+`</div>`;
 }
@@ -2528,15 +2549,60 @@ function parseSdsWorkbook(buf){
   return out;
 }
 
+/* Which existing rows would this upload trample?
+
+   Only rows saved through the Admin form (source "admin-edit") count. Silencing on its own
+   is safe without asking: the parsers never emit a `silenced` field and every write is
+   {merge:true}, so a silenced flag survives an import untouched. Rows already pinned have
+   had this question answered permanently and are skipped in silence. */
+function sfConflicts(kind,docs){
+  const incoming=new Map(docs.map(d=>[d.id,d]));
+  const keys=SF_FIELDS[kind].map(f=>f.k).filter(k=>k!=="silenced");
+  const out=[];
+  for(const cur of SF_UPLOADS[kind].state()){
+    if(cur.pinned) continue;
+    if(cur.source!=="admin-edit") continue;
+    const inc=incoming.get(cur.id);
+    if(!inc){ out.push({id:cur.id,cur,what:"would be deleted — it isn't in this file"}); continue; }
+    const changed=keys.filter(k=>String(inc[k]??"")!==String(cur[k]??""));
+    if(changed.length) out.push({id:cur.id,cur,inc,what:"would change "+changed.slice(0,3).join(", ")});
+  }
+  return out;
+}
+
+if(typeof window!=="undefined") window.__sfTestConflicts=sfConflicts;   // offline test harness
+// Resolves to "replace" | "once" | "always" | "cancel".
+function sfAskConflicts(kind,conflicts){
+  return new Promise(resolve=>{
+    const label=r=>esc(r.name||r.product||r.id)+(r.course?` — ${esc(r.course)}`:"");
+    $("sfConflictIntro").textContent=
+      `${conflicts.length} row${conflicts.length===1?"":"s"} you edited by hand ${conflicts.length===1?"is":"are"} about to be overwritten by this ${SF_KIND_LABEL[kind]} upload.`;
+    $("sfConflictList").innerHTML=conflicts.slice(0,12).map(c=>
+      `<div class="sf-conflict"><b>${label(c.cur)}</b><i>${esc(c.what)}</i></div>`).join("")
+      +(conflicts.length>12?`<div class="sf-conflict more">…and ${conflicts.length-12} more</div>`:"");
+    const done=v=>{ closeModal("sfConflictModal"); cleanup(); resolve(v); };
+    const h={sfConflictReplace:()=>done("replace"),sfConflictKeepOnce:()=>done("once"),
+             sfConflictKeepAlways:()=>done("always"),sfConflictCancel:()=>done("cancel")};
+    function cleanup(){ Object.entries(h).forEach(([id,fn])=>{ const el=$(id); if(el) el.removeEventListener("click",fn); }); }
+    Object.entries(h).forEach(([id,fn])=>{ const el=$(id); if(el) el.addEventListener("click",fn); });
+    openModal("sfConflictModal");
+  });
+}
+
 // Write the new set and delete whatever is no longer in the report.
-async function sfReplace(kind,docs){
+// `protect` holds ids the upload must not touch at all — neither overwrite nor delete.
+async function sfReplace(kind,docs,protect){
   const cfg=SF_UPLOADS[kind];
+  const guard=new Set(protect||[]);
+  cfg.state().forEach(r=>{ if(r.pinned) guard.add(r.id); });   // "keep permanently"
   const keep=new Set(docs.map(d=>d.id));
-  const stale=cfg.state().filter(r=>!keep.has(r.id));
+  const stale=cfg.state().filter(r=>!keep.has(r.id)&&!guard.has(r.id));
   let batch=writeBatch(db), n=0;
   const flush=async()=>{ if(n){ await batch.commit(); batch=writeBatch(db); n=0; } };
+  let skipped=0;
   for(const d of docs){
     const {id,...rest}=d;
+    if(guard.has(id)){ skipped++; continue; }
     batch.set(doc(db,cfg.coll,id),{...rest,source:"admin-upload",updatedAt:serverTimestamp()},{merge:true});
     if(++n>=400) await flush();
   }
@@ -2544,7 +2610,7 @@ async function sfReplace(kind,docs){
   await flush();
   await setDoc(doc(db,"config","safetyMeta"),
     {[kind]:{count:docs.length,updatedAt:serverTimestamp(),by:USER?`${USER.first} ${USER.last}`.trim():""}},{merge:true});
-  return {written:docs.length,removed:stale.length};
+  return {written:docs.length-skipped,removed:stale.length,skipped};
 }
 
 function wireSfDrop(kind){
@@ -2588,13 +2654,30 @@ async function handleSfFile(kind,file){
       if(d.sheet) parts.push({kind:"drug",label:"drug cards",note:d.merged?`${d.merged} older card${d.merged===1?"":"s"} superseded`:"",...prep("drug",d.rows)});
     }
 
+    // Resolve conflicts for every part BEFORE writing anything, so "Cancel" leaves all
+    // categories untouched rather than half-importing.
+    for(const p of parts){
+      const conf=sfConflicts(p.kind,p.docs);
+      if(!conf.length) continue;
+      const choice=await sfAskConflicts(p.kind,conf);
+      if(choice==="cancel"){ closeModal("importModal"); toast("Upload cancelled — nothing changed"); return; }
+      if(choice==="replace") continue;
+      p.protect=conf.map(c=>c.id);
+      if(choice==="always") p.pin=p.protect.slice();
+    }
+
     const total=parts.reduce((s,p)=>s+p.docs.length,0);
     upd(0,total||1);
     let done=0; const lines=[];
     for(const p of parts){
-      const res=await sfReplace(p.kind,p.docs);
+      if(p.pin&&p.pin.length){
+        let b=writeBatch(db);
+        p.pin.forEach(id=>b.set(doc(db,sfColl(p.kind),id),{pinned:true,updatedAt:serverTimestamp()},{merge:true}));
+        await b.commit();
+      }
+      const res=await sfReplace(p.kind,p.docs,p.protect);
       done+=p.docs.length; upd(done,total||1);
-      lines.push(`<b>${res.written.toLocaleString()}</b> ${p.label}${res.removed?` · ${res.removed.toLocaleString()} removed`:""}${p.note?` · ${p.note}`:""}${p.dropped?` · ${p.dropped} duplicate row${p.dropped===1?"":"s"} merged`:""}`);
+      lines.push(`<b>${res.written.toLocaleString()}</b> ${p.label}${res.removed?` · ${res.removed.toLocaleString()} removed`:""}${res.skipped?` · ${res.skipped} hand-edited row${res.skipped===1?"":"s"} kept`:""}${p.note?` · ${p.note}`:""}${p.dropped?` · ${p.dropped} duplicate row${p.dropped===1?"":"s"} merged`:""}`);
     }
     body.innerHTML=`<div class="imp-stage"><div style="font-size:42px;margin-bottom:10px">✅</div>
       <h4>${esc(cfg.title.replace("Upload ",""))} updated</h4>

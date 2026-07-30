@@ -223,6 +223,7 @@
         <button class="sf-chip active" data-trainfilter="all">All</button>
         <button class="sf-chip" data-trainfilter="expiring">Expiring soon</button>
         <button class="sf-chip" data-trainfilter="expired">Expired</button>
+        <button class="sf-chip" data-trainfilter="silenced">Silenced</button>
       </div>
       <div id="sfTrainList"></div>
     </div>
@@ -244,6 +245,7 @@
         <button class="sf-chip active" data-drugfilter="all">All</button>
         <button class="sf-chip" data-drugfilter="expiring">Expiring soon</button>
         <button class="sf-chip" data-drugfilter="expired">Expired</button>
+        <button class="sf-chip" data-drugfilter="silenced">Silenced</button>
       </div>
       <div id="sfDrugList"></div>
     </div>
@@ -420,6 +422,20 @@
 <div class="modal-back" id="importModal"><div class="modal"><div class="modal-grip"></div>
   <div class="modal-head"><h3 id="importTitle">Import</h3><button class="x" data-close="importModal">✕</button></div>
   <div class="modal-body" id="importBody"></div>
+</div></div>
+
+<!-- UPLOAD CONFLICT — shown when an import would overwrite hand edits -->
+<div class="modal-back" id="sfConflictModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3>Hand edits in the way</h3><button class="x" data-close="sfConflictModal">✕</button></div>
+  <div class="modal-body">
+    <p class="sf-upload-note" id="sfConflictIntro"></p>
+    <div id="sfConflictList" class="sf-conflicts"></div>
+    <button class="submit" id="sfConflictKeepOnce">Keep my edits this time</button>
+    <button class="submit" id="sfConflictKeepAlways" style="margin-top:10px;background:var(--teal)">Keep my edits permanently</button>
+    <button class="submit" id="sfConflictReplace" style="margin-top:10px;background:var(--steel)">Let the upload replace them</button>
+    <button class="submit danger" id="sfConflictCancel" style="margin-top:10px">Cancel the upload</button>
+    <div class="hint" style="margin-top:10px">“Permanently” pins those rows — later uploads skip them without asking, until you unpin from the row's Edit form.</div>
+  </div>
 </div></div>
 
 <!-- SAFETY EDITOR (admin) — one form, fields built per category -->
