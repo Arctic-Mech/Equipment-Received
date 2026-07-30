@@ -55,7 +55,9 @@ let SF_TAB="points";                // which sub-pill is showing
 let SF_TRAIN_FILTER="all";
 let SF_DRUG_FILTER="all";
 const SF_TRAIN_OPEN=new Set();      // which people are expanded on the training list
-const SF_SDS_OPEN=new Set();        // which chemicals are expanded
+const SF_SDS_OPEN=new Set();
+const SF_PTS_OPEN=new Set();        // which points entries are expanded
+const SF_DRUG_OPEN=new Set();       // drug rows only expand for admins, to reach edit/delete        // which chemicals are expanded
 // A rejected read leaves the pane empty, which reads as "nothing uploaded". Remember WHY so
 // the pane can say so instead — a missing Firestore rule is the usual cause.
 const SF_ERR={};
@@ -1935,12 +1937,24 @@ async function doDelete(type,id,fromModal){
 
 const SF_SOON_DAYS=90;   // "expiring soon" horizon
 
-function sfExpiryState(iso){
+// `ignored` is set by hand in Admin to silence a warning that doesn't apply — someone who has
+// left, a certification that was renewed off-system, a row the report gets wrong. Ignored rows
+// keep their dates but stop counting as expired or due anywhere.
+function sfExpiryState(iso,rec){
+  if(rec&&rec.ignored) return "ignored";
   if(!iso) return "none";
   const today=todayIso();
   if(iso<today) return "expired";
   const d=new Date(iso+"T00:00:00"), n=new Date(today+"T00:00:00");
   return Math.round((d-n)/86400000)<=SF_SOON_DAYS ? "soon" : "ok";
+}
+function sfBadge(r){
+  const st=sfExpiryState(r.expires,r);
+  if(st==="ignored") return `<span class="sf-badge none" title="Warning ignored in Admin">Ignored</span>`;
+  if(st==="expired") return `<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`;
+  if(st==="soon")    return `<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`;
+  if(st==="ok")      return `<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`;
+  return `<span class="sf-badge none">No expiry</span>`;
 }
 function sfMetaLine(key,noun){
   const m=SF_META&&SF_META[key];
@@ -1959,6 +1973,152 @@ function sfErrBox(what,coll,e){
 }
 function sfQuery(id){ const el=$(id); return el?el.value.trim().toLowerCase():""; }
 
+/* ---------- Safety: editing by hand (admin) ----------
+   The uploads are a bulk starting point, not the only way in. Everything the spreadsheet can
+   express is editable here: add or correct a row, ignore an expiry warning that doesn't apply,
+   or remove a person outright. Edits live in the same collections as the imports — but note
+   that re-uploading REPLACES a category, so a hand-edit to a row that still exists in the next
+   report will be overwritten by it. Rows added by hand that aren't in the report are removed by
+   the same rule. The editor says so. */
+
+const SF_FIELDS={
+  points:[
+    {k:"name", l:"Name", t:"text", req:true},
+    {k:"shirt",l:"Shirt size", t:"text"},
+    {k:"start",l:"Starting points", t:"number"},
+    {k:"used", l:"Points used", t:"number", hint:"Stored negative, the way the report does it (-4500)."},
+    {k:"extra",l:"Extra points", t:"number"},
+    {k:"total",l:"Total", t:"number", hint:"This is the number the list shows."},
+  ],
+  training:[
+    {k:"name",      l:"Name", t:"text", req:true},
+    {k:"course",    l:"Course", t:"text", req:true},
+    {k:"instructor",l:"Instructor", t:"text"},
+    {k:"date",      l:"Date of training", t:"date"},
+    {k:"expires",   l:"Expires", t:"date", hint:"Leave blank if it doesn't expire."},
+    {k:"notes",     l:"Notes", t:"text"},
+    {k:"ignored",   l:"Ignore expiry warnings for this row", t:"check"},
+  ],
+  drug:[
+    {k:"name",   l:"Name", t:"text", req:true},
+    {k:"tested", l:"Test date", t:"date"},
+    {k:"expires",l:"Expiration date", t:"date"},
+    {k:"ignored",l:"Ignore expiry warnings for this card", t:"check"},
+  ],
+  sds:[
+    {k:"product",  l:"Chemical / product name", t:"text", req:true},
+    {k:"use",      l:"Product use", t:"text"},
+    {k:"vendor",   l:"Vendor / MFG", t:"text"},
+    {k:"issueDate",l:"Issue date", t:"date"},
+    {k:"dept",     l:"Arctic dept", t:"text"},
+    {k:"pages",    l:"# of pages", t:"text"},
+    {k:"record",   l:"Record #", t:"text"},
+  ],
+};
+const SF_KIND_LABEL={points:"points entry",training:"training record",drug:"drug card",sds:"SDS sheet"};
+let SF_EDIT={kind:null,id:null};
+
+function sfAdminActs(kind,id){
+  if(!adminUnlocked) return "";
+  return `<div class="sf-acts">
+    <button class="mini-btn edit" data-sfedit="${kind}:${esc(id)}" title="Edit">✎ Edit</button>
+    <button class="mini-btn del" data-sfdel="${kind}:${esc(id)}" title="Delete">🗑 Delete</button>
+  </div>`;
+}
+function sfAddBtn(kind){
+  if(!adminUnlocked) return "";
+  return `<button class="sf-add" data-sfadd="${kind}">+ Add ${esc(SF_KIND_LABEL[kind])}</button>`;
+}
+function sfRecord(kind,id){
+  const src={points:SF_POINTS,training:SF_TRAINING,drug:SF_DRUG,sds:SF_SDS}[kind]||[];
+  return src.find(x=>x.id===id)||null;
+}
+function sfColl(kind){ return SF_UPLOADS[kind].coll; }
+
+function sfOpenEdit(kind,id){
+  SF_EDIT={kind,id:id||null};
+  const rec=id?sfRecord(kind,id):{};
+  $("sfEditTitle").textContent=(id?"Edit ":"Add ")+SF_KIND_LABEL[kind];
+  $("sfEditFields").innerHTML=SF_FIELDS[kind].map(f=>{
+    const v=rec&&rec[f.k]!=null?rec[f.k]:"";
+    if(f.t==="check") return `<label class="sf-check"><input type="checkbox" id="sfF_${f.k}" ${v?"checked":""}><span>${esc(f.l)}</span></label>`;
+    return `<div class="field"><label>${esc(f.l)}${f.req?" *":""}</label>
+      <input id="sfF_${f.k}" type="${f.t}" value="${esc(String(v))}" autocomplete="off">
+      ${f.hint?`<div class="hint">${esc(f.hint)}</div>`:""}</div>`;
+  }).join("");
+  $("sfEditDelete").style.display=id?"block":"none";
+  $("sfEditHint").innerHTML="Re-uploading this category replaces it, so a change here is overwritten by the next import that still contains this row.";
+  openModal("sfEditModal");
+}
+
+async function sfSaveEdit(){
+  const {kind,id}=SF_EDIT; if(!kind) return;
+  if(!fbReady){ toast("No Firebase connection"); return; }
+  const data={};
+  for(const f of SF_FIELDS[kind]){
+    const el=$("sfF_"+f.k); if(!el) continue;
+    if(f.t==="check") data[f.k]=el.checked;
+    else if(f.t==="number") data[f.k]=el.value===""?0:Number(el.value);
+    else data[f.k]=el.value.trim();
+    if(f.req && !String(data[f.k]||"").trim()){ toast(f.l+" is required"); el.focus(); return; }
+  }
+  // Same id scheme as the importers, so a hand-added row and the imported one for the same
+  // person/course collapse together instead of both showing.
+  const newId = kind==="points" ? makeId(["sfp",data.name])
+    : kind==="training" ? makeId(["sft",data.name,data.course,data.date])
+    : kind==="drug" ? makeId(["sfd",data.name.toLowerCase().replace(/\s+/g," ")])
+    : makeId(["sds",data.record||data.product,data.product]);
+  try{
+    await setDoc(doc(db,sfColl(kind),newId),{...data,source:"admin-edit",updatedAt:serverTimestamp()},{merge:true});
+    // A rename changes the id, so drop the row it replaced rather than leaving a twin.
+    if(id && id!==newId) await deleteDoc(doc(db,sfColl(kind),id));
+    closeModal("sfEditModal"); toast(id?"Saved":"Added");
+  }catch(e){ console.error(e); toast("Couldn't save: "+(e.code||e.message)); }
+}
+
+async function sfDeleteEdit(fromModal){
+  const {kind,id}=SF_EDIT; if(!kind||!id) return;
+  const rec=sfRecord(kind,id);
+  const label=rec?(rec.name||rec.product||id):id;
+  if(!confirm(`Delete this ${SF_KIND_LABEL[kind]}:\n\n${String(label).slice(0,120)}\n\nThis can't be undone.`)) return;
+  try{
+    await deleteDoc(doc(db,sfColl(kind),id));
+    if(fromModal) closeModal("sfEditModal");
+    toast("Deleted");
+  }catch(e){ console.error(e); toast("Delete failed: "+(e.code||e.message)); }
+}
+
+// Remove a person from the training list entirely — every course they hold, and their drug
+// card. Used when somebody leaves; otherwise their expired rows nag forever.
+async function sfDeletePerson(name){
+  const recs=SF_TRAINING.filter(r=>String(r.name||"").trim()===name);
+  const card=SF_DRUG.find(r=>String(r.name||"").trim().toLowerCase()===name.toLowerCase());
+  const bits=[`${recs.length} training record${recs.length===1?"":"s"}`];
+  if(card) bits.push("their drug card");
+  if(!confirm(`Remove ${name} completely?\n\nThis deletes ${bits.join(" and ")}.\n\nThis can't be undone.`)) return;
+  try{
+    let batch=writeBatch(db),n=0;
+    for(const r of recs){ batch.delete(doc(db,"safetyTraining",r.id)); if(++n>=400){ await batch.commit(); batch=writeBatch(db); n=0; } }
+    if(card){ batch.delete(doc(db,"safetyDrugCards",card.id)); n++; }
+    if(n) await batch.commit();
+    SF_TRAIN_OPEN.delete(name);
+    toast(`Removed ${name}`);
+  }catch(e){ console.error(e); toast("Couldn't remove: "+(e.code||e.message)); }
+}
+
+document.addEventListener("click",e=>{
+  const a=e.target.closest("[data-sfadd]");
+  if(a){ e.stopPropagation(); sfOpenEdit(a.dataset.sfadd,null); return; }
+  const ed=e.target.closest("[data-sfedit]");
+  if(ed){ e.stopPropagation(); const i=ed.dataset.sfedit.indexOf(":"); sfOpenEdit(ed.dataset.sfedit.slice(0,i),ed.dataset.sfedit.slice(i+1)); return; }
+  const dl=e.target.closest("[data-sfdel]");
+  if(dl){ e.stopPropagation(); const i=dl.dataset.sfdel.indexOf(":"); SF_EDIT={kind:dl.dataset.sfdel.slice(0,i),id:dl.dataset.sfdel.slice(i+1)}; sfDeleteEdit(false); return; }
+  const rp=e.target.closest("[data-sfdelperson]");
+  if(rp){ e.stopPropagation(); sfDeletePerson(rp.dataset.sfdelperson); return; }
+});
+if($("sfEditSave")) $("sfEditSave").addEventListener("click",sfSaveEdit);
+if($("sfEditDelete")) $("sfEditDelete").addEventListener("click",()=>sfDeleteEdit(true));
+
 function renderSafety(){
   if(!document.getElementById("view-safety")) return;
   renderSfPoints(); renderSfTraining(); renderSfSds(); renderSfDrug();
@@ -1972,17 +2132,17 @@ function renderSfDrug(){
   const q=sfQuery("sfDrugSearch");
   let rows=SF_DRUG.filter(r=>{
     if(q && !String(r.name||"").toLowerCase().includes(q)) return false;
-    const st=sfExpiryState(r.expires);
+    const st=sfExpiryState(r.expires,r);
     if(SF_DRUG_FILTER==="expiring") return st==="soon";
     if(SF_DRUG_FILTER==="expired")  return st==="expired";
     return true;
   });
   const rank={expired:0,soon:1,ok:2,none:3};
-  rows.sort((a,b)=>(rank[sfExpiryState(a.expires)]-rank[sfExpiryState(b.expires)])
+  rows.sort((a,b)=>(rank[sfExpiryState(a.expires,a)]-rank[sfExpiryState(b.expires,b)])
     || String(a.expires||"").localeCompare(String(b.expires||""))
     || String(a.name||"").localeCompare(String(b.name||"")));
   const counts={expired:0,soon:0};
-  SF_DRUG.forEach(r=>{ const s=sfExpiryState(r.expires); if(counts[s]!==undefined) counts[s]++; });
+  SF_DRUG.forEach(r=>{ const s=sfExpiryState(r.expires,r); if(counts[s]!==undefined) counts[s]++; });
   document.querySelectorAll("[data-drugfilter]").forEach(b=>{
     const k=b.dataset.drugfilter;
     b.classList.toggle("active",k===SF_DRUG_FILTER);
@@ -1991,17 +2151,18 @@ function renderSfDrug(){
   });
   if(!rows.length){ list.innerHTML=sfEmpty("🔍","Nothing here","No drug cards match that filter."); return; }
   // One line per person, matching Training and SDS — the tested date rides on the same row.
-  list.innerHTML=`<div class="sf-list">`+rows.map(r=>{
-    const st=sfExpiryState(r.expires);
-    const badge=st==="expired"?`<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`
-      :st==="soon"?`<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`
-      :st==="ok"?`<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`
-      :`<span class="sf-badge none">No expiry on file</span>`;
-    return `<div class="sf-grp"><div class="sf-lrow static">
-      <span class="sf-lname">${esc(r.name||"—")}</span>
-      ${r.tested?`<span class="sf-ltested">${esc(longDate(r.tested))}</span>`:""}
-      ${badge}
-    </div></div>`;
+  list.innerHTML=sfAddBtn("drug")+`<div class="sf-list">`+rows.map(r=>{
+    const badge=sfBadge(r);
+    const open=SF_DRUG_OPEN.has(r.id);
+    return `<div class="sf-grp${open?" open":""}">
+      <button class="sf-lrow${adminUnlocked?"":" static"}" ${adminUnlocked?`data-sfdrug="${esc(r.id)}"`:""}>
+        ${adminUnlocked?`<span class="sf-chev">›</span>`:""}
+        <span class="sf-lname">${esc(r.name||"—")}</span>
+        ${r.tested?`<span class="sf-ltested">${esc(longDate(r.tested))}</span>`:""}
+        ${badge}
+      </button>
+      ${open?`<div class="sf-body"><div class="sf-crs">${sfAdminActs("drug",r.id)}</div></div>`:""}
+    </div>`;
   }).join("")+`</div>`;
 }
 
@@ -2014,24 +2175,28 @@ function renderSfPoints(){
   const rows=SF_POINTS.filter(r=>!q||String(r.name||"").toLowerCase().includes(q))
     .sort((a,b)=>(b.total||0)-(a.total||0));
   if(!rows.length){ list.innerHTML=sfEmpty("🔍","No match",`Nobody matches “${sfQuery("sfPointsSearch")}”.`); return; }
-  const top=rows[0]&&rows[0].total?rows[0].total:1;
-  list.innerHTML=rows.map(r=>{
-    const pct=Math.max(2,Math.round(((r.total||0)/top)*100));
+  list.innerHTML=sfAddBtn("points")+`<div class="sf-list">`+rows.map(r=>{
+    const open=SF_PTS_OPEN.has(r.id);
     const awards=r.awards&&typeof r.awards==="object"?Object.entries(r.awards).filter(([,v])=>v):[];
-    return `<div class="sf-row">
-      <div class="sf-row-main">
-        <div class="sf-name">${esc(r.name||"—")}${r.shirt?`<span class="sf-shirt">${esc(String(r.shirt).toUpperCase())}</span>`:""}</div>
-        <div class="sf-total">${(r.total||0).toLocaleString()}</div>
-      </div>
-      <div class="sf-bar"><i style="width:${pct}%"></i></div>
-      <div class="sf-sub">
-        <span>Start <b>${(r.start||0).toLocaleString()}</b></span>
-        ${awards.length?`<span>Earned <b>${awards.reduce((s,[,v])=>s+(Number(v)||0),0).toLocaleString()}</b> over ${awards.length} award${awards.length===1?"":"s"}</span>`:""}
-        ${r.used?`<span class="sf-neg">Used <b>${Math.abs(Number(r.used)).toLocaleString()}</b></span>`:""}
-        ${r.extra?`<span>Extra <b>${Number(r.extra).toLocaleString()}</b></span>`:""}
-      </div>
+    return `<div class="sf-grp${open?" open":""}">
+      <button class="sf-lrow" data-sfpoint="${esc(r.id)}">
+        <span class="sf-chev">›</span>
+        <span class="sf-lname">${esc(r.name||"—")}</span>
+        ${r.shirt?`<span class="sf-shirt">${esc(String(r.shirt).toUpperCase())}</span>`:""}
+        <span class="sf-lpts">${(r.total||0).toLocaleString()}</span>
+      </button>
+      ${open?`<div class="sf-body"><div class="sf-crs">
+        <div class="sf-sub">
+          <span>Start <b>${(r.start||0).toLocaleString()}</b></span>
+          ${awards.length?`<span>Earned <b>${awards.reduce((s,[,v])=>s+(Number(v)||0),0).toLocaleString()}</b> over ${awards.length} award${awards.length===1?"":"s"}</span>`:""}
+          ${r.used?`<span class="sf-neg">Used <b>${Math.abs(Number(r.used)).toLocaleString()}</b></span>`:""}
+          ${r.extra?`<span>Extra <b>${Number(r.extra).toLocaleString()}</b></span>`:""}
+        </div>
+        ${awards.length?`<div class="sf-awards">${awards.map(([k,v])=>`<span class="sf-award"><i>${esc(k)}</i>${Number(v).toLocaleString()}</span>`).join("")}</div>`:""}
+        ${sfAdminActs("points",r.id)}
+      </div></div>`:""}
     </div>`;
-  }).join("");
+  }).join("")+`</div>`;
 }
 
 // Grouped by person, one dense line each, so a 160-name roster is scannable on a phone.
@@ -2052,9 +2217,9 @@ function renderSfTraining(){
   const rank={expired:0,soon:1,ok:2,none:3};
   let groups=[...people.entries()].map(([name,recs])=>{
     const counts={expired:0,soon:0,ok:0,none:0};
-    recs.forEach(r=>counts[sfExpiryState(r.expires)]++);
+    recs.forEach(r=>counts[sfExpiryState(r.expires,r)]++);
     const worst=counts.expired?"expired":counts.soon?"soon":counts.ok?"ok":"none";
-    recs.sort((a,b)=>rank[sfExpiryState(a.expires)]-rank[sfExpiryState(b.expires)]
+    recs.sort((a,b)=>rank[sfExpiryState(a.expires,a)]-rank[sfExpiryState(b.expires,b)]
       || String(b.date||"").localeCompare(String(a.date||"")));
     return {name,recs,counts,worst};
   });
@@ -2079,11 +2244,8 @@ function renderSfTraining(){
   groups.sort((a,b)=>rank[a.worst]-rank[b.worst] || a.name.localeCompare(b.name));
   if(!groups.length){ list.innerHTML=sfEmpty("🔍","Nothing here","Nobody matches that search or filter."); return; }
 
-  // A name search that matches one person opens them; a course search opens every match, so
-  // you can see WHICH course hit without a second tap.
-  const auto=q && groups.length<=8;
-  list.innerHTML=`<div class="sf-list">`+groups.map(g=>{
-    const open=SF_TRAIN_OPEN.has(g.name)||auto;
+  list.innerHTML=sfAddBtn("training")+`<div class="sf-list">`+groups.map(g=>{
+    const open=SF_TRAIN_OPEN.has(g.name);
     const tag=g.counts.expired?`<span class="sf-tag bad">${g.counts.expired} expired</span>`
       :g.counts.soon?`<span class="sf-tag warn">${g.counts.soon} due</span>`:"";
     return `<div class="sf-grp${open?" open":""}">
@@ -2094,16 +2256,13 @@ function renderSfTraining(){
         <span class="sf-lcount">${g.recs.length}</span>
       </button>
       ${open?`<div class="sf-body">${g.recs.map(r=>{
-        const st=sfExpiryState(r.expires);
-        const badge=st==="expired"?`<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`
-          :st==="soon"?`<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`
-          :st==="ok"?`<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`
-          :`<span class="sf-badge none">No expiry</span>`;
+        const badge=sfBadge(r);
         return `<div class="sf-crs">
           <div class="sf-crs-top"><span class="sf-crs-name">${esc(r.course||"—")}</span>${badge}</div>
           <div class="sf-sub">${r.date?`<span>Trained <b>${esc(longDate(r.date))}</b></span>`:""}${r.instructor?`<span>By <b>${esc(r.instructor)}</b></span>`:""}${r.notes?`<span>${esc(r.notes)}</span>`:""}</div>
+          ${sfAdminActs("training",r.id)}
         </div>`;
-      }).join("")}</div>`:""}
+      }).join("")}${adminUnlocked?`<div class="sf-acts person"><button class="mini-btn del" data-sfdelperson="${esc(g.name)}">🗑 Remove ${esc(g.name)} completely</button></div>`:""}</div>`:""}
     </div>`;
   }).join("")+`</div>`;
 }
@@ -2118,9 +2277,8 @@ function renderSfSds(){
   const rows=SF_SDS.filter(r=>!q||[r.product,r.vendor,r.use,r.dept].some(v=>String(v||"").toLowerCase().includes(q)))
     .sort((a,b)=>String(a.product||"").localeCompare(String(b.product||"")));
   if(!rows.length){ list.innerHTML=sfEmpty("🔍","No match",`Nothing matches “${sfQuery("sfSdsSearch")}”.`); return; }
-  const auto=q && rows.length<=8;
-  list.innerHTML=`<div class="sf-list">`+rows.map(r=>{
-    const open=SF_SDS_OPEN.has(r.id)||auto;
+  list.innerHTML=sfAddBtn("sds")+`<div class="sf-list">`+rows.map(r=>{
+    const open=SF_SDS_OPEN.has(r.id);
     return `<div class="sf-grp${open?" open":""}">
       <button class="sf-lrow" data-sfsds="${esc(r.id)}">
         <span class="sf-chev">›</span>
@@ -2133,7 +2291,7 @@ function renderSfSds(){
         ${r.issueDate?`<span>Issued <b>${esc(longDate(r.issueDate))}</b></span>`:""}
         ${r.pages?`<span>${esc(String(r.pages))} pages</span>`:""}
         ${r.record?`<span>Record <b>#${esc(String(r.record))}</b></span>`:""}
-      </div></div></div>`:""}
+      </div>${sfAdminActs("sds",r.id)}</div></div>`:""}
     </div>`;
   }).join("")+`</div>`;
 }
@@ -2152,6 +2310,10 @@ document.querySelectorAll("[data-trainfilter]").forEach(b=>b.addEventListener("c
 document.addEventListener("click",e=>{
   const pr=e.target.closest("[data-sfperson]");
   if(pr){ const n=pr.dataset.sfperson; SF_TRAIN_OPEN.has(n)?SF_TRAIN_OPEN.delete(n):SF_TRAIN_OPEN.add(n); renderSfTraining(); return; }
+  const pt=e.target.closest("[data-sfpoint]");
+  if(pt){ const i=pt.dataset.sfpoint; SF_PTS_OPEN.has(i)?SF_PTS_OPEN.delete(i):SF_PTS_OPEN.add(i); renderSfPoints(); return; }
+  const dr=e.target.closest("[data-sfdrug]");
+  if(dr){ const i=dr.dataset.sfdrug; SF_DRUG_OPEN.has(i)?SF_DRUG_OPEN.delete(i):SF_DRUG_OPEN.add(i); renderSfDrug(); return; }
   const sr=e.target.closest("[data-sfsds]");
   if(sr){ const i=sr.dataset.sfsds; SF_SDS_OPEN.has(i)?SF_SDS_OPEN.delete(i):SF_SDS_OPEN.add(i); renderSfSds(); return; }
 });
