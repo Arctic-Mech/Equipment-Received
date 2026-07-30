@@ -45,6 +45,13 @@ let PEOPLE=[];                      // people directory {id,first,last,nameNorm,
 let SHARES=[];                      // pending shares addressed to me
 let WD_EQUIP=[];                    // Webduct shop-equipment order items (synced) {docId, order#, job, dates, status, notes, label, arrivalId, matchState}
 let WD_ORDERS=[];                   // Webduct orders (up to 2 months old) for the calendar {docId, number, job, dates, hasEquip, items[], orderedBy, po, ...}
+// ---- Safety tab. Each is uploaded whole from Admin and replaces what was there. ----
+let SF_POINTS=[];                   // {id, name, shirt, start, awards:{label:pts}, used, extra, total}
+let SF_TRAINING=[];                 // {id, name, course, instructor, date, expires, notes}
+let SF_SDS=[];                      // {id, record, product, use, vendor, issueDate, dept, pages}
+let SF_META={};                     // {points:{count,updatedAt,by}, training:{...}, sds:{...}}
+let SF_TAB="points";                // which sub-pill is showing
+let SF_TRAIN_FILTER="all";
 let WD_NOTES={};                    // per-order notes keyed by order docId {deliveryTime, truck, extra, highlight}
 let WD_LAST_SYNC=null;              // {by, at, summary} — who forced the last refresh and when
 let LAST_IMPORT=null;               // {at, emailDateMs, sourceFile, count, rentals}
@@ -257,6 +264,12 @@ function startSync(){
   onSnapshot(doc(db,"config","lastToolImport"),snap=>{ if(snap.exists()){ LAST_TOOL_IMPORT=snap.data(); renderAutoImport(); } }, e=>console.error("lastToolImport",e));
   onSnapshot(doc(db,"config","ghActions"),snap=>{ GH_CFG=snap.exists()?snap.data():null; ghRenderBtn(); }, e=>console.error("ghActions",e));
   onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>console.error("webductOrderNotes",e));
+
+  // ---- Safety collections. Read-only here; Admin uploads are what write them. ----
+  onSnapshot(collection(db,"safetyPoints"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_POINTS=l; renderSafety(); }, e=>console.error("safetyPoints",e));
+  onSnapshot(collection(db,"safetyTraining"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_TRAINING=l; renderSafety(); }, e=>console.error("safetyTraining",e));
+  onSnapshot(collection(db,"safetySds"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_SDS=l; renderSafety(); }, e=>console.error("safetySds",e));
+  onSnapshot(doc(db,"config","safetyMeta"),d=>{ SF_META=d.exists()?d.data():{}; renderSafety(); }, e=>console.error("safetyMeta",e));
   onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>console.error("webductEquipNotes",e));
   wdWatchAdminKey();
 }
@@ -562,14 +575,20 @@ function renderAdminStats(){ if($("statTotal")){ $("statTotal").textContent=ARRI
 function renderEricStats(){ renderAdminStats(); }
 
 /* ---------- Master render ---------- */
-function renderAll(){ $("pillFeed").textContent=ARRIVALS.length>999?(Math.floor(ARRIVALS.length/100)/10)+"k":ARRIVALS.length; refreshMonths(); renderWho(); renderFeed(); renderRentals(); renderTools(); renderDeliveries(); renderJobs(); renderAdminStats(); if(PENDING_ARRIVAL && $("view-feed").classList.contains("active")) focusPendingArrival(); }
+function renderAll(){ $("pillFeed").textContent=ARRIVALS.length>999?(Math.floor(ARRIVALS.length/100)/10)+"k":ARRIVALS.length; refreshMonths(); renderWho(); renderFeed(); renderRentals(); renderTools(); renderDeliveries(); renderJobs(); renderAdminStats(); syncFeedGroupTab(); if(PENDING_ARRIVAL && $("view-feed").classList.contains("active")) focusPendingArrival(); }
 
 /* ---------- Save/remove job ---------- */
 function addJob(job){ if(!USER){toast("Sign in to save jobs"); openName(); return;} const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); REMOVED_JOBS.delete(j); markSeenForJob(j); syncUserJobs(); $("jobSearch").value=""; renderAll(); toast("Saved "+j+" to My Jobs"); }
 function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); REMOVED_JOBS.add(job); syncUserJobs(); renderAll(); toast("Removed "+job); }
 
 /* ---------- Tabs ---------- */
-const VALID_VIEWS=["feed","rentals","deliveries","jobs","admin"];
+const VALID_VIEWS=["feed","rentals","deliveries","jobs","safety","admin"];
+// Arrivals, Rentals and Deliveries share one tab; the caret on it switches between them.
+// They stay separate views with separate permissions — condensing the tabs was a UI change,
+// not a permissions change, so nobody gains access to a page they were blocked from.
+const FEED_GROUP=["feed","rentals","deliveries"];
+// Views that still have a tab button of their own. Admin moved to the header.
+const TAB_VIEWS=["feed","jobs","safety"];
 function personalHashFor(p){ if(!p)return ""; return ((p.first||"")+(p.last||"")).replace(/[^A-Za-z0-9]/g,""); }
 function personalHash(){ return USER?(personalHashFor(USER)||"myjobs"):"myjobs"; }
 function findPersonByHash(h){ if(!h)return null; const hl=h.toLowerCase(); return PEOPLE.find(p=>personalHashFor(p).toLowerCase()===hl); }
@@ -599,10 +618,20 @@ function focusPendingArrival(){
     if(el){ el.scrollIntoView({behavior:"smooth",block:"center"}); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),10000); }
   },80);
 }
+// Which of the three grouped views the shared tab is currently pointed at.
+let FEED_GROUP_VIEW="feed";
+
 function setView(name,fromHash){
   if(!VALID_VIEWS.includes(name))name="feed";
   if(name==="jobs" && !fromHash) VIEW_AS=null;   // tapping the My Jobs tab always shows your own
-  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.view===name));
+  if(FEED_GROUP.includes(name)) FEED_GROUP_VIEW=name;
+  // The grouped tab is "active" for any of its three views, so the bar still shows you where
+  // you are when you're on Rentals or Deliveries.
+  document.querySelectorAll(".tab[data-view]").forEach(x=>{
+    const v=x.dataset.view;
+    x.classList.toggle("active", v===name || (v==="feed" && FEED_GROUP.includes(name)));
+  });
+  syncFeedGroupTab();
   document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
   $("view-"+name).classList.add("active");
   window.scrollTo(0,0);
@@ -610,9 +639,61 @@ function setView(name,fromHash){
   if(name==="jobs")renderJobs();
   if(name==="deliveries")renderDeliveries();
   if(name==="feed")focusPendingArrival();
+  if(name==="safety")renderSafety();
   if(!fromHash){ const h="#"+hashForView(name); if(location.hash!==h) history.replaceState(null,"",h); }
 }
-document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>setView(t.dataset.view)));
+
+// Label, count and tick marks on the grouped tab follow whichever of the three you're on.
+// The per-view counts (#pillFeed, #pillRent) live inside the dropdown now — that's where they
+// are actually useful, since you can see how much is on the other views without switching —
+// and the tab carries one pill that mirrors the view you're looking at.
+function syncFeedGroupTab(){
+  const lab=$("feedGroupLabel"); if(lab) lab.textContent=VIEW_LABELS[FEED_GROUP_VIEW]||"Arrivals";
+  const pg=$("pillGroup");
+  if(pg){
+    // Deliveries is a calendar, not a list — a count there would be meaningless.
+    const n=FEED_GROUP_VIEW==="feed"?ARRIVALS.length
+      :FEED_GROUP_VIEW==="rentals"?(RENTALS.length+TOOLS.length):null;
+    pg.style.display=n===null?"none":"";
+    if(n!==null) pg.textContent=n>999?(Math.floor(n/100)/10)+"k":n;
+  }
+  document.querySelectorAll("[data-groupview]").forEach(b=>
+    b.classList.toggle("on", b.dataset.groupview===FEED_GROUP_VIEW));
+}
+
+// .tabs scrolls sideways (overflow-x:auto), and a scroll container CLIPS absolutely-positioned
+// children — so the menu has to un-clip the bar while it's open or it simply isn't visible.
+// Same workaround the tutorial already uses via `body.tut-live .tabs{overflow:visible}`.
+function setTabsClip(open){
+  const nav=document.querySelector(".tabs");
+  if(nav) nav.classList.toggle("menu-open",!!open);
+}
+function closeFeedGroupMenu(){
+  const m=$("feedGroupMenu"), c=$("feedGroupCaret");
+  if(m) m.classList.remove("show");
+  if(c) c.setAttribute("aria-expanded","false");
+  setTabsClip(false);
+}
+function toggleFeedGroupMenu(){
+  const m=$("feedGroupMenu"), c=$("feedGroupCaret"); if(!m) return;
+  const open=!m.classList.contains("show");
+  m.classList.toggle("show",open);
+  if(c) c.setAttribute("aria-expanded",open?"true":"false");
+  setTabsClip(open);
+}
+
+document.querySelectorAll(".tab[data-view]").forEach(t=>t.addEventListener("click",()=>{
+  closeFeedGroupMenu();
+  // Tapping the grouped tab goes to whichever of the three you last used, not always Arrivals.
+  setView(t.dataset.view==="feed"?FEED_GROUP_VIEW:t.dataset.view);
+}));
+if($("feedGroupCaret")) $("feedGroupCaret").addEventListener("click",e=>{ e.stopPropagation(); toggleFeedGroupMenu(); });
+document.querySelectorAll("[data-groupview]").forEach(b=>b.addEventListener("click",e=>{
+  e.stopPropagation(); closeFeedGroupMenu(); setView(b.dataset.groupview);
+}));
+document.addEventListener("click",e=>{ if(!e.target.closest("#feedGroup")) closeFeedGroupMenu(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeFeedGroupMenu(); });
+if($("btnAdminOpen")) $("btnAdminOpen").addEventListener("click",()=>{ closeFeedGroupMenu(); setView("admin"); });
 // Jump from a WEBDUCT order strip (Arrivals / My Jobs) straight to that order in Deliveries.
 function wdJumpToOrder(orderNumber){
   const o=WD_ORDERS.find(x=>String(x.number)===String(orderNumber));
@@ -724,7 +805,7 @@ async function signInAs(first,last,email,token){
 /* ---------- Access control (basic, not security — an honest gate) ---------- */
 // Default rule stays: an @arctic.biz email gets everything, anyone else gets nothing.
 // On top of that, each page can be allowed/blocked per person in Manage People.
-const VIEW_LABELS={feed:"Arrivals",rentals:"Rentals",jobs:"My Jobs",deliveries:"Deliveries",admin:"Admin"};
+const VIEW_LABELS={feed:"Arrivals",rentals:"Rentals",jobs:"My Jobs",deliveries:"Deliveries",safety:"Safety",admin:"Admin"};
 function isCompanyEmail(em){ return String(em||"").trim().toLowerCase().endsWith("@arctic.biz"); }
 // Resolve a person's per-page permissions: explicit setting wins, else the email default.
 function permsFor(p){
@@ -748,11 +829,42 @@ function applyAccess(){
   applyingAccess=true;
   try{
     const nav=document.querySelector(".tabs");
-    if(!USER){ lock.style.display="none"; document.querySelectorAll(".tab").forEach(t=>t.style.display=""); if(nav)nav.style.display=""; return; }
+    const grp=$("feedGroup"), adminBtn=$("btnAdminOpen");
+    if(!USER){
+      lock.style.display="none";
+      document.querySelectorAll(".tab[data-view]").forEach(t=>t.style.display="");
+      document.querySelectorAll("[data-groupview]").forEach(b=>b.style.display="");
+      if(grp) grp.style.display=""; if(adminBtn) adminBtn.style.display="";
+      if(nav)nav.style.display=""; return;
+    }
     const pm=myPerms()||{};
     let any=false;
-    document.querySelectorAll(".tab").forEach(t=>{ const ok=!!pm[t.dataset.view]; t.style.display=ok?"":"none"; if(ok)any=true; });
-    if(nav) nav.style.display=any?"":"none";
+
+    // Admin is a header button now, not a tab.
+    if(adminBtn) adminBtn.style.display=pm.admin?"":"none";
+    if(pm.admin) any=true;
+
+    // The grouped tab shows if ANY of its three views is allowed, and the menu lists only the
+    // allowed ones — so a blocked Rentals stays blocked even though it lost its own tab.
+    const groupOk=FEED_GROUP.filter(v=>pm[v]);
+    document.querySelectorAll("[data-groupview]").forEach(b=>{
+      b.style.display=pm[b.dataset.groupview]?"":"none";
+    });
+    const caret=$("feedGroupCaret");
+    if(caret) caret.style.display=groupOk.length>1?"":"none";   // nothing to switch to
+    if(grp) grp.style.display=groupOk.length?"":"none";
+    if(groupOk.length){
+      any=true;
+      if(!pm[FEED_GROUP_VIEW]) FEED_GROUP_VIEW=groupOk[0];
+      syncFeedGroupTab();
+    }
+
+    document.querySelectorAll(".tab[data-view]").forEach(t=>{
+      if(t.dataset.view==="feed") return;                       // handled by the group above
+      const ok=!!pm[t.dataset.view]; t.style.display=ok?"":"none"; if(ok)any=true;
+    });
+
+    if(nav) nav.style.display=(groupOk.length||pm.jobs||pm.safety)?"":"none";
     lock.style.display=any?"none":"block";
     if(!any){ document.querySelectorAll(".view").forEach(v=>v.classList.remove("active")); return; }
     // If they're sitting on a page they're no longer allowed, move them to the first one they can see.
@@ -796,7 +908,7 @@ const TUT_SAVE = IS_IOS
 // Deliberately does NOT cover deliveries/pairing/rentals — that's not their workflow.
 const TUT_SHIP=[
  TUT_SAVE,
- ["Start in Admin","Everything you log starts on the <b>Admin</b> tab. It's PIN protected — <b>ask your supervisor for the PIN</b> if you don't have it. (We've unlocked it just for this walkthrough.)","[data-view='admin']","admin",tutGrantAdmin],
+ ["Start in Admin","Everything you log starts on the <b>Admin</b> button up in the header. It's PIN protected — <b>ask your supervisor for the PIN</b> if you don't have it. (We've unlocked it just for this walkthrough.)","#btnAdminOpen","admin",tutGrantAdmin],
  ["Log Arrival","Once you're in, this is the button. Material shows up → tap <b>Log Arrival</b>. That's the whole job — logging it is what makes it findable for everyone else.","#btnLog","admin",tutGrantAdmin],
  ["This is the form","Here's the real card, filled in as an example. Job # and description are the only required ones — but the more you fill in, the less anyone has to come ask you.","#f_desc","admin",tutOpenLogForm],
  ["Where you stored it","<b>Stored at</b> is the field people rely on most. \"Building 3\", \"Rack B-4\", \"back of the yard\" — whatever tells someone where to walk. Leave it blank and they're calling you.","#f_location","admin",tutOpenLogForm],
@@ -817,7 +929,7 @@ const TUT_FIELD=[
  ["What's on a card","Here's a card opened up: the photo, where it's stored, who logged it, delivery status, and the buttons — 📷 photo, Copy Name, share, and the 🚚 truck showing whether it's gone out.",".acard.open","jobs",()=>tutOpenJobCard("arrivals")],
  ["Equipment rentals","Flip to <b>Equipment Rentals</b> to see gear rented from a vendor for this job — what it is, the rate, the vendor, and whether it's still out.","#mjSeg","jobs",()=>tutOpenJobCard("rentals")],
  ["Tool rentals","<b>Tool Rentals</b> shows company tools charged to your job — tool #, days out, daily rate, and total. Handy for checking what's still billing to you.","#mjSeg","jobs",()=>tutOpenJobCard("tools")],
- ["The Deliveries calendar","See when everything's going out. Days show 📦 equipment, 🚚 deliveries, 🆙 pickups. Tap a day, then a job name, to see what's coming and when.","[data-view='deliveries']","feed"],
+ ["The Deliveries calendar","Deliveries now lives under the ▾ on the first tab, next to Arrivals and Rentals. Days show 📦 equipment, 🚚 deliveries, 🆙 pickups. Tap a day, then a job name, to see what's coming and when.","#feedGroupCaret","feed"],
  ["That's it","Retake this anytime with the <b>? Tutorial</b> button up here.","#btnTutorial","feed"],
 ];
 // Open a job folder + expand an arrival card so the My Jobs steps show a real, full card.
@@ -1808,8 +1920,380 @@ async function doDelete(type,id,fromModal){
 }
 
 /* ---------- Import: Excel (arrivals + rentals) ---------- */
+/* ---------- Safety tab ---------- */
+// Everything here is read-only for the crew; Admin uploads are the only writers. The lists are
+// deliberately shown in full rather than filtered to the signed-in person — this is the same
+// information as the training board on the shop wall.
+
+const SF_SOON_DAYS=90;   // "expiring soon" horizon
+
+function sfExpiryState(iso){
+  if(!iso) return "none";
+  const today=todayIso();
+  if(iso<today) return "expired";
+  const d=new Date(iso+"T00:00:00"), n=new Date(today+"T00:00:00");
+  return Math.round((d-n)/86400000)<=SF_SOON_DAYS ? "soon" : "ok";
+}
+function sfMetaLine(key,noun){
+  const m=SF_META&&SF_META[key];
+  if(!m||!m.count) return `Nothing uploaded yet — an admin can add it from the Admin tab.`;
+  const when=m.updatedAt&&m.updatedAt.toDate?m.updatedAt.toDate():null;
+  const by=m.by?` by ${esc(m.by)}`:"";
+  return `${m.count.toLocaleString()} ${noun}${when?` · updated ${longDate(fmtDateKey(when))}`:""}${by}`;
+}
+function sfEmpty(ico,title,msg){ return `<div class="empty"><div class="ico">${ico}</div><h3>${esc(title)}</h3><p>${esc(msg)}</p></div>`; }
+function sfQuery(id){ const el=$(id); return el?el.value.trim().toLowerCase():""; }
+
+function renderSafety(){
+  if(!document.getElementById("view-safety")) return;
+  renderSfPoints(); renderSfTraining(); renderSfSds();
+}
+
+function renderSfPoints(){
+  const list=$("sfPointsList"), meta=$("sfPointsMeta"); if(!list) return;
+  if(meta) meta.textContent=sfMetaLine("points","people");
+  if(!SF_POINTS.length){ list.innerHTML=sfEmpty("📊","No safety points loaded","Upload the Safety Point Program totals PDF from the Admin tab."); return; }
+  const q=sfQuery("sfPointsSearch");
+  const rows=SF_POINTS.filter(r=>!q||String(r.name||"").toLowerCase().includes(q))
+    .sort((a,b)=>(b.total||0)-(a.total||0));
+  if(!rows.length){ list.innerHTML=sfEmpty("🔍","No match",`Nobody matches “${sfQuery("sfPointsSearch")}”.`); return; }
+  const top=rows[0]&&rows[0].total?rows[0].total:1;
+  list.innerHTML=rows.map(r=>{
+    const pct=Math.max(2,Math.round(((r.total||0)/top)*100));
+    const awards=r.awards&&typeof r.awards==="object"?Object.entries(r.awards).filter(([,v])=>v):[];
+    return `<div class="sf-row">
+      <div class="sf-row-main">
+        <div class="sf-name">${esc(r.name||"—")}${r.shirt?`<span class="sf-shirt">${esc(String(r.shirt).toUpperCase())}</span>`:""}</div>
+        <div class="sf-total">${(r.total||0).toLocaleString()}</div>
+      </div>
+      <div class="sf-bar"><i style="width:${pct}%"></i></div>
+      <div class="sf-sub">
+        <span>Start <b>${(r.start||0).toLocaleString()}</b></span>
+        ${awards.length?`<span>Earned <b>${awards.reduce((s,[,v])=>s+(Number(v)||0),0).toLocaleString()}</b> over ${awards.length} award${awards.length===1?"":"s"}</span>`:""}
+        ${r.used?`<span class="sf-neg">Used <b>${Math.abs(Number(r.used)).toLocaleString()}</b></span>`:""}
+        ${r.extra?`<span>Extra <b>${Number(r.extra).toLocaleString()}</b></span>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderSfTraining(){
+  const list=$("sfTrainList"), meta=$("sfTrainMeta"); if(!list) return;
+  if(meta) meta.textContent=sfMetaLine("training","records");
+  if(!SF_TRAINING.length){ list.innerHTML=sfEmpty("🎓","No training records loaded","Upload the Arctic training matrix PDF from the Admin tab."); return; }
+  const q=sfQuery("sfTrainSearch");
+  let rows=SF_TRAINING.filter(r=>{
+    if(q && ![r.name,r.course,r.instructor,r.notes].some(v=>String(v||"").toLowerCase().includes(q))) return false;
+    const st=sfExpiryState(r.expires);
+    if(SF_TRAIN_FILTER==="expiring") return st==="soon";
+    if(SF_TRAIN_FILTER==="expired")  return st==="expired";
+    return true;
+  });
+  // Expiring/expired first when unfiltered, so the thing that needs action is at the top.
+  const rank={expired:0,soon:1,ok:2,none:3};
+  rows.sort((a,b)=>{
+    const d=rank[sfExpiryState(a.expires)]-rank[sfExpiryState(b.expires)];
+    if(d) return d;
+    return String(a.name||"").localeCompare(String(b.name||"")) || String(b.date||"").localeCompare(String(a.date||""));
+  });
+  const counts={expired:0,soon:0};
+  SF_TRAINING.forEach(r=>{ const s=sfExpiryState(r.expires); if(counts[s]!==undefined) counts[s]++; });
+  document.querySelectorAll("[data-trainfilter]").forEach(b=>{
+    const k=b.dataset.trainfilter;
+    b.classList.toggle("active",k===SF_TRAIN_FILTER);
+    const n=k==="expiring"?counts.soon:k==="expired"?counts.expired:0;
+    b.textContent=(k==="all"?"All":k==="expiring"?"Expiring soon":"Expired")+(n?` (${n})`:"");
+  });
+  if(!rows.length){ list.innerHTML=sfEmpty("🔍","Nothing here","No training records match that filter."); return; }
+  list.innerHTML=rows.map(r=>{
+    const st=sfExpiryState(r.expires);
+    const badge=st==="expired"?`<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`
+      :st==="soon"?`<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`
+      :st==="ok"?`<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`
+      :`<span class="sf-badge none">No expiry</span>`;
+    return `<div class="sf-row tr">
+      <div class="sf-row-main"><div class="sf-name">${esc(r.name||"—")}</div>${badge}</div>
+      <div class="sf-course">${esc(r.course||"—")}</div>
+      <div class="sf-sub">
+        ${r.date?`<span>Trained <b>${esc(longDate(r.date))}</b></span>`:""}
+        ${r.instructor?`<span>By <b>${esc(r.instructor)}</b></span>`:""}
+        ${r.notes?`<span>${esc(r.notes)}</span>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderSfSds(){
+  const list=$("sfSdsList"), meta=$("sfSdsMeta"); if(!list) return;
+  if(meta) meta.textContent=sfMetaLine("sds","sheets");
+  if(!SF_SDS.length){ list.innerHTML=sfEmpty("🧪","No SDS inventory loaded","Upload the Safety Data Sheet inventory workbook from the Admin tab."); return; }
+  const q=sfQuery("sfSdsSearch");
+  const rows=SF_SDS.filter(r=>!q||[r.product,r.vendor,r.use,r.dept].some(v=>String(v||"").toLowerCase().includes(q)))
+    .sort((a,b)=>String(a.product||"").localeCompare(String(b.product||"")));
+  if(!rows.length){ list.innerHTML=sfEmpty("🔍","No match",`Nothing matches “${sfQuery("sfSdsSearch")}”.`); return; }
+  list.innerHTML=rows.map(r=>`<div class="sf-row sds">
+      <div class="sf-row-main"><div class="sf-name">${esc(r.product||"—")}</div>${r.dept?`<span class="sf-dept">${esc(r.dept)}</span>`:""}</div>
+      <div class="sf-sub">
+        ${r.use?`<span>${esc(r.use)}</span>`:""}
+        ${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}
+        ${r.issueDate?`<span>Issued <b>${esc(longDate(r.issueDate))}</b></span>`:""}
+        ${r.pages?`<span>${esc(String(r.pages))} pages</span>`:""}
+      </div>
+    </div>`).join("");
+}
+
+// Sub-tab pills + searches
+document.querySelectorAll("[data-safety]").forEach(b=>b.addEventListener("click",()=>{
+  SF_TAB=b.dataset.safety;
+  document.querySelectorAll("[data-safety]").forEach(x=>x.classList.toggle("active",x===b));
+  document.querySelectorAll(".safety-pane").forEach(p=>p.classList.toggle("active",p.id==="safety-"+SF_TAB));
+  window.scrollTo(0,0);
+}));
+document.querySelectorAll("[data-trainfilter]").forEach(b=>b.addEventListener("click",()=>{
+  SF_TRAIN_FILTER=b.dataset.trainfilter; renderSfTraining();
+}));
+["sfPointsSearch","sfTrainSearch","sfSdsSearch"].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener("input",()=>{
+    if(id==="sfPointsSearch")renderSfPoints(); else if(id==="sfTrainSearch")renderSfTraining(); else renderSfSds();
+  });
+});
+
 $("btnImport").addEventListener("click",()=>{ $("importTitle").textContent="Import Excel"; $("importBody").innerHTML=dropHTML("excel"); wireDrop("excel"); openModal("importModal"); });
 $("btnToolImport").addEventListener("click",()=>{ $("importTitle").textContent="Upload Tool Report"; $("importBody").innerHTML=dropHTML("pdf"); wireDrop("pdf"); openModal("importModal"); });
+/* ---------- Safety uploads (Admin) ---------- */
+// Each upload REPLACES its category. Doc ids are derived from the row content with makeId, so
+// re-uploading the same report rewrites the same docs instead of duplicating them, and anything
+// that vanished from the report gets deleted.
+
+const SF_UPLOADS={
+  points  :{coll:"safetyPoints",  state:()=>SF_POINTS,  title:"Upload Safety Points",   ico:"📊", accept:".pdf",              what:"Safety Point Program totals PDF"},
+  training:{coll:"safetyTraining",state:()=>SF_TRAINING,title:"Upload Training Matrix", ico:"🎓", accept:".pdf",              what:"Arctic training matrix PDF"},
+  sds     :{coll:"safetySds",     state:()=>SF_SDS,     title:"Upload SDS Inventory",   ico:"🧪", accept:".xlsx,.xlsm,.xls",  what:"Safety Data Sheet inventory workbook"},
+};
+
+function sfDropHTML(kind){
+  const c=SF_UPLOADS[kind];
+  return `<div class="dropzone" id="dropzone"><div class="dz-ico">${c.ico}</div><h4>${esc(c.title)}</h4>
+    <p>Drop the <b>${esc(c.what)}</b> here, or pick it from your device. This replaces everything currently in that category.</p>
+    <label class="dz-btn">Choose file<input id="fileInput" type="file" accept="${c.accept}" hidden></label></div>`;
+}
+
+// Rows of positioned cells, one array per page. Same y-bucketing as parseToolPdf, but the x of
+// every cell is kept so values can be matched to columns instead of guessed from word order —
+// which matters here because blank cells are common and would otherwise shift everything left.
+//
+// Coordinates go through the VIEWPORT transform rather than being read straight off
+// item.transform. Both of these reports are landscape (/Rotate 90), and on a rotated page the
+// raw matrix puts what you see as a row along the y axis — bucketing the raw values groups
+// each COLUMN together and the parse finds nothing at all.
+async function sfPdfRows(buf){
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  const out=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const vp=page.getViewport({scale:1});
+    const tc=await page.getTextContent();
+    const buckets=[];
+    for(const it of tc.items){
+      if(!it.str||!it.str.trim())continue;
+      const m=pdfjsLib.Util.transform(vp.transform,it.transform);
+      const x=m[4], y=m[5];
+      let b=buckets.find(bk=>Math.abs(bk.y-y)<=2.5);
+      if(!b){ b={y,cells:[]}; buckets.push(b); }
+      b.cells.push({x,s:it.str.trim()});
+    }
+    buckets.sort((a,b)=>a.y-b.y);                 // screen coords run top-down
+    buckets.forEach(b=>b.cells.sort((m,n)=>m.x-n.x));
+    out.push(buckets);
+  }
+  return out;
+}
+const sfNum=s=>{ const t=String(s).replace(/[,$]/g,"").trim(); return /^-?\d+(\.\d+)?$/.test(t)?Number(t):null; };
+// Which column does a cell belong to? The LAST header starting at or before it, with a little
+// slack. Values sit slightly right of their header (numbers are right-aligned in the export),
+// so nearest-header matching picks the wrong neighbour — an award lands one column over and
+// every date is off by one. "Last header at or before" is stable under that shift.
+const SF_COL_SLACK=10;
+function sfColAt(x,cols){
+  let idx=-1;
+  for(let i=0;i<cols.length;i++){ if(cols[i].x-SF_COL_SLACK<=x) idx=i; else break; }
+  return idx;
+}
+
+function parseSafetyPointsPdf(pages){
+  const flat=[].concat(...pages);
+  // Header carries the award dates, and its cell positions define the columns.
+  const hi=flat.findIndex(r=>r.cells.some(c=>/employee\s*name/i.test(c.s)) || (r.cells.some(c=>/^total$/i.test(c.s))&&r.cells.some(c=>/shirt/i.test(c.s))));
+  if(hi<0) throw new Error("Couldn't find the header row (expected “Employee Name … Total”). Is this the Safety Point Program totals PDF?");
+  // The year sits in the same cell as "Employee Name" ("2026 Employee Name"), so strip it.
+  const cols=flat[hi].cells.map(c=>({label:c.s.replace(/^\d{4}\s+/,"").trim(),x:c.x}));
+  const iOf=re=>cols.findIndex(c=>re.test(c.label));
+  const iStart=iOf(/start/i), iUsed=iOf(/used/i), iExtra=iOf(/extra/i), iTotal=iOf(/^total$/i);
+  const dateCols=cols.map((c,i)=>({i,label:c.label})).filter(c=>/^\d{1,2}\/\d{1,2}$/.test(c.label));
+  const out=[];
+  for(let r=hi+1;r<flat.length;r++){
+    const cells=flat[r].cells;
+    const nameCell=cells.find(c=>/[A-Za-z].*;/.test(c.s));
+    if(!nameCell) continue;                                  // filter artefacts, page furniture
+    const name=nameCell.s.replace(/\s+/g," ").trim();
+    const rec={name,shirt:"",start:0,awards:{},used:0,extra:0,total:0};
+    for(const c of cells){
+      if(c===nameCell) continue;
+      if(/^(xs|s|m|l|xl|xxl|xxxl|2xl|3xl)$/i.test(c.s)){ rec.shirt=c.s; continue; }
+      const n=sfNum(c.s); if(n===null) continue;
+      const ci=sfColAt(c.x,cols);
+      if(ci===iStart) rec.start=n;
+      else if(ci===iUsed) rec.used=n;
+      else if(ci===iExtra) rec.extra=n;
+      else if(ci===iTotal) rec.total=n;
+      else { const dc=dateCols.find(d=>d.i===ci); if(dc) rec.awards[dc.label]=n; }
+    }
+    if(!rec.total && !rec.start && !Object.keys(rec.awards).length) continue;
+    out.push(rec);
+  }
+  if(!out.length) throw new Error("No employee rows found in that PDF.");
+  return out;
+}
+
+function parseTrainingPdf(pages){
+  const DATE=/^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
+  const flat=[].concat(...pages);
+  // Columns come from the real log header. Page 1 also carries the spreadsheet's autofilter
+  // legend (loose NAME / COURSE / INSTRUCTOR lists at completely different x positions); those
+  // rows are rejected below by requiring a date in the DATE column, so the legend can't be
+  // mistaken for records.
+  const hi=flat.findIndex(r=>r.cells.some(c=>/date\s*of\s*training/i.test(c.s)));
+  if(hi<0) throw new Error("Couldn't find the log header (expected “DATE OF TRAINING … NOTES”). Is this the training matrix PDF?");
+  const cols=flat[hi].cells.map(c=>({label:c.s.trim(),x:c.x}));
+  const iOf=re=>cols.findIndex(c=>re.test(c.label));
+  const iDate=iOf(/date/i), iName=iOf(/name/i), iCourse=iOf(/course/i),
+        iInstr=iOf(/instructor/i), iExp=iOf(/expires/i), iNotes=iOf(/notes/i);
+  const out=[];
+  for(const row of flat){
+    const cells=row.cells;
+    if(!cells.length) continue;
+    const rec={name:"",course:"",instructor:"",date:"",expires:"",notes:""};
+    let sawDate=false;
+    for(const c of cells){
+      const ci=sfColAt(c.x,cols);
+      const put=(k,v)=>{ rec[k]=rec[k]?rec[k]+" "+v:v; };
+      if(ci===iDate){ if(!DATE.test(c.s)){ sawDate=false; break; } rec.date=fmtDateKey(c.s); sawDate=true; }
+      else if(ci===iName)   put("name",c.s);
+      else if(ci===iCourse) put("course",c.s);
+      else if(ci===iInstr)  put("instructor",c.s);
+      else if(ci===iExp)    rec.expires=DATE.test(c.s)?fmtDateKey(c.s):"";
+      else if(ci===iNotes)  put("notes",c.s);
+    }
+    if(!sawDate || !rec.name) continue;
+    out.push(rec);
+  }
+  if(!out.length) throw new Error("No dated training rows found. Is this the training matrix PDF?");
+  return out;
+}
+
+function parseSdsWorkbook(buf){
+  const wb=XLSX.read(buf,{cellDates:true});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true});
+  // The title sits above the header, so find the header row rather than assuming row 3.
+  let hi=rows.findIndex(r=>r.map(c=>String(c).toLowerCase()).join("|").includes("chemical/product"));
+  if(hi<0) hi=rows.findIndex(r=>r.map(c=>String(c).toLowerCase()).join("|").includes("record"));
+  if(hi<0) throw new Error("Couldn't find the header row (expected “Chemical/Product Name”).");
+  const H=rows[hi].map(c=>String(c).toLowerCase());
+  const col=(...keys)=>{ for(const k of keys){ const i=H.findIndex(h=>h.includes(k)); if(i>=0) return i; } return -1; };
+  const cR=col("record"),cP=col("chemical","product name"),cU=col("product use","use"),
+        cV=col("vendor","mfg"),cI=col("issue"),cD=col("dept"),cG=col("# of pages","pages");
+  const out=[];
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i], g=x=>x>=0?r[x]:"";
+    const product=String(g(cP)||"").trim();
+    if(!product) continue;                                   // trailing notes column is not a row
+    out.push({record:String(g(cR)||"").trim(),product,use:String(g(cU)||"").trim(),
+      vendor:String(g(cV)||"").trim(),issueDate:fmtDateKey(g(cI)),dept:String(g(cD)||"").trim(),
+      pages:String(g(cG)||"").trim()});
+  }
+  if(!out.length) throw new Error("No chemical rows found in that workbook.");
+  return out;
+}
+
+// Write the new set and delete whatever is no longer in the report.
+async function sfReplace(kind,docs){
+  const cfg=SF_UPLOADS[kind];
+  const keep=new Set(docs.map(d=>d.id));
+  const stale=cfg.state().filter(r=>!keep.has(r.id));
+  let batch=writeBatch(db), n=0;
+  const flush=async()=>{ if(n){ await batch.commit(); batch=writeBatch(db); n=0; } };
+  for(const d of docs){
+    const {id,...rest}=d;
+    batch.set(doc(db,cfg.coll,id),{...rest,source:"admin-upload",updatedAt:serverTimestamp()},{merge:true});
+    if(++n>=400) await flush();
+  }
+  for(const s of stale){ batch.delete(doc(db,cfg.coll,s.id)); if(++n>=400) await flush(); }
+  await flush();
+  await setDoc(doc(db,"config","safetyMeta"),
+    {[kind]:{count:docs.length,updatedAt:serverTimestamp(),by:USER?`${USER.first} ${USER.last}`.trim():""}},{merge:true});
+  return {written:docs.length,removed:stale.length};
+}
+
+function wireSfDrop(kind){
+  const dz=$("dropzone"), input=$("fileInput"); if(!dz||!input) return;
+  const go=f=>f&&handleSfFile(kind,f);
+  dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("over");});
+  dz.addEventListener("dragleave",()=>dz.classList.remove("over"));
+  dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("over");go(e.dataTransfer.files[0]);});
+  input.addEventListener("change",e=>go(e.target.files[0]));
+}
+
+async function handleSfFile(kind,file){
+  const body=$("importBody");
+  if(!fbReady){ body.innerHTML=stageErr("No Firebase connection."); return; }
+  const cfg=SF_UPLOADS[kind];
+  body.innerHTML=`<div class="imp-stage"><div class="imp-spin"></div><h4>Reading ${esc(file.name)}…</h4><div class="imp-bar"><i id="impBar"></i></div><div class="hint" id="impCount"></div></div>`;
+  try{
+    const buf=await file.arrayBuffer();
+    let recs;
+    if(kind==="sds") recs=parseSdsWorkbook(buf);
+    else{
+      if(!window.pdfjsLib) throw new Error("PDF reader didn't load. Check your connection and retry.");
+      const pages=await sfPdfRows(buf);
+      recs=kind==="points"?parseSafetyPointsPdf(pages):parseTrainingPdf(pages);
+    }
+    const docs=recs.map(r=>({
+      ...r,
+      id: kind==="points" ? makeId(["sfp",r.name])
+        : kind==="training" ? makeId(["sft",r.name,r.course,r.date])
+        : makeId(["sds",r.record||r.product,r.product]),
+    }));
+    // Two rows that collapse to one id would silently drop one, so de-duplicate deliberately.
+    const seen=new Map(); docs.forEach(d=>seen.set(d.id,d));
+    const uniq=[...seen.values()];
+    const dropped=docs.length-uniq.length;
+    upd(0,uniq.length);
+    const res=await sfReplace(kind,uniq);
+    upd(uniq.length,uniq.length);
+    body.innerHTML=`<div class="imp-stage"><div style="font-size:42px;margin-bottom:10px">✅</div>
+      <h4>${esc(cfg.title.replace("Upload ",""))} updated</h4>
+      <p><b>${res.written.toLocaleString()}</b> record${res.written===1?"":"s"} loaded${res.removed?` · ${res.removed.toLocaleString()} removed`:""}${dropped?` · ${dropped} duplicate row${dropped===1?"":"s"} merged`:""}.</p>
+      <button class="submit" style="margin-top:20px" id="impErrClose">Done</button></div>`;
+    const c=$("impErrClose"); if(c) c.addEventListener("click",()=>closeModal("importModal"));
+    toast(`${cfg.title.replace("Upload ","")}: ${res.written.toLocaleString()} loaded`);
+  }catch(e){
+    console.error(e);
+    body.innerHTML=stageErr((e&&e.message)||String(e));
+    const c=$("impErrClose"); if(c) c.addEventListener("click",()=>closeModal("importModal"));
+  }
+}
+
+Object.keys(SF_UPLOADS).forEach(kind=>{
+  const btn=$("btnSf"+kind.charAt(0).toUpperCase()+kind.slice(1));
+  if(btn) btn.addEventListener("click",()=>{
+    $("importTitle").textContent=SF_UPLOADS[kind].title;
+    $("importBody").innerHTML=sfDropHTML(kind);
+    wireSfDrop(kind);
+    openModal("importModal");
+  });
+});
+
 function dropHTML(kind){ const isPdf=kind==="pdf"; return `<div class="dropzone" id="dropzone"><div class="dz-ico">${isPdf?"🧰":"📄"}</div><h4>${isPdf?"Upload tool report":"Upload master sheet"}</h4><p>${isPdf?'Drop the <b>Webduct Tool Rental</b> PDF here, or pick it from your device.':'Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it.'} Re-importing is safe — duplicates merge.</p><label class="dz-btn">Choose file<input id="fileInput" type="file" accept="${isPdf?'.pdf':'.xlsx,.xlsm,.xls'}" hidden></label></div><div class="field" style="margin-top:16px"><div class="hint">${isPdf?'Reads every job and tool line. Job numbers, dates, days, and rates are pulled automatically.':'Loads every monthly tab into Arrivals, plus the Equipment Rentals tab into Rentals.'}</div></div>`; }
 function wireDrop(kind){ const dz=$("dropzone"),input=$("fileInput"); if(!dz)return; const go=f=>{ if(kind==="pdf")handlePdf(f); else handleExcel(f); }; input.addEventListener("change",()=>{if(input.files[0])go(input.files[0]);}); ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");})); ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");})); dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)go(f);}); }
 

@@ -881,3 +881,94 @@
   .ac-wd-body{flex:1;min-width:0;font-size:12.5px;color:var(--ink);line-height:1.45}
   .ac-wd-stat{font-weight:600;color:#8a4b00}
   .ac-wd-stat.delivered{color:#0d7a73}
+
+  /* ===================================================================
+     Condensed tabs, the Arrivals/Rentals/Deliveries switcher,
+     the Admin header button, and the Safety tab.
+     =================================================================== */
+
+  /* --- Admin, moved out of the tab bar into the header --- */
+  .admin-btn{display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--line);color:var(--ink-soft);
+    font-family:'Barlow Condensed';font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;
+    padding:5px 10px;border-radius:8px;white-space:nowrap;transition:background .15s,border-color .15s}
+  .admin-btn:hover{background:var(--line-soft);border-color:var(--steel-light)}
+  .admin-btn svg{flex:none}
+
+  /* --- The grouped first tab. The caret is its own hit target so tapping the
+         label still just switches to the view you were last on. --- */
+  /* The menu is absolutely positioned inside a horizontally scrolling bar, which would
+     clip it away entirely. Un-clip only while it's open so the bar still scrolls. */
+  .tabs.menu-open{overflow:visible}
+  .tab-group{position:relative;display:flex;align-items:stretch;flex:1 0 auto;min-width:max-content}
+  .tab-caret{display:flex;align-items:center;justify-content:center;padding:0 8px 2px 2px;color:var(--steel);
+    border-bottom:3px solid transparent;transition:color .15s}
+  .tab-group .tab.active + .tab-caret{color:var(--ink);border-color:var(--hivis)}
+  .tab-caret:hover{color:var(--ink)}
+  .tab-menu{position:absolute;top:100%;left:0;z-index:60;min-width:230px;margin-top:2px;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:6px;display:none}
+  .tab-menu.show{display:block}
+  .tab-menu-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:8px;
+    text-align:left;transition:background .12s}
+  .tab-menu-item:hover{background:var(--line-soft)}
+  .tab-menu-item .tmi-ico{font-size:15px;flex:none}
+  .tab-menu-item .tmi-txt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+  .tab-menu-item .tmi-txt b{font-family:'Barlow Condensed';font-weight:700;font-size:14px;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--ink)}
+  .tab-menu-item .tmi-txt i{font-style:normal;font-size:11.5px;color:var(--steel)}
+  .tab-menu-item .tmi-check{color:var(--hivis);font-weight:700;opacity:0;flex:none}
+  .tab-menu-item.on .tmi-check{opacity:1}
+  .tab-menu-item.on{background:var(--blue-soft)}
+
+  /* --- Safety tab --- */
+  .safety-subtabs{display:flex;gap:8px;overflow-x:auto;padding:2px 0 14px;-ms-overflow-style:none;scrollbar-width:none}
+  .safety-subtabs::-webkit-scrollbar{display:none}
+  .sub-pill{flex:none;padding:7px 15px;border-radius:20px;border:1px solid var(--line);background:var(--card);
+    color:var(--steel);font-family:'Barlow Condensed';font-weight:600;font-size:13.5px;letter-spacing:.05em;
+    text-transform:uppercase;transition:background .15s,color .15s,border-color .15s}
+  .sub-pill.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .safety-pane{display:none}
+  .safety-pane.active{display:block}
+
+  .sf-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .sf-title h2{font-family:'Barlow Condensed';font-weight:700;font-size:22px;letter-spacing:.02em;
+    text-transform:uppercase;color:var(--ink);line-height:1.1}
+  .sf-meta{font-size:11.5px;color:var(--steel);margin-top:3px}
+  .sf-search{flex:1 1 200px;max-width:340px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;
+    background:var(--card);font-size:14px;color:var(--ink)}
+  .sf-search:focus{outline:none;border-color:var(--blue)}
+  .sf-filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+  .sf-chip{padding:5px 11px;border-radius:16px;border:1px solid var(--line);background:var(--card);
+    color:var(--steel);font-size:12px;font-weight:600;transition:background .15s,color .15s}
+  .sf-chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
+
+  .sf-row{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:12px 14px;margin-bottom:8px}
+  .sf-row-main{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .sf-name{font-weight:650;font-size:14.5px;color:var(--ink);display:flex;align-items:center;gap:7px;min-width:0}
+  .sf-shirt{font-family:'JetBrains Mono';font-size:9.5px;font-weight:700;color:var(--steel);
+    background:var(--line-soft);padding:1px 5px;border-radius:4px;flex:none}
+  .sf-total{font-family:'JetBrains Mono';font-weight:700;font-size:16px;color:var(--ink);flex:none}
+  .sf-bar{height:4px;border-radius:3px;background:var(--line-soft);margin:9px 0 8px;overflow:hidden}
+  .sf-bar i{display:block;height:100%;border-radius:3px;background:var(--hivis)}
+  .sf-sub{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--steel)}
+  .sf-sub b{color:var(--ink-soft);font-weight:650}
+  .sf-sub .sf-neg b{color:#c0341a}
+  .sf-course{font-size:13.5px;color:var(--ink-soft);margin:5px 0 6px}
+  .sf-dept{font-size:10.5px;font-weight:600;color:var(--teal);background:var(--teal-soft);
+    padding:2px 7px;border-radius:5px;flex:none;white-space:nowrap}
+  .sf-badge{font-size:10.5px;font-weight:650;padding:2px 8px;border-radius:5px;white-space:nowrap;flex:none}
+  .sf-badge.ok{color:var(--green);background:var(--green-soft)}
+  .sf-badge.warn{color:var(--amber);background:var(--amber-soft)}
+  .sf-badge.bad{color:#c0341a;background:#fdecea}
+  .sf-badge.none{color:var(--steel-light);background:var(--line-soft)}
+
+  /* --- Safety uploads in Admin --- */
+  .sf-uploadbox{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:16px;margin-bottom:16px}
+  .sf-upload-note{font-size:12px;color:var(--steel);margin:6px 0 14px;line-height:1.45}
+  .act.sf-up .a-ico{background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:17px}
+  .act.disabled{opacity:.5;pointer-events:none}
+  .tab-menu-item .tmi-pill{background:var(--line-soft);color:var(--steel);font-family:'JetBrains Mono';
+    font-weight:700;font-size:10px;padding:1px 6px;border-radius:20px;min-width:18px;text-align:center;flex:none}
+  .tab-menu-item.on .tmi-pill{background:var(--hivis);color:#fff}
