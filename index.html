@@ -236,7 +236,16 @@
     </div>
 
     <div class="safety-pane" id="safety-drug">
-      <div class="empty"><div class="ico">🪪</div><h3>Drug cards coming soon</h3><p>This is where current drug card status will live. Nothing has been loaded yet — the format is still being worked out.</p></div>
+      <div class="sf-head">
+        <div class="sf-title"><h2>Drug Cards</h2><div class="sf-meta" id="sfDrugMeta">—</div></div>
+        <input class="sf-search" id="sfDrugSearch" type="search" placeholder="Search a name…" autocomplete="off">
+      </div>
+      <div class="sf-filters" id="sfDrugFilters">
+        <button class="sf-chip active" data-drugfilter="all">All</button>
+        <button class="sf-chip" data-drugfilter="expiring">Expiring soon</button>
+        <button class="sf-chip" data-drugfilter="expired">Expired</button>
+      </div>
+      <div id="sfDrugList"></div>
     </div>
   </section>
 
@@ -270,12 +279,12 @@
 
       <div class="sf-uploadbox">
         <div class="wd-keybox-title">🦺 Safety Tab Uploads</div>
-        <p class="sf-upload-note">Each upload replaces that category outright — the file you send is the new source of truth, so re-upload the whole report rather than a partial one.</p>
+        <p class="sf-upload-note">Each upload replaces that category outright — the file you send is the new source of truth, so re-upload the whole report rather than a partial one. The Training Matrix workbook fills <b>both</b> the training log and the drug cards, from its <b>Training Log- ALL</b> and <b>Drug Cards</b> tabs; the other tabs in it are ignored.</p>
         <div class="actions">
           <button class="act sf-up" id="btnSfPoints"><div class="a-ico">📊</div><div class="a-title">Safety Points</div><div class="a-sub">The Safety Point Program totals PDF.</div></button>
-          <button class="act sf-up" id="btnSfTraining"><div class="a-ico">🎓</div><div class="a-title">Training Matrix</div><div class="a-sub">The Arctic training log PDF.</div></button>
+          <button class="act sf-up" id="btnSfTraining"><div class="a-ico">🎓</div><div class="a-title">Training &amp; Drug Cards</div><div class="a-sub">The Arctic Training Matrix workbook — fills both.</div></button>
           <button class="act sf-up" id="btnSfSds"><div class="a-ico">🧪</div><div class="a-title">SDS Inventory</div><div class="a-sub">The Safety Data Sheet inventory workbook.</div></button>
-          <button class="act sf-up disabled" id="btnSfDrug" disabled><div class="a-ico">🪪</div><div class="a-title">Drug Cards</div><div class="a-sub">Waiting on the file format.</div></button>
+          <button class="act sf-up" id="btnSfDrug"><div class="a-ico">🪪</div><div class="a-title">Drug Cards</div><div class="a-sub">Same workbook as training — opens that upload.</div></button>
         </div>
       </div>
 
