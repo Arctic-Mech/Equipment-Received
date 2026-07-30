@@ -1966,7 +1966,7 @@ function renderSafety(){
 
 function renderSfDrug(){
   const list=$("sfDrugList"), meta=$("sfDrugMeta"); if(!list) return;
-  if(meta) meta.textContent=sfMetaLine("drug","cards");
+  if(meta) meta.textContent=sfMetaLine("drug","current cards");
   if(SF_ERR.drug){ list.innerHTML=sfErrBox("drug cards","safetyDrugCards",SF_ERR.drug); return; }
   if(!SF_DRUG.length){ list.innerHTML=sfEmpty("🪪","No drug cards loaded","They come in on the Arctic Training Matrix workbook — upload it from the Admin tab."); return; }
   const q=sfQuery("sfDrugSearch");
@@ -2318,14 +2318,27 @@ function parseDrugCards(buf){
   const rows=sfRows(wb,sheet);
   const {hi,col}=sfHeaderCols(rows,"name","drug cards");
   const cN=col("name"),cT=col("test date","test"),cE=col("expiration","expires");
-  const out=[];
+  const all=[];
   for(let i=hi+1;i<rows.length;i++){
     const r=rows[i], g=x=>x>=0?r[x]:"";
     const name=String(g(cN)||"").trim();
     if(!name) continue;
-    out.push({name,tested:fmtDateKey(g(cT)),expires:fmtDateKey(g(cE))});
+    all.push({name,tested:fmtDateKey(g(cT)),expires:fmtDateKey(g(cE))});
   }
-  return {sheet,rows:out};
+  // People appear once per test they have ever taken, so the sheet lists the same person
+  // several times — an expired card AND a current one. Only the newest test is a real card;
+  // keep that and drop the history, or the list shows one person as both expired and valid.
+  // Keyed case-insensitively so "Jaren Eells" and "jaren eells" can't both survive.
+  const newest=new Map();
+  for(const r of all){
+    const key=r.name.toLowerCase().replace(/\s+/g," ");
+    const prev=newest.get(key);
+    // Newest TEST wins. Tie-break on the later expiry, which only matters if a test date is
+    // missing or duplicated — in this workbook the two agree on all 8 duplicated people.
+    if(!prev || r.tested>prev.tested || (r.tested===prev.tested && r.expires>prev.expires)) newest.set(key,r);
+  }
+  const out=[...newest.values()];
+  return {sheet,rows:out,merged:all.length-out.length};
 }
 
 function parseSdsWorkbook(buf){
@@ -2390,7 +2403,7 @@ async function handleSfFile(kind,file){
     const buf=await file.arrayBuffer();
     const mkId=(k,r)=> k==="points" ? makeId(["sfp",r.name])
       : k==="training" ? makeId(["sft",r.name,r.course,r.date])
-      : k==="drug" ? makeId(["sfd",r.name,r.tested])
+      : k==="drug" ? makeId(["sfd",r.name.toLowerCase().replace(/\s+/g," ")])
       : makeId(["sds",r.record||r.product,r.product]);
     // Two rows that collapse to one id would silently drop one, so de-duplicate deliberately
     // and report how many merged rather than quietly losing them.
@@ -2410,7 +2423,7 @@ async function handleSfFile(kind,file){
       const t=parseTrainingWorkbook(buf);
       parts.push({kind:"training",label:"training records",...prep("training",t.rows)});
       const d=parseDrugCards(buf);
-      if(d.sheet) parts.push({kind:"drug",label:"drug cards",...prep("drug",d.rows)});
+      if(d.sheet) parts.push({kind:"drug",label:"drug cards",note:d.merged?`${d.merged} older card${d.merged===1?"":"s"} superseded`:"",...prep("drug",d.rows)});
     }
 
     const total=parts.reduce((s,p)=>s+p.docs.length,0);
@@ -2419,7 +2432,7 @@ async function handleSfFile(kind,file){
     for(const p of parts){
       const res=await sfReplace(p.kind,p.docs);
       done+=p.docs.length; upd(done,total||1);
-      lines.push(`<b>${res.written.toLocaleString()}</b> ${p.label}${res.removed?` · ${res.removed.toLocaleString()} removed`:""}${p.dropped?` · ${p.dropped} duplicate row${p.dropped===1?"":"s"} merged`:""}`);
+      lines.push(`<b>${res.written.toLocaleString()}</b> ${p.label}${res.removed?` · ${res.removed.toLocaleString()} removed`:""}${p.note?` · ${p.note}`:""}${p.dropped?` · ${p.dropped} duplicate row${p.dropped===1?"":"s"} merged`:""}`);
     }
     body.innerHTML=`<div class="imp-stage"><div style="font-size:42px;margin-bottom:10px">✅</div>
       <h4>${esc(cfg.title.replace("Upload ",""))} updated</h4>
