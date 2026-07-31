@@ -347,7 +347,7 @@ function arrivalRow(r,opts={}){
       ${wdStrip}
       <div class="act-row"><button class="share-btn" data-share="${esc(r.id)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"></line></svg> Share</button>${adminActs("arrival",r.id)}</div>
     </div>`;
-  return `<div class="acard ${open?'open':''} ${opts.compact?'compact':''}" data-type="arrival" data-id="${esc(r.id)}">
+  return `<div class="acard ${open?'open':''} ${opts.compact?'compact':''} ${opts.isNew?'is-new':''}" data-type="arrival" data-id="${esc(r.id)}">
     <div class="acard-head" data-expand="${esc(r.id)}">
       <div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div>
       <div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div>
@@ -425,7 +425,7 @@ function renderFeed(){
 // single job's list it would just repeat the header. Arrival cards carry their own job badge.
 function rentalLine(r,opts={}){
   const ret=/return/i.test(r.status);
-  return `<div class="tline" data-type="rental" data-id="${esc(r.id)}">
+  return `<div class="tline ${ret?'returned':''}" data-type="rental" data-id="${esc(r.id)}">
     <div class="tl-tool">${opts.job?`<span class="tl-job">${esc(normJob(r.jobNumber))}</span>`:""}${esc(r.equipment)||"Equipment"}${r.rentalId?` <span class="tid">${esc(r.rentalId)}</span>`:""}</div>
     <div class="tl-status"><span class="status ${ret?'returned':'renting'}">${esc(r.status||"Renting")}</span></div>
     <div class="tl-meta"><span>Rented <b>${esc(longDate(r.dateRented).split(",")[0])||"—"}</b></span><span>Returned <b>${ret&&r.dateReturned?esc(longDate(r.dateReturned).split(",")[0]):"—"}</b></span>${r.rate?`<span class="tl-rate">Rate ${rateChips(r.rate)}</span>`:""}${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}${r.po?`<span>PO <b>${esc(r.po)}</b></span>`:""}${r.orderedBy?`<span>By <b>${esc(r.orderedBy)}</b></span>`:""}</div>
@@ -463,7 +463,7 @@ function renderRentals(){ if(typeof renderAutoImport==="function")renderAutoImpo
 function pdfLinkFor(job){ if(!PDF_META||!PDF_META.pageMap)return""; const pg=PDF_META.pageMap[job]; if(!pg)return""; return `<button class="pdf-link" data-pdfjob="${esc(job)}" title="View this job in the tool report PDF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> PDF</button>`; }
 function toolLine(r,opts={}){
   const ret=/return/i.test(r.status);
-  return `<div class="tline" data-type="tool" data-id="${esc(r.id)}">
+  return `<div class="tline ${ret?'returned':''}" data-type="tool" data-id="${esc(r.id)}">
     <div class="tl-tool">${opts.job?`<span class="tl-job">${esc(normJob(r.jobNumber))}</span>`:""}${esc(r.toolType||"Tool")} <span class="tid">#${esc(r.toolId)||"—"}</span></div>
     <div class="tl-status"><span class="status ${ret?'returned':'out'}">${ret?"Returned":"Out"}</span></div>
     <div class="tl-meta"><span>Started <b>${esc(longDate(r.rentalStarted).split(",")[0])||"—"}</b></span><span>Ended <b>${ret&&r.rentalEnded?esc(longDate(r.rentalEnded).split(",")[0]):"—"}</b></span><span><b>${esc(String(r.billingDays||0))}</b> days</span><span>Daily <b>$${esc(String(r.dailyRate||0))}</b></span><span>Total <b>${esc(money(r.billingTotal))}</b></span><span>Disc <b>${esc(money(r.discountedRate))}</b></span></div>
@@ -511,10 +511,12 @@ function distinctJobs(){
 }
 function renderIdentity(){
   const card=$("identityCard"); if(!card)return;
-  if(VIEW_AS){ card.style.display="flex"; card.classList.add("viewing"); $("idAv").textContent=((VIEW_AS.first[0]||"")+(VIEW_AS.last[0]||"")).toUpperCase(); $("idName").textContent=VIEW_AS.first+" "+VIEW_AS.last; $("idSub").textContent="You're viewing this person's saved jobs"; return; }
+  // Class, not inline style: an inline display beats every stylesheet rule, and the phone layout
+  // has to hide this card -- the name is already in the header chip.
+  if(VIEW_AS){ card.classList.add("on"); card.classList.add("viewing"); $("idAv").textContent=((VIEW_AS.first[0]||"")+(VIEW_AS.last[0]||"")).toUpperCase(); $("idName").textContent=VIEW_AS.first+" "+VIEW_AS.last; $("idSub").textContent="You're viewing this person's saved jobs"; return; }
   card.classList.remove("viewing");
-  if(USER){ card.style.display="flex"; $("idAv").textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); $("idName").textContent=USER.first+" "+USER.last; const n=new Set(ARRIVALS.filter(r=>nameMatches(r.requestedBy,USER.first,USER.last)).map(r=>normJob(r.jobNumber)).filter(isRealJob)).size; $("idSub").textContent=n?`${n} job${n===1?"":"s"} auto-linked from "Requested by"`:`Your requested jobs link automatically`; }
-  else card.style.display="none";
+  if(USER){ card.classList.add("on"); $("idAv").textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); $("idName").textContent=USER.first+" "+USER.last; const n=new Set(ARRIVALS.filter(r=>nameMatches(r.requestedBy,USER.first,USER.last)).map(r=>normJob(r.jobNumber)).filter(isRealJob)).size; $("idSub").textContent=n?`${n} job${n===1?"":"s"} auto-linked from "Requested by"`:`Your requested jobs link automatically`; }
+  else card.classList.remove("on");
 }
 function renderSharePrompts(){
   const wrap=$("sharePrompts"); if(!wrap)return;
@@ -532,11 +534,94 @@ function tagMatch(r,fields,sq){ return fields.some(f=>(r[f]||"").toLowerCase().i
    sorted newest-first when they load, so the merge is a filter over the source array — see the
    note in the right-pane section for why that matters. */
 let MJ_SEL="";                      // selected job number; "" = all jobs
+let MJ_SHEET="";                    // "", "jobs" or "show" -- which bottom sheet is open (phone only)
 const MJ_SEG={
-  arrivals:{arr:()=>ARRIVALS, date:r=>r.dateReceived,   tags:ARR_TAG_FIELDS,  demo:j=>demoArrivals(j), row:(r,o)=>arrivalRow(r,o), plural:"arrivals",     one:"arrival"},
-  rentals :{arr:()=>RENTALS,  date:r=>r.dateRented,     tags:RENT_TAG_FIELDS, demo:j=>demoRentals(j),  row:(r,o)=>rentalLine(r,o),  plural:"rentals",      one:"rental"},
-  tools   :{arr:()=>TOOLS,    date:r=>r.rentalStarted,  tags:TOOL_TAG_FIELDS, demo:j=>demoTools(j),    row:(r,o)=>toolLine(r,o),    plural:"tool rentals", one:"tool rental"},
+  arrivals:{arr:()=>ARRIVALS, date:r=>r.dateReceived,   tags:ARR_TAG_FIELDS,  demo:j=>demoArrivals(j), row:(r,o)=>arrivalRow(r,o), plural:"arrivals",     one:"arrival",     label:"Arrivals"},
+  rentals :{arr:()=>RENTALS,  date:r=>r.dateRented,     tags:RENT_TAG_FIELDS, demo:j=>demoRentals(j),  row:(r,o)=>rentalLine(r,o),  plural:"rentals",      one:"rental",      label:"Equip rentals"},
+  tools   :{arr:()=>TOOLS,    date:r=>r.rentalStarted,  tags:TOOL_TAG_FIELDS, demo:j=>demoTools(j),    row:(r,o)=>toolLine(r,o),    plural:"tool rentals", one:"tool rental", label:"Tool rentals"},
 };
+/* One open/close path for both sheets, and only one is ever open. Both close four ways -- the
+   scrim, the X, Escape, and making a choice -- so nobody can get trapped behind one. */
+let MJ_SHEET_RETURN=null;
+function mjSheet(which,on,focusId){
+  const b=document.body;
+  if(!on||!which){
+    if(!MJ_SHEET)return;
+    b.classList.remove("mj-jobs","mj-show"); MJ_SHEET="";
+    document.querySelectorAll("#mjBar [aria-expanded]").forEach(x=>x.setAttribute("aria-expanded","false"));
+    // Don't unlock the page if a real modal is still up underneath this sheet.
+    if(!document.querySelector(".modal-back.show")) b.style.overflow="";
+    if(MJ_SHEET_RETURN&&document.contains(MJ_SHEET_RETURN)){ try{MJ_SHEET_RETURN.focus();}catch(_){} }
+    MJ_SHEET_RETURN=null; return;
+  }
+  MJ_SHEET_RETURN=document.activeElement;
+  b.classList.toggle("mj-jobs",which==="jobs");
+  b.classList.toggle("mj-show", which==="show");
+  MJ_SHEET=which; b.style.overflow="hidden";
+  const panel=$(which==="jobs"?"mjJobsPanel":"mjShowPanel");
+  panel.setAttribute("role","dialog"); panel.setAttribute("aria-modal","true");
+  panel.setAttribute("aria-label",which==="jobs"?"Pick a job":"What to show");
+  panel.scrollTop=0;
+  const opener=document.querySelector(`#mjBar [data-mjopen="${which}"]`);
+  if(opener)opener.setAttribute("aria-expanded","true");
+  setTimeout(()=>{ const el=focusId?$(focusId):panel.querySelector(".mj-sheet-x"); if(el){try{el.focus();}catch(_){}} },60);
+}
+
+/* The bar sticks under the appbar, whose height moves with the notch (--safe-top) and with OS
+   font scaling -- the whole appbar is text-driven. Publish the measured height rather than
+   hardcoding a number that a bigger font size would silently break. */
+function syncAppbarH(){ const a=document.querySelector(".appbar");
+  if(a) document.documentElement.style.setProperty("--appbar-h", a.offsetHeight+"px"); }
+
+/* On a phone the entire control stack collapses into this one bar. The contract that makes that
+   safe rather than dangerous: a control may only be hidden behind a sheet if the bar states its
+   own state OUT LOUD, in plain words, on its face. A month filter left on from last week must
+   never look like "the app lost my stuff".
+   Takes an explicit argument object -- renderJobs() returns early in two places where the locals
+   this needs (visible/items/anyNew/seg) do not exist yet. */
+function renderMjBar(s){
+  const bar=$("mjBar"); if(!bar)return;
+  bar.className="mj-bar";
+
+  if(s.mode==="empty"){                       // no saved jobs: show the ONE thing to do, full width
+    bar.innerHTML=`<button class="mjb mjb-wide" type="button" data-mjopen="show" data-mjfocus="jobSearch"
+       aria-haspopup="dialog" aria-expanded="false">+ Save a job</button>`;
+    return;
+  }
+  if(s.mode==="nomatch"){                     // a search matching nothing has to fix itself in one tap
+    bar.innerHTML=`<button class="mjb mjb-wide alert" type="button" data-mjclearsearch="1">Nothing matches &ldquo;${esc(s.q)}&rdquo; &mdash; tap to clear</button>`;
+    return;
+  }
+  if(s.reorder){                              // picking is disabled while reordering, so the bar
+    bar.innerHTML=`<button class="mjb mjb-wide done" type="button" data-mjreorderdone="1">Done reordering</button>`;
+    return;                                   // becomes the way out, with no sheet above it
+  }
+
+  // No tag in the all-jobs state: an "ALL" chip next to the words "All my jobs" says nothing
+  // twice and costs ~57px, which was enough to clip the label to "ALL MY...".
+  // The new-count is a total across every job, so it only belongs on the all-jobs face. Next to a
+  // picked job it reads as that job's count, which it isn't -- and it squeezed the name to "T...".
+  // Picked face leads with the NUMBER, not the name: it is what's on the paperwork and what people
+  // say out loud, it can never overflow, and a long name on top clipped to "THE...". The name
+  // still rides the sub-line, and the full one is one tap away in the picker.
+  const filtered=!!(s.month||s.q||s.segKey!=="arrivals");
+  const sub=[s.month?esc(s.monthLabel):"", s.q?`&ldquo;${esc(s.q)}&rdquo;`:"", String(s.itemCount)].filter(Boolean).join(" · ");
+  bar.innerHTML=
+    `<button class="mjb mjb-job ${s.selJob?"picked":""}" type="button" data-mjopen="jobs"
+        aria-haspopup="dialog" aria-expanded="false">
+       <span class="mjb-body"><b>${s.selJob?esc(s.selJob):"All my jobs"}</b>
+         <i>${s.selJob?esc(s.selName):`${s.jobCount} job${s.jobCount===1?"":"s"}`}</i></span>
+       ${(s.anyNew&&!s.selJob)?`<span class="mjb-new">${s.anyNew>99?"99+":s.anyNew} new</span>`:""}
+       <span class="mjb-chev">&#9662;</span>
+     </button>`
+   + (s.selJob?`<button class="mjb-all" type="button" data-mjpick="">All</button>`:"")
+   + `<button class="mjb mjb-show ${filtered?"on":""} seg-${esc(s.segKey)}" type="button" data-mjopen="show"
+        aria-haspopup="dialog" aria-expanded="false">
+       <span class="mjb-body"><b>${esc(s.segLabel)}</b><i>${sub}</i></span>
+       <span class="mjb-chev">&#9662;</span>
+     </button>`;
+}
+
 function renderJobs(){
   if(dragEl) return;
   const news=updateNotif(); renderIdentity(); renderSharePrompts();
@@ -559,13 +644,23 @@ function renderJobs(){
 
   const month=$("mjMonth").value;
   const wrap=$("foldersList"), split=$("mjSplit");
-  document.getElementById("reorderToggle").closest(".reorder-bar").style.display=viewingOther?"none":"flex";
+  document.getElementById("reorderToggle").closest(".reorder-bar").classList.toggle("hidden",viewingOther);
   $("reorderToggle").classList.toggle("on",reorderMode);
   $("reorderHint").textContent=reorderMode?"Use the ▲▼ arrows to reorder":"";
   $("orderReset").style.display=(ordList.length&&!reorderMode&&!viewingOther)?"inline-block":"none";
-  // #foldersList is the empty-state slot now; the split is hidden whenever it has something to say.
-  const showEmpty=html=>{ split.style.display="none"; wrap.innerHTML=html; };
-  if(!jobsList.length){ showEmpty(viewingOther?`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>${esc(viewName||"This person")} hasn't saved any jobs yet.</p></div>`:`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save${USER?", or your requested jobs link automatically":""}. Arrivals, rentals, and tool rentals on it collect here.</p></div>`); return; }
+  const isPhone=!matchMedia("(min-width:860px)").matches;
+  // #foldersList is the empty-state slot; the split is hidden whenever it has something to say.
+  // The picker must be emptied AND its sheet closed here: #jobPickList is only rebuilt further
+  // down, past both early returns, so leaving it up would show stale, tappable job rows.
+  const showEmpty=(html,mode,q)=>{
+    split.style.display="none"; wrap.innerHTML=html;
+    // Clear the picker, but only close the sheet if it IS the picker. These paths fire on every
+    // keystroke in the search box, which lives in the SHOW sheet -- closing that would yank the
+    // sheet and the keyboard out from under someone mid-word, exactly when they need it most.
+    $("jobPickList").innerHTML=""; if(MJ_SHEET==="jobs") mjSheet(null,false);
+    renderMjBar({mode,q:q||""});
+  };
+  if(!jobsList.length){ showEmpty(viewingOther?`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>${esc(viewName||"This person")} hasn't saved any jobs yet.</p></div>`:`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>${isPhone?"Tap <b>+ Save a job</b> below, type your job number, then tap <b>Save</b>":"Search a job number above and tap Save"}${USER?", or your requested jobs link automatically":""}. Arrivals, rentals, and tool rentals on it collect here.</p></div>`,"empty"); return; }
   const newCountFor=job=>{ if(viewingOther)return 0; let n=0; ARRIVALS.forEach(r=>{if(normJob(r.jobNumber)===job&&news.has("a:"+r.id))n++;}); return n; };
   const lastOf=j=>jobsMap.get(j)?.last||"";
   let sorted;
@@ -595,7 +690,7 @@ function renderJobs(){
   // A search drops jobs with nothing left. Without one every saved job stays listed, so an empty
   // job reads as "nothing this month" instead of silently disappearing.
   const visible = sq ? sorted.filter(j=>byJob.get(j).items.length) : sorted;
-  if(sq && !visible.length){ showEmpty(`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing ${viewingOther?"in this list":"saved"} matches "${esc($("jobSearch").value.trim())}".${viewingOther?"":" Check the suggestions above to add a new job."}</p></div>`); return; }
+  if(sq && !visible.length){ showEmpty(`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing ${viewingOther?"in this list":"saved"} matches "${esc($("jobSearch").value.trim())}".${viewingOther?"":" Check the suggestions above to add a new job."}</p></div>`,"nomatch",$("jobSearch").value.trim()); return; }
   split.style.display=""; wrap.innerHTML="";
   if(MJ_SEL && !visible.includes(MJ_SEL)) MJ_SEL="";   // picked job was removed or filtered away
 
@@ -603,6 +698,18 @@ function renderJobs(){
   const withTools=new Set(TOOLS.map(r=>normJob(r.jobNumber)));
   const totalShown=visible.reduce((n,j)=>n+byJob.get(j).items.length,0);
   const anyNew=visible.reduce((n,j)=>n+newCountFor(j),0);
+  // Two panes, one loop. `rows` is the desktop chip strip (unchanged); `picks` is the phone's
+  // full-width picker, a separate class in a separate element so neither can style the other.
+  // While reordering, the way out has to live INSIDE the sheet: the scrim (z-59) covers the bar
+  // (z-29), so the bar's "Done reordering" is unreachable until the sheet is closed.
+  const picks=(reorderMode&&!viewingOther)
+    ? [`<button class="mjp-done" type="button" data-mjreorderdone="1">Done reordering</button>`] : [];
+  picks.push(`<div class="mjp-row all ${MJ_SEL?"":"on"}" data-mjpick="" role="button" tabindex="0">
+      <span class="mjp-tag all">ALL</span>
+      <span class="mjp-name">All my jobs</span>
+      <span class="mjp-count"><b>${visible.length}</b> job${visible.length===1?"":"s"} &middot; <b>${totalShown}</b> ${seg.plural}</span>
+      <span class="mjp-acts">${anyNew?`<button class="mjp-clearall" type="button" data-clearall="1">${anyNew} new<br>clear all</button>`:""}</span>
+    </div>`);
   const rows=[`<div class="mj-job all ${MJ_SEL?"":"on"}" data-mjpick="" role="button" tabindex="0">
       <span class="mj-jtag all">ALL</span>
       <span class="mj-jinfo"><span class="mj-jname">All my jobs${anyNew?'<span class="new-dot"></span>':""}</span>
@@ -620,8 +727,18 @@ function renderJobs(){
         <span class="mj-jcount"><b>${d.items.length}</b>${d.items.length!==d.total?` of ${d.total}`:""} ${seg.plural}${nNew?`<button class="clearone" data-clearjob="${esc(job)}">${nNew} new · clear</button>`:""}</span></span>
       <span class="mj-jacts">${ctrl}${removeBtn}</span>
     </div>`);
+    // Reorder arrows and the NEW badge are mutually exclusive, so .mjp-acts never holds more
+    // than three 46px controls -- that is what keeps the trash out of the name column.
+    picks.push(`<div class="mjp-row ${MJ_SEL===job?"on":""} ${nNew?"has-new":""} ${(reorderMode&&!viewingOther)?"reorderable":""}"
+        ${(reorderMode&&!viewingOther)?"":`data-mjpick="${esc(job)}" role="button" tabindex="0"`}>
+        <span class="mjp-tag">${esc(job)}</span>
+        <span class="mjp-name">${esc(name)}</span>
+        <span class="mjp-count"><b>${d.items.length}</b>${d.items.length!==d.total?` of ${d.total}`:""} ${esc(seg.plural)}${withTools.has(job)?pdfLinkFor(job):""}</span>
+        <span class="mjp-acts">${(reorderMode&&!viewingOther)?ctrl:(nNew?`<button class="mjp-new" type="button" data-clearjob="${esc(job)}">${nNew} new<br>clear</button>`:"")}${removeBtn}</span>
+      </div>`);
   });
   $("mjJobList").innerHTML=rows.join("");
+  $("jobPickList").innerHTML=picks.join("");
 
   /* ---- right pane: the items themselves ----
      Filtering the already-newest-first source array keeps the merged list in true date order
@@ -643,6 +760,14 @@ function renderJobs(){
     // and the header already says which — but in the merged list that's the thing you need most.
     ? `<div class="${mjSeg==="arrivals"?"rows":"tlines"}">${items.map(r=>seg.row(r,{star:true,compact:!!MJ_SEL,job:!MJ_SEL,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`
     : `<div class="sub-empty">No ${seg.plural}${sq?" match your search":month?" this month":MJ_SEL?" on this job":" on your jobs"} yet.</div>`;
+  renderMjBar({
+    mode:"normal",
+    reorder:reorderMode&&!viewingOther,
+    selJob:MJ_SEL, selName, jobCount:visible.length, anyNew,
+    segKey:MJ_SEG[mjSeg]?mjSeg:"arrivals", segLabel:seg.label,
+    month, monthLabel:month?monthLabel(month):"",
+    q:sq?$("jobSearch").value.trim():"", itemCount:items.length
+  });
 }
 
 /* ---------- Stats ---------- */
@@ -800,12 +925,13 @@ function resolvePendingHash(){ const h=location.hash.replace("#",""); if(!h)retu
 $("feedSearch").addEventListener("input",renderFeed); $("feedClr").addEventListener("click",()=>{$("feedSearch").value="";renderFeed();}); $("monthSel").addEventListener("change",renderFeed);
 $("rentSearch").addEventListener("input",renderRentals); $("rentClr").addEventListener("click",()=>{$("rentSearch").value="";renderRentals();}); $("rentStatus").addEventListener("change",renderRentals);
 $("toolSearch").addEventListener("input",renderTools); $("toolClr").addEventListener("click",()=>{$("toolSearch").value="";renderTools();}); $("toolStatus").addEventListener("change",renderTools);
-$("mjMonth").addEventListener("change",renderJobs);
-document.querySelectorAll("#mjSeg button").forEach(b=>b.addEventListener("click",()=>{ mjSeg=b.dataset.seg; document.querySelectorAll("#mjSeg button").forEach(x=>x.classList.toggle("on",x===b)); refreshMonths(); renderJobs(); }));
+$("mjMonth").addEventListener("change",()=>{ mjSheet(null,false); renderJobs(); });
+document.querySelectorAll("#mjSeg button").forEach(b=>b.addEventListener("click",()=>{ mjSeg=b.dataset.seg; document.querySelectorAll("#mjSeg button").forEach(x=>x.classList.toggle("on",x===b)); mjSheet(null,false); refreshMonths(); renderJobs(); }));
 document.querySelectorAll("#rentSeg button").forEach(b=>b.addEventListener("click",()=>{ const seg=b.dataset.rentseg; document.querySelectorAll("#rentSeg button").forEach(x=>x.classList.toggle("on",x===b)); $("rentEquipPane").style.display=seg==="equip"?"block":"none"; $("rentToolPane").style.display=seg==="tool"?"block":"none"; }));
 
 /* ---------- Delegated clicks ---------- */
 document.addEventListener("click",e=>{
+  if(e.target.id==="mjScrim"){ mjSheet(null,false); return; }
   const mu=e.target.closest("[data-moveup]"); if(mu){ e.stopPropagation(); moveJob(mu.dataset.moveup,-1); return; }
   const md=e.target.closest("[data-movedown]"); if(md){ e.stopPropagation(); moveJob(md.dataset.movedown,1); return; }
   const save=e.target.closest("[data-savejob]"); if(save){ const j=save.dataset.savejob; MY_JOBS.includes(j)?removeJob(j):addJob(j); return; }
@@ -825,15 +951,32 @@ document.addEventListener("click",e=>{
   const exp=e.target.closest("[data-expand]"); if(exp){ const id=exp.dataset.expand; if(EXPANDED_ARR.has(id))EXPANDED_ARR.delete(id); else EXPANDED_ARR.add(id); exp.closest(".acard").classList.toggle("open"); return; }
   const tt=e.target.closest("[data-ttoggle]"); if(tt){ const j=tt.dataset.ttoggle; if(EXPANDED_TOOLS.has(j))EXPANDED_TOOLS.delete(j); else EXPANDED_TOOLS.add(j); tt.closest(".tcard").classList.toggle("open"); return; }
   const rtg=e.target.closest("[data-rtoggle]"); if(rtg){ const j=rtg.dataset.rtoggle; if(EXPANDED_RENTALS.has(j))EXPANDED_RENTALS.delete(j); else EXPANDED_RENTALS.add(j); rtg.closest(".rcard").classList.toggle("open"); return; }
+  const ca=e.target.closest("[data-clearall]");      if(ca){ e.stopPropagation(); clearNotif(); return; }
+  const mo=e.target.closest("[data-mjopen]");        if(mo){ e.stopPropagation(); mjSheet(mo.dataset.mjopen,true,mo.dataset.mjfocus||""); return; }
+  const mc=e.target.closest("[data-mjclose]");       if(mc){ e.stopPropagation(); mjSheet(null,false); return; }
+  const cs=e.target.closest("[data-mjclearsearch]"); if(cs){ $("jobSearch").value=""; renderJobs(); return; }
+  const rd=e.target.closest("[data-mjreorderdone]"); if(rd){ reorderMode=false; mjSheet(null,false); renderJobs(); return; }
   // Last in the chain on purpose: the remove, clear and reorder buttons sit inside a job row and
   // are matched above, so they act instead of changing the selection.
-  const pick=e.target.closest("[data-mjpick]"); if(pick){ if(reorderMode)return; const j=pick.dataset.mjpick; MJ_SEL=(j&&j===MJ_SEL)?"":j; renderJobs(); return; }
+  const pick=e.target.closest("[data-mjpick]");
+  if(pick){
+    if(reorderMode)return;                        // stays first: reorder taps must not close the sheet
+    const j=pick.dataset.mjpick; MJ_SEL=(j&&j===MJ_SEL)?"":j;
+    mjSheet(null,false); renderJobs();
+    if(!matchMedia("(min-width:860px)").matches) window.scrollTo({top:0});
+    return;
+  }
 });
-// Keyboard equivalent for the job rows, which are divs so they can hold their own buttons.
+// Keyboard equivalents for the job rows, which are divs so they can hold their own buttons.
 document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&MJ_SHEET){ mjSheet(null,false); return; }
   if(e.key!=="Enter"&&e.key!==" ")return;
-  const pick=e.target.closest&&e.target.closest("[data-mjpick]"); if(!pick||reorderMode)return;
-  e.preventDefault(); const j=pick.dataset.mjpick; MJ_SEL=(j&&j===MJ_SEL)?"":j; renderJobs();
+  const open=e.target.closest&&e.target.closest("[data-mjopen]");
+  if(open&&open.tagName!=="BUTTON"){ e.preventDefault(); mjSheet(open.dataset.mjopen,true,open.dataset.mjfocus||""); return; }
+  const pick=e.target.closest&&e.target.closest("[data-mjpick]");
+  if(!pick||reorderMode||pick.tagName==="BUTTON")return;   // native buttons already fire click
+  e.preventDefault(); const j=pick.dataset.mjpick; MJ_SEL=(j&&j===MJ_SEL)?"":j;
+  mjSheet(null,false); renderJobs();
 });
 
 /* ---------- My Jobs add ---------- */
@@ -843,7 +986,12 @@ $("jobSearch").addEventListener("keydown",e=>{ if(e.key==="Enter"){const v=$("jo
 $("notifClear").addEventListener("click",clearNotif);
 
 /* ---------- Reorder My Jobs (up/down) ---------- */
-$("reorderToggle").addEventListener("click",()=>{ reorderMode=!reorderMode; renderJobs(); });
+$("reorderToggle").addEventListener("click",()=>{
+  reorderMode=!reorderMode;
+  // On a phone the up/down arrows live in the JOBS sheet, so take the worker straight there.
+  if(!matchMedia("(min-width:860px)").matches) mjSheet(reorderMode?"jobs":null,!!reorderMode);
+  renderJobs();
+});
 $("orderReset").addEventListener("click",()=>{ if(!confirm("Put your jobs back in newest-first order?\n\nThe order you arranged by hand is lost.")) return; JOB_ORDER=[]; syncUserJobs(); renderJobs(); toast("Back to newest-first"); });
 function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(job); if(i<0)return; const j=i+dir; if(j<0||j>=order.length)return; const t=order[i]; order[i]=order[j]; order[j]=t; JOB_ORDER=order; syncUserJobs(); renderJobs(); }
 
@@ -1015,7 +1163,7 @@ const TUT_FIELD=[
  ["Order with the right name","Sign in with the same name you order under in Webduct — that's how the app matches orders to you and links your jobs automatically.","#whoChip","feed"],
  ["Arrival cards","Tap any card to see everything — details, photo, and who logged it.",".acard","feed"],
  ["Copy Name","It copies the arrival's name exactly. Paste that <i>word-for-word</i> into your Webduct order and the app links your order to the physical item automatically. Retype it your own way and someone has to pair it by hand.",".ac-copy","feed"],
- ["My Jobs — the one to use","<b>This is the most useful tab in the app.</b> Star ★ a job (or it auto-stars from your orders) and everything for it collects here — no scrolling the whole arrivals list. Your jobs sit on one side; the other side lists everything received across <b>all</b> of them, newest first. Tap a job to narrow that list to just that job, and <b>All my jobs</b> to go back. Switch between <b>Arrivals</b>, <b>Equipment Rentals</b> and <b>Tool Rentals</b> with the buttons above.","[data-view='jobs']","jobs",()=>tutOpenJobCard("arrivals")],
+ ["My Jobs — the one to use","<b>This is the most useful tab in the app.</b> Star ★ a job (or it auto-stars from your orders) and everything for it collects here — no scrolling the whole arrivals list. Everything received on your jobs is right here, newest first. Tap <b>JOBS</b> at the top to pick one job, or <b>ALL</b> to go back to everything. Tap <b>SHOW</b> to switch to Equipment Rentals or Tool Rentals, or to filter by month.","[data-view='jobs']","jobs",()=>tutOpenJobCard("arrivals")],
  ["What's on a card","Here's a card opened up: the photo, where it's stored, who logged it, delivery status, and the buttons — 📷 photo, Copy Name, share, and the 🚚 truck showing whether it's gone out.",".acard.open","jobs",()=>tutOpenJobCard("arrivals")],
  ["Equipment rentals","Flip to <b>Equipment Rentals</b> to see gear rented from a vendor for this job — what it is, the rate, the vendor, and whether it's still out.","#mjSeg","jobs",()=>tutOpenJobCard("rentals")],
  ["Tool rentals","<b>Tool Rentals</b> shows company tools charged to your job — tool #, days out, daily rate, and total. Handy for checking what's still billing to you.","#mjSeg","jobs",()=>tutOpenJobCard("tools")],
@@ -1102,13 +1250,17 @@ function tutOpenJobCard(seg){
     if(typeof EXPANDED_ARR!=="undefined") EXPANDED_ARR.add("demo-a1");
     // Clear filters — a leftover month/search would hide the sample job entirely.
     const ms=$("mjMonth"), ss=$("jobSearch"); if(ms) ms.value=""; if(ss) ss.value="";
-    if(seg){ const b=document.querySelector(`#mjSeg button[data-seg='${seg}']`); if(b){ b.click(); return; } mjSeg=seg; }
+    if(seg){ const b=document.querySelector(`#mjSeg button[data-seg='${seg}']`); if(b)b.click(); else mjSeg=seg; }
     if(typeof renderJobs==="function") renderJobs();
+    // On a phone #mjSeg lives inside the "What to show" sheet. Open it for the two steps that
+    // spotlight it -- and close both sheets for the open-card step, which they would cover.
+    const phone=!matchMedia("(min-width:860px)").matches;
+    if(phone&&(seg==="rentals"||seg==="tools")) mjSheet("show",true); else mjSheet(null,false);
   }catch(_){}
 }
 let TUT_LIST=null, TUT_I=0;
 function tutClearSpot(){ document.querySelectorAll(".tut-spot").forEach(e=>e.classList.remove("tut-spot")); }
-function tutClearDemo(){ const had=TUT_DEMO; TUT_DEMO=false; if(had){ try{ if(MJ_SEL===TUT_JOB)MJ_SEL=""; EXPANDED_ARR.delete("demo-a1"); }catch(_){} if(typeof renderJobs==="function"){ try{ renderJobs(); }catch(_){} } } }
+function tutClearDemo(){ const had=TUT_DEMO; TUT_DEMO=false; if(had){ try{ mjSheet(null,false); if(MJ_SEL===TUT_JOB)MJ_SEL=""; EXPANDED_ARR.delete("demo-a1"); }catch(_){} if(typeof renderJobs==="function"){ try{ renderJobs(); }catch(_){} } } }
 function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); tutRestoreAdmin(); openModal("tutModal"); }
 function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; document.body.classList.add("tut-live"); tutRender(); }
 function tutRender(){
@@ -1910,7 +2062,7 @@ $("btnLock").addEventListener("click",lockAdmin);
 
 /* ---------- Modals ---------- */
 function openModal(id){ $(id).classList.add("show"); document.body.style.overflow="hidden"; }
-function closeModal(id){ $(id).classList.remove("show"); document.body.style.overflow=""; }
+function closeModal(id){ $(id).classList.remove("show"); document.body.style.overflow=MJ_SHEET?"hidden":""; }
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal(b.dataset.close)));
 document.querySelectorAll(".modal-back").forEach(m=>m.addEventListener("click",e=>{ if(e.target===m && m.id!=="nameModal")closeModal(m.id); }));
 
@@ -3943,6 +4095,9 @@ async function wdMarkEquip(docId, patch){ if(!fbReady)return; try{ await setDoc(
 
 /* ---------- Init ---------- */
 renderWho(); renderFeed(); renderJobs(); renderDeliveries();
+syncAppbarH();
+window.addEventListener("resize",syncAppbarH);
+if(window.ResizeObserver){ const _ab=document.querySelector(".appbar"); if(_ab) new ResizeObserver(syncAppbarH).observe(_ab); }
 if(typeof wdUpdateLights==="function") wdUpdateLights();
 if(typeof wdSyncWindowInputs==="function") wdSyncWindowInputs();
 lockDateInputs();

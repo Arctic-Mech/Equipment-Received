@@ -177,10 +177,19 @@
   <!-- MY JOBS -->
   <section class="view" id="view-jobs">
     <div class="mj-head"><h2>My Jobs</h2><p>Save a job number to your phone. Arrivals, rentals, and tool rentals on those jobs collect here automatically. Pick a job to narrow the list, or leave it on <b>All my jobs</b> to see everything received across them, newest first.</p></div>
-    <div class="identity" id="identityCard" style="display:none"><div class="iav" id="idAv">?</div><div class="iname"><b id="idName">—</b><span id="idSub">Your requested jobs link automatically</span></div></div>
+    <div class="identity" id="identityCard"><div class="iav" id="idAv">?</div><div class="iname"><b id="idName">—</b><span id="idSub">Your requested jobs link automatically</span></div></div>
     <div class="notif-banner" id="notifBanner"><span class="nb-ico">🔔</span><span class="nb-txt" id="notifTxt"></span><button class="nb-clear" id="notifClear">Clear all</button></div>
     <div class="viewas-banner" id="viewAsBanner" style="display:none"><span class="vab-ico">👀</span><span class="vab-txt">Viewing <b id="vabName">—</b>'s jobs · read-only</span><button class="vab-back" id="vabBack">Back to my jobs</button></div>
     <div id="sharePrompts"></div>
+
+    <!-- MOBILE ONLY. display:none by default; at <=859px it is the whole control surface.
+         Rendered by renderMjBar(), which always states its own state in plain words. -->
+    <div class="mj-bar" id="mjBar"></div>
+
+    <!-- WHAT TO SHOW. On a phone this is a bottom sheet. At >=860px it has no CSS at all, so
+         it is a bare <div> and its children sit exactly where they always have, same order. -->
+    <div id="mjShowPanel">
+      <div class="mj-sheet-head"><b>What to show</b><button class="mj-sheet-x" type="button" data-mjclose="1" aria-label="Close">✕</button></div>
     <div class="addjob"><input id="jobSearch" type="search" placeholder="Search job #, job name, or item details…" autocomplete="off"><button class="btn-add" id="jobAddBtn">Save</button></div>
     <div class="suggest" id="jobSuggest"></div>
     <div class="controls" style="position:static">
@@ -194,6 +203,16 @@
       </div>
     </div>
     <div class="reorder-bar"><button id="reorderToggle">↕ Reorder</button><button id="orderReset" style="display:none">Reset to newest</button><span class="hint" id="reorderHint"></span></div>
+    </div>
+
+    <!-- PICK A JOB. Mobile only. Deliberately OUTSIDE #mjSplit, which renderJobs() hides on the
+         empty and no-match paths -- a picker inside it would go dead with the JOBS button alive. -->
+    <div id="mjJobsPanel">
+      <div class="mj-sheet-head"><b>Pick a job</b><button class="mj-sheet-x" type="button" data-mjclose="1" aria-label="Close">✕</button></div>
+      <div id="jobPickList"></div>
+    </div>
+
+    <div class="mj-scrim" id="mjScrim"></div>
     <!-- Split: pick a job on the left, read the items on the right. With nothing picked the right
          side is every saved job's items in one newest-first list. -->
     <div class="mj-split" id="mjSplit">

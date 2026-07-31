@@ -238,6 +238,10 @@
   .folder-body .rows,.folder-body .drows{margin:4px 0}
   .sub-empty{padding:14px 8px;color:var(--steel);font-size:13px;text-align:center}
 
+  /* Mobile-only My Jobs furniture. display:none by DEFAULT so a desktop browser never renders
+     it even if the mobile block below is later edited or reordered. */
+  .mj-bar,#mjJobsPanel,.mj-scrim,#mjShowPanel>.mj-sheet-head{display:none}
+
   /* ---- My Jobs split ----
      Phone first: the job picker is a horizontal strip above the items. From 860px up it becomes a
      real left column, and the two sides scroll independently so a long item list doesn't push the
@@ -265,20 +269,189 @@
   .mj-mh-c b{color:var(--hivis-dark);font-family:'JetBrains Mono';font-weight:700}
   .mj-showall{font-size:12.5px;font-weight:600;color:var(--blue);padding:4px 8px;border-radius:8px;background:var(--blue-soft)}
   .mj-main .rows,.mj-main .tlines{margin:0}
+  /* The one signal readable at arm's length, in sunlight, without reading a word. */
+  #mjItems .acard.is-new{border-left:4px solid var(--hivis)}
+  #mjItems .tline{border-left:4px solid var(--green);padding-left:11px}
+  #mjItems .tline.returned{border-left-color:var(--steel-light)}
   .tl-job{font-family:'JetBrains Mono';font-weight:700;font-size:11px;color:var(--hivis-dark);background:var(--surface);padding:2px 6px;border-radius:5px;margin-right:7px}
-  /* The merged list shows the full card so the job badge and name are visible, but on a phone the
-     icon row squeezes the name down to "RIV…". Same fix the ≤360px rule uses: icons get their own
-     row. Scoped to the split so the Arrivals feed keeps its one-line header. */
-  @media (max-width:560px){
-    .mj-main .acard-head{grid-template-columns:auto 1fr;grid-template-areas:"job name" "icons icons" "desc desc" "foot foot"}
-    .mj-main .ac-icons{flex-wrap:wrap;justify-content:flex-end}
-  }
   @media (min-width:860px){
     .mj-split{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
     .mj-side{flex-direction:column;overflow-x:visible;overflow-y:auto;max-height:calc(100vh - 210px);padding:2px 4px 2px 2px}
     .mj-job{max-width:none;width:100%}
     .mj-main{min-width:0;max-height:calc(100vh - 210px);overflow-y:auto}
     .mj-mainhead{padding-top:2px;position:sticky;top:0;background:var(--surface);z-index:1}
+  }
+
+  /* ================= MY JOBS ON A PHONE =================
+     Everything here is <=859.98px. The @media (min-width:860px) block above is untouched: desktop
+     still gets the 300px picker column + merged list, same DOM order.
+     859.98 is deliberate. A plain 860px double-applies at exactly 860 and would drop the desktop
+     picker column into position:fixed -- the one change that would truly regress desktop. */
+  @media (max-width:859.98px){
+
+  /* ---- header: one 44px row, not a six-item column (the cause is .appbar-right above) ---- */
+    .appbar{padding:calc(var(--safe-top) + 8px) 10px 0}
+    .appbar-right{flex-direction:row;align-items:center;gap:6px;flex:0 1 auto;min-width:0}
+    .brand{flex:0 1 auto;min-width:0;gap:8px}
+    .brand img{height:auto;max-height:26px;max-width:100%;min-width:0;flex:0 1 auto}
+    .brand .divider,.brand .appname{display:none}
+    /* width/height/padding only -- never `display`. applyAccess() toggles #btnAdminOpen's inline
+       display for permissions and has to keep winning. */
+    /* Scoped to .appbar for SPECIFICITY, not decoration: .admin-btn's base rule is defined far
+       below this block, and a media query adds no specificity -- so a bare .admin-btn here would
+       lose on source order and the label would still render over the avatar. (0,2,0) beats it. */
+    .appbar .tut-btn,.appbar .admin-btn,.appbar .export-btn,.appbar .who-chip{
+      width:44px;height:44px;min-width:44px;padding:0;gap:0;justify-content:center;font-size:0;flex:none}
+    .appbar .tut-btn::before{content:"?";font-size:20px;font-weight:700;line-height:1}
+    .appbar .tut-btn svg,.appbar .admin-btn svg,.appbar .export-btn svg{width:20px;height:20px}
+    .appbar .who-chip .who-name{display:none}
+    .who-chip .who-av{width:28px;height:28px;font-size:12px}
+    .sync-dot,.wd-hdr-light{gap:0;margin-top:0;flex:none}
+    #syncTxt,#wdHdrTxt{display:none}      /* setSync() still writes textContent -- the node survives */
+    .tabs{margin-top:8px}
+    .tab{padding:9px 12px 11px}
+
+  /* ---- the tab's own chrome: everything that isn't "which job" or "what arrived" ---- */
+    #view-jobs .mj-head{display:none}            /* the tab bar already says MY JOBS */
+    #view-jobs #identityCard{display:none}       /* the name is already in the header chip */
+    #view-jobs .notif-banner.show{display:none}  /* count -> JOBS pill, clear-all -> the ALL row */
+    #view-jobs .mj-mainhead{display:none}        /* duplicated the ALL row's own count */
+    #view-jobs .viewas-banner{padding:9px 12px;margin-bottom:6px}
+    #mjJobList{display:none}                     /* the 1633px chip strip; #jobPickList replaces it */
+
+  /* ---- the bar: the whole control surface, and it always says what it is showing ---- */
+    .mj-bar{display:flex;gap:8px;padding:8px 12px;position:sticky;top:var(--appbar-h,108px);
+      z-index:29;background:var(--surface)}
+    .mjb{flex:1;min-width:0;display:flex;align-items:center;gap:9px;min-height:56px;padding:8px 11px;
+      background:var(--card);border:2px solid var(--line);border-radius:13px;box-shadow:var(--shadow);text-align:left}
+    .mjb-job{flex:1.7}
+    .mjb:active,.mjb-all:active{background:var(--line-soft)}
+    .mjb:focus-visible,.mjb-all:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+    .mjb-body{min-width:0;display:flex;flex-direction:column;gap:1px}
+    /* A picked job leads with its NUMBER, so it gets the mono face job numbers use everywhere
+       else in the app. The all-jobs face leads with words and keeps the condensed face. */
+    .mjb-job.picked .mjb-body b{font-family:'JetBrains Mono';font-size:16px;letter-spacing:0;text-transform:none}
+    .mjb-body b{font-family:'Barlow Condensed';font-weight:700;font-size:17px;letter-spacing:.02em;
+      text-transform:uppercase;color:var(--ink);line-height:1.1;overflow-wrap:anywhere;
+      display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+    .mjb-body i{font-style:normal;font-size:11.5px;color:var(--steel);white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis}
+    .mjb-new{background:var(--hivis);color:#fff;font-family:'Barlow Condensed';font-weight:700;font-size:11px;
+      letter-spacing:.02em;text-transform:uppercase;padding:4px 6px;border-radius:6px;flex:none;white-space:nowrap}
+    .mjb-chev{color:var(--steel);font-size:16px;line-height:1;flex:none}
+    .mjb.picked{border-color:var(--hivis)}
+    .mjb-show.on{border-color:var(--hivis)}
+    .mjb-show.on .mjb-body i{color:var(--hivis-dark);font-weight:700}
+    .mjb-show.seg-rentals .mjb-body b{color:var(--blue)}
+    .mjb-show.seg-tools   .mjb-body b{color:var(--teal)}
+    .mjb-all{flex:none;width:56px;min-height:56px;border-radius:13px;background:var(--ink);color:#fff;
+      font-family:'Barlow Condensed';font-weight:700;font-size:14px;letter-spacing:.05em;text-transform:uppercase}
+    .mjb-wide{flex:1;justify-content:center;font-family:'Barlow Condensed';font-weight:700;font-size:17px;
+      letter-spacing:.04em;text-transform:uppercase;color:var(--ink);line-height:1.2}
+    .mjb-wide.alert{background:var(--hivis);border-color:var(--hivis);color:#fff;text-align:center}
+    .mjb-wide.done{background:var(--ink);border-color:var(--ink);color:#fff}
+
+  /* ---- the two sheets ----
+     z 59/60 sits ABOVE .appbar (40) and .controls (30) but BELOW .modal-back (100) and
+     body.tut-live .appbar (70), so every existing modal and the tutorial still win. */
+    .mj-scrim{display:none;position:fixed;inset:0;z-index:59;background:rgba(20,24,31,.5)}
+    body.mj-jobs .mj-scrim,body.mj-show .mj-scrim{display:block}
+    #mjShowPanel,#mjJobsPanel{position:fixed;left:0;right:0;bottom:0;z-index:60;display:none;
+      flex-direction:column;max-height:min(82vh,82dvh);overflow-y:auto;-webkit-overflow-scrolling:touch;
+      background:var(--surface);border-radius:20px 20px 0 0;box-shadow:0 -6px 34px rgba(0,0,0,.35);
+      padding-bottom:calc(18px + var(--safe-bottom));animation:slideup .22s cubic-bezier(.2,.8,.2,1)}
+    body.mj-show #mjShowPanel{display:flex}
+    body.mj-jobs #mjJobsPanel{display:flex}
+    #mjShowPanel>.mj-sheet-head,#mjJobsPanel>.mj-sheet-head{display:flex;align-items:center;
+      justify-content:space-between;gap:10px;padding:14px 16px 10px;position:sticky;top:0;
+      background:var(--surface);z-index:1}
+    .mj-sheet-head b{font-family:'Barlow Condensed';font-weight:700;font-size:19px;letter-spacing:.05em;
+      text-transform:uppercase;color:var(--ink)}
+    .mj-sheet-x{width:46px;height:46px;border-radius:50%;background:var(--line-soft);color:var(--steel);
+      display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+    .mj-sheet-x:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+
+  /* Controls get BIGGER once they are finally on screen. min-height, never height -- OS font
+     scaling has to grow them, not clip them. 16px+ or iOS zooms the page on focus. */
+    #mjShowPanel .seg{display:flex;flex-direction:column;width:100%}
+    #mjShowPanel .seg button{min-height:56px;font-size:17px;border-right:none;border-bottom:1px solid var(--line)}
+    #mjShowPanel .seg button:last-child{border-bottom:none}
+    #mjShowPanel .selwrap{width:100%}
+    #mjShowPanel select.filter{width:100%;min-height:54px;font-size:17px}
+    #mjShowPanel .addjob input,#mjShowPanel .btn-add{min-height:52px}
+    #mjShowPanel .reorder-bar{flex-wrap:wrap;padding:8px 14px 4px}
+    #mjShowPanel .reorder-bar button{min-height:46px;font-size:14px}
+
+  /* ---- job picker rows: the fix for BOTH bugs in the owner's screenshot ----
+     An explicit 3-column grid means the trash physically cannot enter the name column, and the
+     NEW badge is a flex sibling inside .mjp-acts with a real gap, so it can never be overlapped.
+     .mjp-name wraps to two lines, so "THE DALLES ADVENTIST HOSPITAL" is never "THE DALLES ...". */
+    #jobPickList{display:flex;flex-direction:column}
+    .mjp-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+      grid-template-areas:"tag name acts" "tag count acts";gap:2px 12px;align-items:center;
+      width:100%;min-height:66px;padding:12px 16px;border-top:1px solid var(--line-soft);text-align:left}
+    .mjp-row:first-child{border-top:none}
+    .mjp-row.on{background:var(--blue-soft);box-shadow:inset 5px 0 0 var(--hivis)}
+    .mjp-row:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+    .mjp-row.reorderable{cursor:default}
+    .mjp-tag{grid-area:tag;font-family:'JetBrains Mono';font-weight:700;font-size:15px;color:#fff;
+      background:var(--hivis);padding:7px 9px;border-radius:8px;min-width:70px;text-align:center}
+    .mjp-tag.all{background:var(--steel)}
+    .mjp-row.has-new .mjp-tag{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--hivis)}
+    .mjp-name{grid-area:name;font-family:'Barlow Condensed';font-weight:700;font-size:18px;
+      letter-spacing:.02em;text-transform:uppercase;color:var(--ink);line-height:1.12;
+      white-space:normal;overflow-wrap:anywhere;
+      display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .mjp-count{grid-area:count;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+      font-size:12.5px;color:var(--steel)}
+    .mjp-count b{font-family:'JetBrains Mono';font-weight:700;color:var(--hivis-dark)}
+    .mjp-count .pdf-link{min-height:44px;padding:8px 12px;margin-left:0}
+    .mjp-acts{grid-area:acts;display:flex;align-items:center;gap:6px;flex:none}
+    .mjp-acts .icon-btn,.mjp-acts .ord-btn{width:46px;height:46px}
+    .mjp-acts .icon-btn:focus-visible,.mjp-acts .ord-btn:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+    .mjp-done{width:100%;min-height:56px;background:var(--ink);color:#fff;font-family:'Barlow Condensed';
+      font-weight:700;font-size:17px;letter-spacing:.05em;text-transform:uppercase;border-radius:0}
+    .mjp-done:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+    .mjp-new,.mjp-clearall{min-width:66px;min-height:46px;background:var(--hivis);color:#fff;
+      font-family:'Barlow Condensed';font-weight:700;font-size:11.5px;letter-spacing:.04em;
+      text-transform:uppercase;line-height:1.15;padding:5px 8px;border-radius:9px;text-align:center}
+
+  /* ---- arrival card: three rows closed, action icons only once it is open ----
+     Scoped with #mjItems (1,x,0) so it outranks .acard.compact (0,3,0) and the <=360 block by
+     specificity, and cannot leak into #feedList on the Arrivals tab. */
+    #mjItems .acard-head{grid-template-columns:auto minmax(0,1fr) auto;
+      grid-template-areas:"job name chev" "desc desc desc" "foot foot foot";gap:4px 9px;padding:10px 12px}
+    #mjItems .acard:not(.open) .ac-icons{grid-area:chev;display:flex;align-items:center;justify-content:flex-end}
+    #mjItems .acard:not(.open) .ac-icons>:not(.ac-chev){display:none}
+    #mjItems .acard.open .acard-head{grid-template-areas:"job name chev" "desc desc desc" "foot foot foot" "icons icons icons"}
+    #mjItems .acard.open .ac-icons{grid-area:icons;flex-wrap:wrap;justify-content:flex-start;gap:6px}
+    /* compact = one job is picked, so the badge and name are already on the JOBS button */
+    #mjItems .acard.compact .acard-head{grid-template-columns:minmax(0,1fr) auto;
+      grid-template-areas:"desc chev" "foot foot"}
+    #mjItems .acard.compact.open .acard-head{grid-template-areas:"desc chev" "foot foot" "icons icons"}
+    #mjItems .ac-name{font-size:14px}
+    /* everything else shrank; the payload grew */
+    #mjItems .ac-desc{font-size:15px;line-height:1.32;font-weight:600}
+    /* deliberately NO overflow:hidden here -- it would clip the date under OS font scaling */
+    #mjItems .ac-foot{gap:6px}
+    #mjItems .ac-foot .m{font-size:10px;padding:2px 7px}
+    #mjItems .m.new-tag{order:-2}    /* NEW first, so it is the last thing to wrap away */
+    #mjItems .m.partial{order:-1}
+    #mjItems .m.none{display:none}   /* an em-dash chip that says nothing */
+    /* 26 + 2*9 = 44px, and the -9px inset stays inside .acard-head's 12px padding so
+       .acard{overflow:hidden} cannot clip the hit area. */
+    #mjItems .newx{position:relative;width:26px;height:26px;font-size:13px}
+    #mjItems .newx::after{content:"";position:absolute;inset:-9px}
+    #mjItems .acard.open .ac-icons .mini-btn{width:44px;height:44px}
+    #mjItems .acard.open .ac-copy{min-height:44px;padding:4px 12px}
+    #mjItems .rows{gap:6px}
+
+  /* ---- tutorial ----
+     #tutModal is .modal-back z-100 docked to the BOTTOM. A bottom sheet would sit underneath it,
+     so while the tutorial runs the sheets dock to the TOP instead. overflow:visible un-clips
+     .tut-spot's 9999px box-shadow. */
+    body.tut-live #mjShowPanel,body.tut-live #mjJobsPanel{top:0;bottom:auto;max-height:52vh;
+      border-radius:0 0 20px 20px;overflow:visible;animation:none}
   }
 
   /* ---------- Admin ---------- */
@@ -400,7 +573,8 @@
   .mini-btn.deliv-btn{color:var(--amber)}
   .mini-btn.deliv-btn.set{color:var(--teal)}
   /* identity + notif banner */
-  .identity{display:flex;align-items:center;gap:11px;margin:0 14px 4px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow)}
+  .identity{display:none;align-items:center;gap:11px;margin:0 14px 4px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow)}
+  .identity.on{display:flex}
   .identity.viewing{background:#f1f1f1;border-style:dashed}
   .icon-btn.fstar{color:var(--steel-light)}
   .icon-btn.fstar.saved{color:#e0a400}
@@ -479,6 +653,7 @@
 
   /* ---------- Reorder ---------- */
   .reorder-bar{display:flex;gap:8px;align-items:center;padding:2px 14px 8px}
+  .reorder-bar.hidden{display:none}
   .reorder-bar button{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12.5px;padding:8px 13px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--steel);box-shadow:var(--shadow)}
   .reorder-bar button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .reorder-bar .hint{font-size:11.5px;color:var(--steel-light)}
