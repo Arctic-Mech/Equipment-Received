@@ -238,6 +238,49 @@
   .folder-body .rows,.folder-body .drows{margin:4px 0}
   .sub-empty{padding:14px 8px;color:var(--steel);font-size:13px;text-align:center}
 
+  /* ---- My Jobs split ----
+     Phone first: the job picker is a horizontal strip above the items. From 860px up it becomes a
+     real left column, and the two sides scroll independently so a long item list doesn't push the
+     picker off screen. */
+  .mj-split{display:block;margin:0 14px}
+  .mj-side{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+  .mj-job{flex:0 0 auto;max-width:230px;display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);cursor:pointer}
+  .mj-job.on{border-color:var(--hivis);box-shadow:0 0 0 2px rgba(255,106,26,.18),var(--shadow)}
+  .mj-job:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+  .mj-job.reorderable{cursor:default}
+  .mj-jtag{font-family:'JetBrains Mono';font-weight:700;font-size:13px;color:#fff;background:var(--hivis);padding:4px 8px;border-radius:7px;flex:none}
+  .mj-jtag.all{background:var(--steel)}
+  .mj-job.has-new .mj-jtag{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--hivis)}
+  .mj-jinfo{min-width:0;display:flex;flex-direction:column;gap:2px}
+  .mj-jname{font-family:'Barlow Condensed';font-weight:600;font-size:14.5px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mj-jcount{font-size:11.5px;color:var(--steel);white-space:nowrap}
+  .mj-jcount b{color:var(--hivis-dark);font-family:'JetBrains Mono';font-weight:700}
+  .mj-jcount .clearone{display:inline-flex;align-items:center;color:#fff;background:var(--hivis);font-family:'Barlow Condensed';font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:10.5px;padding:2px 7px;border-radius:6px;margin-left:5px}
+  .mj-jacts{display:flex;align-items:center;gap:2px;margin-left:auto;flex:none}
+  .mj-mainhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 2px 8px}
+  .mj-mh-t{display:flex;align-items:center;gap:8px;min-width:0}
+  .mj-mh-t b{font-family:'Barlow Condensed';font-weight:700;font-size:17px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mj-mh-sub{font-size:12px;color:var(--steel-light)}
+  .mj-mh-c{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--steel);flex:none}
+  .mj-mh-c b{color:var(--hivis-dark);font-family:'JetBrains Mono';font-weight:700}
+  .mj-showall{font-size:12.5px;font-weight:600;color:var(--blue);padding:4px 8px;border-radius:8px;background:var(--blue-soft)}
+  .mj-main .rows,.mj-main .tlines{margin:0}
+  .tl-job{font-family:'JetBrains Mono';font-weight:700;font-size:11px;color:var(--hivis-dark);background:var(--surface);padding:2px 6px;border-radius:5px;margin-right:7px}
+  /* The merged list shows the full card so the job badge and name are visible, but on a phone the
+     icon row squeezes the name down to "RIV…". Same fix the ≤360px rule uses: icons get their own
+     row. Scoped to the split so the Arrivals feed keeps its one-line header. */
+  @media (max-width:560px){
+    .mj-main .acard-head{grid-template-columns:auto 1fr;grid-template-areas:"job name" "icons icons" "desc desc" "foot foot"}
+    .mj-main .ac-icons{flex-wrap:wrap;justify-content:flex-end}
+  }
+  @media (min-width:860px){
+    .mj-split{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
+    .mj-side{flex-direction:column;overflow-x:visible;overflow-y:auto;max-height:calc(100vh - 210px);padding:2px 4px 2px 2px}
+    .mj-job{max-width:none;width:100%}
+    .mj-main{min-width:0;max-height:calc(100vh - 210px);overflow-y:auto}
+    .mj-mainhead{padding-top:2px;position:sticky;top:0;background:var(--surface);z-index:1}
+  }
+
   /* ---------- Admin ---------- */
   .admin-lock{padding:40px 24px;text-align:center;max-width:380px;margin:0 auto}
   .admin-lock .lockico{width:62px;height:62px;border-radius:16px;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:var(--hivis)}

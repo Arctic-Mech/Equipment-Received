@@ -181,7 +181,6 @@ let delivTarget=null;               // arrival id for the delivery modal
 const EXPANDED_TOOLS=new Set();     // tool job cards currently open
 const EXPANDED_RENTALS=new Set();   // equipment rental job cards currently open
 const EXPANDED_ARR=new Set();       // arrival cards currently expanded
-const EXPANDED_FOLDERS=new Set();   // My Jobs folders currently open
 
 /* Reliable tap: fire on touchend (so a tap registers on the first try even while the
    keyboard is up) and on click for mouse, de-duplicated so it never double-fires. */
@@ -422,10 +421,12 @@ function renderFeed(){
 }
 
 /* ---------- Render: Rentals (grouped by job, collapsible) ---------- */
-function rentalLine(r){
+// opts.job adds the job number to the line. My Jobs' merged "all jobs" list needs it — inside a
+// single job's list it would just repeat the header. Arrival cards carry their own job badge.
+function rentalLine(r,opts={}){
   const ret=/return/i.test(r.status);
   return `<div class="tline" data-type="rental" data-id="${esc(r.id)}">
-    <div class="tl-tool">${esc(r.equipment)||"Equipment"}${r.rentalId?` <span class="tid">${esc(r.rentalId)}</span>`:""}</div>
+    <div class="tl-tool">${opts.job?`<span class="tl-job">${esc(normJob(r.jobNumber))}</span>`:""}${esc(r.equipment)||"Equipment"}${r.rentalId?` <span class="tid">${esc(r.rentalId)}</span>`:""}</div>
     <div class="tl-status"><span class="status ${ret?'returned':'renting'}">${esc(r.status||"Renting")}</span></div>
     <div class="tl-meta"><span>Rented <b>${esc(longDate(r.dateRented).split(",")[0])||"—"}</b></span><span>Returned <b>${ret&&r.dateReturned?esc(longDate(r.dateReturned).split(",")[0]):"—"}</b></span>${r.rate?`<span class="tl-rate">Rate ${rateChips(r.rate)}</span>`:""}${r.vendor?`<span>Vendor <b>${esc(r.vendor)}</b></span>`:""}${r.po?`<span>PO <b>${esc(r.po)}</b></span>`:""}${r.orderedBy?`<span>By <b>${esc(r.orderedBy)}</b></span>`:""}</div>
     ${adminUnlocked?`<div class="tl-act">${adminActs("rental",r.id)}</div>`:""}
@@ -460,10 +461,10 @@ function renderRentals(){ if(typeof renderAutoImport==="function")renderAutoImpo
 
 /* ---------- Render: Tool rentals ---------- */
 function pdfLinkFor(job){ if(!PDF_META||!PDF_META.pageMap)return""; const pg=PDF_META.pageMap[job]; if(!pg)return""; return `<button class="pdf-link" data-pdfjob="${esc(job)}" title="View this job in the tool report PDF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> PDF</button>`; }
-function toolLine(r){
+function toolLine(r,opts={}){
   const ret=/return/i.test(r.status);
   return `<div class="tline" data-type="tool" data-id="${esc(r.id)}">
-    <div class="tl-tool">${esc(r.toolType||"Tool")} <span class="tid">#${esc(r.toolId)||"—"}</span></div>
+    <div class="tl-tool">${opts.job?`<span class="tl-job">${esc(normJob(r.jobNumber))}</span>`:""}${esc(r.toolType||"Tool")} <span class="tid">#${esc(r.toolId)||"—"}</span></div>
     <div class="tl-status"><span class="status ${ret?'returned':'out'}">${ret?"Returned":"Out"}</span></div>
     <div class="tl-meta"><span>Started <b>${esc(longDate(r.rentalStarted).split(",")[0])||"—"}</b></span><span>Ended <b>${ret&&r.rentalEnded?esc(longDate(r.rentalEnded).split(",")[0]):"—"}</b></span><span><b>${esc(String(r.billingDays||0))}</b> days</span><span>Daily <b>$${esc(String(r.dailyRate||0))}</b></span><span>Total <b>${esc(money(r.billingTotal))}</b></span><span>Disc <b>${esc(money(r.discountedRate))}</b></span></div>
     ${adminUnlocked?`<div class="tl-act">${adminActs("tool",r.id)}</div>`:""}
@@ -524,6 +525,18 @@ const ARR_TAG_FIELDS=["description","supplier","po","requestedBy","jobName","sto
 const RENT_TAG_FIELDS=["equipment","vendor","rentalId","po","orderedBy"];
 const TOOL_TAG_FIELDS=["toolType","toolId"];
 function tagMatch(r,fields,sq){ return fields.some(f=>(r[f]||"").toLowerCase().includes(sq)); }
+
+/* ---------- My Jobs ----------
+   Split layout: the left pane picks a job, the right pane is the items. With nothing picked the
+   right pane merges every saved job into one newest-first list. ARRIVALS/RENTALS/TOOLS are already
+   sorted newest-first when they load, so the merge is a filter over the source array — see the
+   note in the right-pane section for why that matters. */
+let MJ_SEL="";                      // selected job number; "" = all jobs
+const MJ_SEG={
+  arrivals:{arr:()=>ARRIVALS, date:r=>r.dateReceived,   tags:ARR_TAG_FIELDS,  demo:j=>demoArrivals(j), row:(r,o)=>arrivalRow(r,o), plural:"arrivals",     one:"arrival"},
+  rentals :{arr:()=>RENTALS,  date:r=>r.dateRented,     tags:RENT_TAG_FIELDS, demo:j=>demoRentals(j),  row:(r,o)=>rentalLine(r,o),  plural:"rentals",      one:"rental"},
+  tools   :{arr:()=>TOOLS,    date:r=>r.rentalStarted,  tags:TOOL_TAG_FIELDS, demo:j=>demoTools(j),    row:(r,o)=>toolLine(r,o),    plural:"tool rentals", one:"tool rental"},
+};
 function renderJobs(){
   if(dragEl) return;
   const news=updateNotif(); renderIdentity(); renderSharePrompts();
@@ -545,59 +558,91 @@ function renderJobs(){
   if(sq && !viewingOther){ const matches=[...jobsMap.values()].filter(o=>o.jobNumber.toLowerCase().includes(sq)||(o.jobName||"").toLowerCase().includes(sq)).filter(o=>!jobsList.includes(o.jobNumber)).sort((a,b)=>b.last<a.last?-1:1).slice(0,8); sugWrap.innerHTML=matches.length?matches.map(o=>`<div class="s-item"><span class="sj">${esc(o.jobNumber)}</span><span class="sn">${esc(o.jobName||"—")}</span><button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join(""):`<div class="s-item" style="justify-content:center;color:var(--steel)">No match — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`; } else sugWrap.innerHTML="";
 
   const month=$("mjMonth").value;
-  const wrap=$("foldersList");
+  const wrap=$("foldersList"), split=$("mjSplit");
   document.getElementById("reorderToggle").closest(".reorder-bar").style.display=viewingOther?"none":"flex";
   $("reorderToggle").classList.toggle("on",reorderMode);
   $("reorderHint").textContent=reorderMode?"Use the ▲▼ arrows to reorder":"";
   $("orderReset").style.display=(ordList.length&&!reorderMode&&!viewingOther)?"inline-block":"none";
-  if(!jobsList.length){ wrap.innerHTML=viewingOther?`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>${esc(viewName||"This person")} hasn't saved any jobs yet.</p></div>`:`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save${USER?", or your requested jobs link automatically":""}. Arrivals, rentals, and tool rentals on it collect here.</p></div>`; return; }
+  // #foldersList is the empty-state slot now; the split is hidden whenever it has something to say.
+  const showEmpty=html=>{ split.style.display="none"; wrap.innerHTML=html; };
+  if(!jobsList.length){ showEmpty(viewingOther?`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>${esc(viewName||"This person")} hasn't saved any jobs yet.</p></div>`:`<div class="empty"><div class="ico">📁</div><h3>No saved jobs</h3><p>Search a job number above and tap Save${USER?", or your requested jobs link automatically":""}. Arrivals, rentals, and tool rentals on it collect here.</p></div>`); return; }
   const newCountFor=job=>{ if(viewingOther)return 0; let n=0; ARRIVALS.forEach(r=>{if(normJob(r.jobNumber)===job&&news.has("a:"+r.id))n++;}); return n; };
   const lastOf=j=>jobsMap.get(j)?.last||"";
   let sorted;
   if(ordList.length){ const known=ordList.filter(j=>jobsList.includes(j)); const extra=jobsList.filter(j=>!ordList.includes(j)).sort((a,b)=>lastOf(b)<lastOf(a)?-1:1); sorted=[...extra,...known]; }
   else sorted=[...jobsList].sort((a,b)=>{ const na=newCountFor(a),nb=newCountFor(b); if((nb>0)!==(na>0))return nb>0?1:-1; return lastOf(b)<lastOf(a)?-1:1; });
   MJ_VIEW=sorted.slice();
-  let shown=0;
-  const html=sorted.map(job=>{
-    const idx=sorted.indexOf(job);
-    const info=jobsMap.get(job);
-    let arr=ARRIVALS.filter(r=>normJob(r.jobNumber)===job);
-    let rnt=RENTALS.filter(r=>normJob(r.jobNumber)===job);
-    let tls=TOOLS.filter(r=>normJob(r.jobNumber)===job);
-    // The tutorial's sample job: fully synthetic, and it skips the month/search filters
-    // below so a leftover filter can never hide it mid-walkthrough.
+
+  const seg=MJ_SEG[mjSeg]||MJ_SEG.arrivals;
+  // Each job's items for the segment on screen, after the month and search filters. The tutorial's
+  // sample job is synthetic and skips both, so a leftover filter can't hide it mid-walkthrough.
+  const byJob=new Map();
+  for(const job of sorted){
     const isDemo = TUT_DEMO && job===TUT_JOB;
-    if(isDemo){ arr=demoArrivals(job); rnt=demoRentals(job); tls=demoTools(job); }
-    const totalArr=arr.length,totalRnt=rnt.length,totalTls=tls.length;
-    const nNew=newCountFor(job); const isOpen=EXPANDED_FOLDERS.has(job);
-    if(month && !isDemo){ arr=arr.filter(r=>monthKey(r.dateReceived)===month); rnt=rnt.filter(r=>monthKey(r.dateRented)===month); tls=tls.filter(r=>monthKey(r.rentalStarted)===month); }
-    const name=info?.jobName||arr[0]?.jobName||rnt[0]?.jobName||tls[0]?.jobName||"Unknown job name";
-    const jobNameNumMatch = sq && (job.toLowerCase().includes(sq) || name.toLowerCase().includes(sq));
-    if(sq && !jobNameNumMatch && !isDemo){
-      // narrow this job's items down to ones whose tag info matches — only within saved jobs
-      arr=arr.filter(r=>tagMatch(r,ARR_TAG_FIELDS,sq));
-      rnt=rnt.filter(r=>tagMatch(r,RENT_TAG_FIELDS,sq));
-      tls=tls.filter(r=>tagMatch(r,TOOL_TAG_FIELDS,sq));
-      if(!arr.length && !rnt.length && !tls.length) return "";  // nothing in this job matches the search
+    let items = isDemo ? seg.demo(job) : seg.arr().filter(r=>normJob(r.jobNumber)===job);
+    const total=items.length;
+    if(!isDemo){
+      if(month) items=items.filter(r=>monthKey(seg.date(r))===month);
+      if(sq){
+        const nm=jobsMap.get(job)?.jobName||items[0]?.jobName||"";
+        // Naming the job in the search shows all of it; otherwise the search filters its items.
+        if(!(job.toLowerCase().includes(sq)||nm.toLowerCase().includes(sq)))
+          items=items.filter(r=>tagMatch(r,seg.tags,sq));
+      }
     }
-    shown++;
-    let body="";
-    if(mjSeg==="arrivals") body = arr.length?`<div class="rows">${arr.map(r=>arrivalRow(r,{star:true,compact:true,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`:`<div class="sub-empty">No arrivals${sq?" match your search":month?" this month":" yet"}.</div>`;
-    else if(mjSeg==="rentals") body = rnt.length?`<div class="tlines">${rnt.map(rentalLine).join("")}</div>`:`<div class="sub-empty">No rentals${sq?" match your search":month?" this month":" on this job"}.</div>`;
-    else body = tls.length?`<div class="tlines">${tls.map(toolLine).join("")}</div>`:`<div class="sub-empty">No tool rentals${sq?" match your search":month?" this month":" on this job"}.</div>`;
-    const ctrl=(reorderMode&&!viewingOther)?`<span class="reorder-ctrl"><button class="ord-btn" data-moveup="${esc(job)}" ${idx===0?"disabled":""} title="Move up">▲</button><button class="ord-btn" data-movedown="${esc(job)}" ${idx===sorted.length-1?"disabled":""} title="Move down">▼</button></span>`:"";
+    byJob.set(job,{items,total,isDemo});
+  }
+  // A search drops jobs with nothing left. Without one every saved job stays listed, so an empty
+  // job reads as "nothing this month" instead of silently disappearing.
+  const visible = sq ? sorted.filter(j=>byJob.get(j).items.length) : sorted;
+  if(sq && !visible.length){ showEmpty(`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing ${viewingOther?"in this list":"saved"} matches "${esc($("jobSearch").value.trim())}".${viewingOther?"":" Check the suggestions above to add a new job."}</p></div>`); return; }
+  split.style.display=""; wrap.innerHTML="";
+  if(MJ_SEL && !visible.includes(MJ_SEL)) MJ_SEL="";   // picked job was removed or filtered away
+
+  /* ---- left pane: pick a job ---- */
+  const withTools=new Set(TOOLS.map(r=>normJob(r.jobNumber)));
+  const totalShown=visible.reduce((n,j)=>n+byJob.get(j).items.length,0);
+  const anyNew=visible.reduce((n,j)=>n+newCountFor(j),0);
+  const rows=[`<div class="mj-job all ${MJ_SEL?"":"on"}" data-mjpick="" role="button" tabindex="0">
+      <span class="mj-jtag all">ALL</span>
+      <span class="mj-jinfo"><span class="mj-jname">All my jobs${anyNew?'<span class="new-dot"></span>':""}</span>
+        <span class="mj-jcount"><b>${visible.length}</b> job${visible.length===1?"":"s"} · <b>${totalShown}</b> ${seg.plural}</span></span>
+    </div>`];
+  visible.forEach((job,idx)=>{
+    const d=byJob.get(job);
+    const name=jobsMap.get(job)?.jobName||d.items[0]?.jobName||"Unknown job name";
+    const nNew=newCountFor(job);
+    const ctrl=(reorderMode&&!viewingOther)?`<span class="reorder-ctrl"><button class="ord-btn" data-moveup="${esc(job)}" ${idx===0?"disabled":""} title="Move up">▲</button><button class="ord-btn" data-movedown="${esc(job)}" ${idx===visible.length-1?"disabled":""} title="Move down">▼</button></span>`:"";
     const removeBtn=viewingOther?`<button class="icon-btn fstar ${MY_JOBS.includes(job)?'saved':''}" data-savejob="${esc(job)}" title="${MY_JOBS.includes(job)?'Saved to your jobs':'Save to your jobs'}"><svg width="18" height="18" viewBox="0 0 24 24" fill="${MY_JOBS.includes(job)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg></button>`:`<button class="icon-btn" data-removejob="${esc(job)}" title="Remove"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>`;
-    return `<div class="folder ${nNew?'has-new':''} ${(reorderMode&&!viewingOther)?'reorderable':''} ${isOpen?'open':''}" data-folder="${esc(job)}">
-      <div class="folder-head" data-toggle="${esc(job)}">
-        <span class="folder-tag">${esc(job)}</span>
-        <div class="folder-info"><div class="fn">${esc(name)}${totalTls>0?pdfLinkFor(job):""}${nNew?'<span class="new-dot"></span>':""}</div><div class="fc"><b>${totalArr}</b> arrivals · <b>${totalRnt}</b> rentals · <b>${totalTls}</b> tools${nNew?`<button class="clearone" data-clearjob="${esc(job)}">${nNew} new · clear</button>`:""}</div></div>
-        <div class="folder-actions">${ctrl}${removeBtn}<span class="icon-btn chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span></div>
-      </div>
-      <div class="folder-body">${body}</div>
-    </div>`;
-  }).join("");
-  if(sq && !shown){ wrap.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing ${viewingOther?"in this list":"saved"} matches "${esc($("jobSearch").value.trim())}".${viewingOther?"":" Check the suggestions above to add a new job."}</p></div>`; return; }
-  wrap.innerHTML=html;
+    rows.push(`<div class="mj-job ${MJ_SEL===job?"on":""} ${nNew?"has-new":""} ${(reorderMode&&!viewingOther)?"reorderable":""}" data-mjpick="${esc(job)}" role="button" tabindex="0">
+      <span class="mj-jtag">${esc(job)}</span>
+      <span class="mj-jinfo"><span class="mj-jname">${esc(name)}${withTools.has(job)?pdfLinkFor(job):""}${nNew?'<span class="new-dot"></span>':""}</span>
+        <span class="mj-jcount"><b>${d.items.length}</b>${d.items.length!==d.total?` of ${d.total}`:""} ${seg.plural}${nNew?`<button class="clearone" data-clearjob="${esc(job)}">${nNew} new · clear</button>`:""}</span></span>
+      <span class="mj-jacts">${ctrl}${removeBtn}</span>
+    </div>`);
+  });
+  $("mjJobList").innerHTML=rows.join("");
+
+  /* ---- right pane: the items themselves ----
+     Filtering the already-newest-first source array keeps the merged list in true date order
+     across jobs; concatenating each job's slice would have grouped it by job instead. */
+  const shownJobs = MJ_SEL?[MJ_SEL]:visible;
+  const demoJobs  = shownJobs.filter(j=>byJob.get(j).isDemo);
+  const realJobs  = new Set(shownJobs.filter(j=>!byJob.get(j).isDemo));
+  const survived  = new Set(); realJobs.forEach(j=>byJob.get(j).items.forEach(r=>survived.add(r.id)));
+  const items = [...demoJobs.flatMap(j=>byJob.get(j).items),
+                 ...seg.arr().filter(r=>realJobs.has(normJob(r.jobNumber))&&survived.has(r.id))];
+  const selName = MJ_SEL?(jobsMap.get(MJ_SEL)?.jobName||byJob.get(MJ_SEL).items[0]?.jobName||"Unknown job name"):"";
+  $("mjMainHead").innerHTML=
+    `<div class="mj-mh-t">${MJ_SEL
+      ? `<span class="mj-jtag">${esc(MJ_SEL)}</span><b>${esc(selName)}</b>`
+      : `<b>All my jobs</b><span class="mj-mh-sub">newest first</span>`}</div>
+     <div class="mj-mh-c"><span><b>${items.length}</b> ${items.length===1?seg.one:seg.plural}</span>${MJ_SEL?`<button class="mj-showall" data-mjpick="">← All jobs</button>`:""}</div>`;
+  $("mjItems").innerHTML = items.length
+    // compact hides an arrival card's job badge and name, which is right when one job is picked
+    // and the header already says which — but in the merged list that's the thing you need most.
+    ? `<div class="${mjSeg==="arrivals"?"rows":"tlines"}">${items.map(r=>seg.row(r,{star:true,compact:!!MJ_SEL,job:!MJ_SEL,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`
+    : `<div class="sub-empty">No ${seg.plural}${sq?" match your search":month?" this month":MJ_SEL?" on this job":" on your jobs"} yet.</div>`;
 }
 
 /* ---------- Stats ---------- */
@@ -609,7 +654,14 @@ function renderAll(){ $("pillFeed").textContent=ARRIVALS.length>999?(Math.floor(
 
 /* ---------- Save/remove job ---------- */
 function addJob(job){ if(!USER){toast("Sign in to save jobs"); openName(); return;} const j=normJob(job); if(!isRealJob(j)){toast("Enter a valid job number");return;} if(MY_JOBS.includes(j)){toast(j+" is already saved");return;} MY_JOBS.push(j); REMOVED_JOBS.delete(j); markSeenForJob(j); syncUserJobs(); $("jobSearch").value=""; renderAll(); toast("Saved "+j+" to My Jobs"); }
-function removeJob(job){ MY_JOBS=MY_JOBS.filter(j=>j!==job); REMOVED_JOBS.add(job); syncUserJobs(); renderAll(); toast("Removed "+job); }
+/* The confirm lives in here rather than at the three call sites — the folder's trash button, the
+   star on someone else's job list, and the star on a Webduct delivery card. Un-starring is a
+   removal too, and it was the easiest one to hit by accident. Keeping the question in one place
+   means a fourth caller can't reintroduce a silent one. */
+function removeJob(job){
+  if(!confirm(`Remove job ${job} from My Jobs?\n\nIts arrivals, rentals and tool rentals aren't deleted — they just stop collecting here. You can save the job again any time.`)) return;
+  MY_JOBS=MY_JOBS.filter(j=>j!==job); REMOVED_JOBS.add(job); syncUserJobs(); renderAll(); toast("Removed "+job);
+}
 
 /* ---------- Tabs ---------- */
 const VALID_VIEWS=["feed","rentals","deliveries","jobs","safety","admin"];
@@ -773,7 +825,15 @@ document.addEventListener("click",e=>{
   const exp=e.target.closest("[data-expand]"); if(exp){ const id=exp.dataset.expand; if(EXPANDED_ARR.has(id))EXPANDED_ARR.delete(id); else EXPANDED_ARR.add(id); exp.closest(".acard").classList.toggle("open"); return; }
   const tt=e.target.closest("[data-ttoggle]"); if(tt){ const j=tt.dataset.ttoggle; if(EXPANDED_TOOLS.has(j))EXPANDED_TOOLS.delete(j); else EXPANDED_TOOLS.add(j); tt.closest(".tcard").classList.toggle("open"); return; }
   const rtg=e.target.closest("[data-rtoggle]"); if(rtg){ const j=rtg.dataset.rtoggle; if(EXPANDED_RENTALS.has(j))EXPANDED_RENTALS.delete(j); else EXPANDED_RENTALS.add(j); rtg.closest(".rcard").classList.toggle("open"); return; }
-  const tog=e.target.closest("[data-toggle]"); if(tog){ if(reorderMode)return; const job=tog.dataset.toggle; const wasOpen=EXPANDED_FOLDERS.has(job); EXPANDED_FOLDERS.clear(); document.querySelectorAll("#foldersList .folder.open").forEach(f=>f.classList.remove("open")); if(!wasOpen){ EXPANDED_FOLDERS.add(job); tog.closest(".folder").classList.add("open"); } return; }
+  // Last in the chain on purpose: the remove, clear and reorder buttons sit inside a job row and
+  // are matched above, so they act instead of changing the selection.
+  const pick=e.target.closest("[data-mjpick]"); if(pick){ if(reorderMode)return; const j=pick.dataset.mjpick; MJ_SEL=(j&&j===MJ_SEL)?"":j; renderJobs(); return; }
+});
+// Keyboard equivalent for the job rows, which are divs so they can hold their own buttons.
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Enter"&&e.key!==" ")return;
+  const pick=e.target.closest&&e.target.closest("[data-mjpick]"); if(!pick||reorderMode)return;
+  e.preventDefault(); const j=pick.dataset.mjpick; MJ_SEL=(j&&j===MJ_SEL)?"":j; renderJobs();
 });
 
 /* ---------- My Jobs add ---------- */
@@ -784,7 +844,7 @@ $("notifClear").addEventListener("click",clearNotif);
 
 /* ---------- Reorder My Jobs (up/down) ---------- */
 $("reorderToggle").addEventListener("click",()=>{ reorderMode=!reorderMode; renderJobs(); });
-$("orderReset").addEventListener("click",()=>{ JOB_ORDER=[]; syncUserJobs(); renderJobs(); toast("Back to newest-first"); });
+$("orderReset").addEventListener("click",()=>{ if(!confirm("Put your jobs back in newest-first order?\n\nThe order you arranged by hand is lost.")) return; JOB_ORDER=[]; syncUserJobs(); renderJobs(); toast("Back to newest-first"); });
 function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(job); if(i<0)return; const j=i+dir; if(j<0||j>=order.length)return; const t=order[i]; order[i]=order[j]; order[j]=t; JOB_ORDER=order; syncUserJobs(); renderJobs(); }
 
 /* ---------- Identity (Webduct login primary; name captured once per email) ---------- */
@@ -808,7 +868,7 @@ async function signInAs(first,last,email,token){
   const id=existing?existing.id:personId(first,last);
   USER={first,last,email,id}; saveUser();
   if(token){ WD_TOKEN=token; sessionStorage.setItem("wd_token",token); if(typeof wdRenderToken==="function")wdRenderToken(); }
-  MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; EXPANDED_FOLDERS.clear(); userRecordLoaded=false;
+  MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; MJ_SEL=""; userRecordLoaded=false;
   if(fbReady){
     try{
       await setDoc(doc(db,"people",id),{first,last,nameNorm:nameNorm(first,last),email,updatedAt:serverTimestamp()},{merge:true});
@@ -955,7 +1015,7 @@ const TUT_FIELD=[
  ["Order with the right name","Sign in with the same name you order under in Webduct — that's how the app matches orders to you and links your jobs automatically.","#whoChip","feed"],
  ["Arrival cards","Tap any card to see everything — details, photo, and who logged it.",".acard","feed"],
  ["Copy Name","It copies the arrival's name exactly. Paste that <i>word-for-word</i> into your Webduct order and the app links your order to the physical item automatically. Retype it your own way and someone has to pair it by hand.",".ac-copy","feed"],
- ["My Jobs — the one to use","<b>This is the most useful tab in the app.</b> Star ★ a job (or it auto-stars from your orders) and everything for it collects here — no scrolling the whole arrivals list. Split into <b>Arrivals</b>, <b>Equipment Rentals</b>, and <b>Tool Rentals</b>.","[data-view='jobs']","jobs",()=>tutOpenJobCard("arrivals")],
+ ["My Jobs — the one to use","<b>This is the most useful tab in the app.</b> Star ★ a job (or it auto-stars from your orders) and everything for it collects here — no scrolling the whole arrivals list. Your jobs sit on one side; the other side lists everything received across <b>all</b> of them, newest first. Tap a job to narrow that list to just that job, and <b>All my jobs</b> to go back. Switch between <b>Arrivals</b>, <b>Equipment Rentals</b> and <b>Tool Rentals</b> with the buttons above.","[data-view='jobs']","jobs",()=>tutOpenJobCard("arrivals")],
  ["What's on a card","Here's a card opened up: the photo, where it's stored, who logged it, delivery status, and the buttons — 📷 photo, Copy Name, share, and the 🚚 truck showing whether it's gone out.",".acard.open","jobs",()=>tutOpenJobCard("arrivals")],
  ["Equipment rentals","Flip to <b>Equipment Rentals</b> to see gear rented from a vendor for this job — what it is, the rate, the vendor, and whether it's still out.","#mjSeg","jobs",()=>tutOpenJobCard("rentals")],
  ["Tool rentals","<b>Tool Rentals</b> shows company tools charged to your job — tool #, days out, daily rate, and total. Handy for checking what's still billing to you.","#mjSeg","jobs",()=>tutOpenJobCard("tools")],
@@ -1038,7 +1098,7 @@ function tutCloseLogForm(){
 function tutOpenJobCard(seg){
   try{
     TUT_DEMO=true;
-    if(typeof EXPANDED_FOLDERS!=="undefined") EXPANDED_FOLDERS.add(TUT_JOB);
+    MJ_SEL=TUT_JOB;                       // land on the sample job, not the merged list
     if(typeof EXPANDED_ARR!=="undefined") EXPANDED_ARR.add("demo-a1");
     // Clear filters — a leftover month/search would hide the sample job entirely.
     const ms=$("mjMonth"), ss=$("jobSearch"); if(ms) ms.value=""; if(ss) ss.value="";
@@ -1048,7 +1108,7 @@ function tutOpenJobCard(seg){
 }
 let TUT_LIST=null, TUT_I=0;
 function tutClearSpot(){ document.querySelectorAll(".tut-spot").forEach(e=>e.classList.remove("tut-spot")); }
-function tutClearDemo(){ const had=TUT_DEMO; TUT_DEMO=false; if(had){ try{ EXPANDED_FOLDERS.delete(TUT_JOB); EXPANDED_ARR.delete("demo-a1"); }catch(_){} if(typeof renderJobs==="function"){ try{ renderJobs(); }catch(_){} } } }
+function tutClearDemo(){ const had=TUT_DEMO; TUT_DEMO=false; if(had){ try{ if(MJ_SEL===TUT_JOB)MJ_SEL=""; EXPANDED_ARR.delete("demo-a1"); }catch(_){} if(typeof renderJobs==="function"){ try{ renderJobs(); }catch(_){} } } }
 function openTutorial(){ $("tutChoose").style.display="block"; $("tutSteps").style.display="none"; $("tutTitle").textContent="Welcome!"; document.body.classList.remove("tut-live"); tutClearSpot(); tutClearDemo(); tutRestoreAdmin(); openModal("tutModal"); }
 function tutStart(list, label){ TUT_LIST=list; TUT_I=0; $("tutTitle").textContent=label; $("tutChoose").style.display="none"; $("tutSteps").style.display="block"; document.body.classList.add("tut-live"); tutRender(); }
 function tutRender(){
@@ -1234,7 +1294,11 @@ $("shareTo").addEventListener("input",()=>{ const q=$("shareTo").value.trim().to
 document.addEventListener("click",e=>{ const pick=e.target.closest("[data-sharepick]"); if(pick){ createShare(pick.dataset.sharepick); } });
 async function createShare(toId){ const p=PEOPLE.find(x=>x.id===toId); if(!p||!USER||!shareJob){return;} if(!fbReady){toast("No connection");return;} const r=ARRIVALS.find(x=>x.id===shareArrivalId); try{ await setDoc(doc(db,"shares","s-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),{toId,toName:p.first+" "+p.last,fromId:USER.id,fromName:USER.first+" "+USER.last,jobNumber:shareJob,jobName:r?.jobName||"",arrivalId:shareArrivalId,status:"pending",createdAt:serverTimestamp()}); closeModal("shareModal"); toast("Shared with "+p.first); }catch(e){ console.error(e); toast("Share failed: "+(e.code||e.message)); } }
 async function acceptShare(id){ const s=SHARES.find(x=>x.id===id); if(!s)return; addJob(s.jobNumber); if(fbReady){ try{ await setDoc(doc(db,"shares",id),{status:"accepted"},{merge:true}); }catch(e){console.error(e);} } }
-async function dismissShare(id){ if(fbReady){ try{ await setDoc(doc(db,"shares",id),{status:"dismissed"},{merge:true}); }catch(e){console.error(e);} } renderJobs(); }
+async function dismissShare(id){
+  const s=SHARES.find(x=>x.id===id);
+  if(!confirm(`Dismiss ${s&&s.fromName?s.fromName+"'s":"this"} shared job${s&&s.jobNumber?" "+s.jobNumber:""}?\n\nThe invite goes away for good — they'd have to share it again.`)) return;
+  if(fbReady){ try{ await setDoc(doc(db,"shares",id),{status:"dismissed"},{merge:true}); }catch(e){console.error(e);} } renderJobs();
+}
 
 /* ---------- People management ---------- */
 $("btnPeople").addEventListener("click",()=>{ renderPeople(); openModal("peopleModal"); });
