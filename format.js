@@ -38,10 +38,30 @@ function monthLabel(k){ const[y,m]=k.split("-").map(Number); return MON[m-1]+" "
 // rate printed as-is, which is always correct if less pretty.
 const rateNum=p=>/^\$?\s*\d[\d,]*(\.\d+)?$/.test(p);
 function rateChips(rate){ if(!rate)return""; const parts=String(rate).split("/").map(s=>s.replace(/,+$/,"").trim()).filter(Boolean); const labels=["Daily","Weekly","Monthly"]; if(parts.length>=2&&parts.length<=3&&parts.every(rateNum)) return `<div class="rate-line">${parts.map((p,i)=>`<span class="rate-chip"><span class="rl">${labels[i]}</span><b>${esc(p)}</b></span>`).join("")}</div>`; return `<span class="v">${esc(rate)}</span>`; }
+/* "Last seen" for the admin people list. Coarse on purpose: the question an admin is asking is
+   "is this person actually using it", not "what minute did they open it". Anything inside the
+   last five minutes reads as right now, because that is usually the admin's own row. */
+function lastSeenText(ms,now){
+  if(!ms) return "Never opened it";
+  const n=now||Date.now(), diff=n-ms;
+  if(diff<0) return "Just now";                       // clock skew between a phone and the server
+  const mins=Math.floor(diff/60000);
+  if(mins<5) return "Just now";
+  if(mins<60) return mins+" min ago";
+  const hrs=Math.floor(mins/60);
+  if(hrs<24) return hrs===1?"1 hour ago":hrs+" hours ago";
+  const days=Math.floor(hrs/24);
+  if(days===1) return "Yesterday";
+  if(days<7) return days+" days ago";
+  if(days<14) return "Last week";
+  if(days<60) return Math.floor(days/7)+" weeks ago";
+  const d=new Date(ms);
+  return MON[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear();
+}
 function money(v){ if(v===""||v==null)return"—"; const s=String(v).trim(); if(s==="-"||s==="")return"—"; return s.startsWith("$")?s:"$"+s; }
 
 export {
   esc,
   normJob, isRealJob, makeId, fmtDateKey, MON, rowDate, longDate,
-  todayIso, monthKey, monthLabel, rateChips, money,
+  todayIso, monthKey, monthLabel, rateChips, money, lastSeenText,
 };
