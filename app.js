@@ -10,7 +10,7 @@ import { $ } from "./dom.js";
 import { idbOpen, idbSet, idbGet, idbDel, idbKeys } from "./idb.js";
 import { toast, copyToClipboard } from "./toast.js";
 import { esc, normJob, isRealJob, makeId, fmtDateKey, MON, rowDate, longDate,
-         todayIso, monthKey, monthLabel, rateChips, money } from "./format.js";
+         todayIso, monthKey, monthLabel, rateChips, money, lastSeenText } from "./format.js";
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
@@ -283,7 +283,7 @@ function startSync(){
   onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("rentList",e.code);});
   onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("toolList",e.code);});
   onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>console.error("pdfmeta",e));
-  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>console.error("people",e));
+  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null,lastSeen:tsMs(v.lastSeen)});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>console.error("people",e));
   onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>console.error("shares",e));
   onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>console.error("webductEquip",e));
   onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>console.error("webductOrders",e));
@@ -316,6 +316,27 @@ function onPeople(){
   if(changed) renderJobs();
 }
 function syncUserJobs(){ lastJobEdit=Date.now(); if(!USER||!fbReady)return; try{ setDoc(doc(db,"people",USER.id),{savedJobs:MY_JOBS,removedJobs:[...REMOVED_JOBS],jobOrder:JOB_ORDER,updatedAt:serverTimestamp()},{merge:true}); }catch(e){console.error("syncjobs",e);} }
+/* Firestore hands back a Timestamp; a serverTimestamp() that hasn't round-tripped yet reads as
+   null from the local cache. Normalise both to plain millis, 0 for "never". */
+function tsMs(v){ if(!v)return 0; if(typeof v==="number")return v; if(typeof v.toMillis==="function")return v.toMillis(); if(v.seconds!=null)return v.seconds*1000; return 0; }
+
+/* Record that this person opened the site. Throttled hard: the admin list only needs to know
+   whether someone is using it at all, and an unthrottled write on every load and tab-focus would
+   spend the free tier's daily write budget on nothing. Once per person per 15 minutes is plenty.
+   The stamp is kept in localStorage too, so reloading the page repeatedly doesn't write each time. */
+const SEEN_EVERY=15*60*1000;
+let lastSeenWrite=0;
+function touchLastSeen(){
+  if(!USER||!fbReady) return;
+  const now=Date.now();
+  if(now-lastSeenWrite < SEEN_EVERY) return;
+  try{ const prev=Number(localStorage.getItem("er_seen_at")||0); if(now-prev < SEEN_EVERY){ lastSeenWrite=prev; return; } }catch(e){}
+  lastSeenWrite=now;
+  try{ localStorage.setItem("er_seen_at",String(now)); }catch(e){}
+  try{ setDoc(doc(db,"people",USER.id),{lastSeen:serverTimestamp()},{merge:true}); }
+  catch(e){ console.error("lastSeen",e); }
+}
+
 function showErr(id,code){ $(id).innerHTML=`<div class="empty"><div class="ico">📡</div><h3>Can't reach Firebase</h3><p>Live data couldn't load${code?` (${esc(code)})`:""}. Check your connection and Firestore rules, then reload.</p></div>`; }
 
 /* ---------- Row builders ---------- */
@@ -1015,11 +1036,13 @@ async function signInAs(first,last,email,token){
   const existing=findPersonByEmail(email)||findPersonByName(first,last);
   const id=existing?existing.id:personId(first,last);
   USER={first,last,email,id}; saveUser();
+  // The sign-in write below carries lastSeen, so start the throttle window here.
+  lastSeenWrite=Date.now(); try{ localStorage.setItem("er_seen_at",String(lastSeenWrite)); }catch(e){}
   if(token){ WD_TOKEN=token; sessionStorage.setItem("wd_token",token); if(typeof wdRenderToken==="function")wdRenderToken(); }
   MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; MJ_SEL=""; userRecordLoaded=false;
   if(fbReady){
     try{
-      await setDoc(doc(db,"people",id),{first,last,nameNorm:nameNorm(first,last),email,updatedAt:serverTimestamp()},{merge:true});
+      await setDoc(doc(db,"people",id),{first,last,nameNorm:nameNorm(first,last),email,lastSeen:serverTimestamp(),updatedAt:serverTimestamp()},{merge:true});
       const snap=await getDoc(doc(db,"people",id));
       if(snap.exists()){ const me=snap.data();
         MY_JOBS=Array.isArray(me.savedJobs)?me.savedJobs.slice():[];
@@ -1467,12 +1490,16 @@ function renderPeople(){
     const sub = n===0 ? "No access" : (n===VALID_VIEWS.length ? "All pages" : `${n} of ${VALID_VIEWS.length} pages`);
     const tag = custom ? `<span class="acc-chip acc-custom">Custom</span>`
                        : `<span class="acc-chip ${auto?'acc-auto-in':'acc-auto-out'}">${auto?"Auto · @arctic.biz":"Auto · no access"}</span>`;
+    // Green while they're around today, grey once it's been a week, plain if they never opened it.
+    const days=p.lastSeen?(Date.now()-p.lastSeen)/86400000:null;
+    const seenCls=days===null?"never":days<1?"today":days<7?"week":"stale";
     return `<div class="pr ${open?'open':''}">
       <div class="pr-head" data-popen="${esc(p.id)}">
         <span class="ps-av" style="background:var(--steel)">${esc(((p.first[0]||"")+(p.last[0]||"")).toUpperCase())}</span>
         <div style="flex:1;min-width:0">
           <div class="pr-name">${esc(p.first+" "+p.last)} ${tag}</div>
           <div class="pr-sub">${esc(sub)}${p.email?` · ${esc(p.email)}`:" · no email"}</div>
+          <div class="pr-seen ${seenCls}"><i></i>${esc(lastSeenText(p.lastSeen))}</div>
         </div>
         <span class="pr-chev">${open?"▾":"▸"}</span>
       </div>
@@ -1485,12 +1512,16 @@ function renderPeople(){
           <button class="share-btn" data-psave="${esc(p.id)}" style="margin:0">Save</button>
         </div>
         <div class="pr-note">An <b>@arctic.biz</b> email allows every page by default. Tapping a page above sets it explicitly and overrides that.${custom?` <button class="perm-reset" data-permreset="${esc(p.id)}">Reset to default</button>`:""}</div>
+        <div class="pr-lbl" style="margin-top:12px">Last opened the website</div>
+        <div class="pr-seenfull">${p.lastSeen?esc(new Date(p.lastSeen).toLocaleString()):"Never — this person hasn't opened the site on any device."}</div>
         <div class="pr-hash">#${esc(personalHashFor(p))}</div>
       </div>`:""}
     </div>`;
   };
-  list.innerHTML=`<div style="font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px;color:var(--steel);margin:0 0 4px">${sorted.length} ${sorted.length===1?"person":"people"}</div>
-    <div style="font-size:11.5px;color:var(--steel);margin-bottom:10px">Tap a name to set which pages they can open.</div>`
+  const week=sorted.filter(p=>p.lastSeen && Date.now()-p.lastSeen < 7*86400000).length;
+  const never=sorted.filter(p=>!p.lastSeen).length;
+  list.innerHTML=`<div style="font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px;color:var(--steel);margin:0 0 4px">${sorted.length} ${sorted.length===1?"person":"people"} · ${week} this week${never?` · ${never} never`:""}</div>
+    <div style="font-size:11.5px;color:var(--steel);margin-bottom:10px">Tap a name to set which pages they can open. The line under each name is the last time they opened the website.</div>`
     + (sorted.length?sorted.map(row).join(""):`<div class="sub-empty">No people yet. Add someone above.</div>`);
 }
 onActivate($("pp_add"),async()=>{ const f=$("pp_first").value.trim(),l=$("pp_last").value.trim(),em=$("pp_email").value.trim(); if(!f||!l){toast("Enter first and last name");return;} if(em&&!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");return;} if(!fbReady){toast("No connection");return;} const id=personId(f,l); try{ await setDoc(doc(db,"people",id),{first:f,last:l,nameNorm:nameNorm(f,l),email:em,updatedAt:serverTimestamp()},{merge:true}); $("pp_first").value="";$("pp_last").value="";$("pp_email").value=""; toast("Saved "+f); setTimeout(renderPeople,400); }catch(e){toast("Failed: "+(e.code||e.message));} });
@@ -4096,6 +4127,10 @@ async function wdMarkEquip(docId, patch){ if(!fbReady)return; try{ await setDoc(
 /* ---------- Init ---------- */
 renderWho(); renderFeed(); renderJobs(); renderDeliveries();
 syncAppbarH();
+// Record the visit on open, and again when the tab is brought back after a while. Both go through
+// the 15-minute throttle, so tabbing in and out costs nothing.
+touchLastSeen();
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) touchLastSeen(); });
 window.addEventListener("resize",syncAppbarH);
 if(window.ResizeObserver){ const _ab=document.querySelector(".appbar"); if(_ab) new ResizeObserver(syncAppbarH).observe(_ab); }
 if(typeof wdUpdateLights==="function") wdUpdateLights();

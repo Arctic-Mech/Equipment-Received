@@ -84,6 +84,15 @@
   .pr-sub{font-size:11.5px;color:var(--steel);margin-top:1px}
   .pr-chev{color:var(--steel-light);font-size:12px}
   .pr-body{padding:4px 0 14px 4px}
+  /* Last-seen line. The dot carries the answer at a glance -- green today, amber this week,
+     grey after that, hollow for never -- so the admin can scan the column without reading it. */
+  .pr-seen{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;margin-top:3px;color:var(--steel)}
+  .pr-seen i{width:7px;height:7px;border-radius:50%;flex:none;background:var(--steel-light)}
+  .pr-seen.today{color:var(--green)} .pr-seen.today i{background:var(--green)}
+  .pr-seen.week{color:var(--amber)}  .pr-seen.week i{background:var(--amber)}
+  .pr-seen.stale{color:var(--steel)} .pr-seen.stale i{background:var(--steel-light)}
+  .pr-seen.never{color:var(--steel-light)} .pr-seen.never i{background:none;box-shadow:inset 0 0 0 1.5px var(--steel-light)}
+  .pr-seenfull{font-size:12.5px;color:var(--ink-soft);font-family:'JetBrains Mono'}
   .pr-lbl{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:11px;color:var(--steel);margin-bottom:6px}
   .pr-perms{display:flex;flex-wrap:wrap;gap:6px}
   .perm-btn{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.03em;font-size:12px;padding:8px 12px;border-radius:9px;border:1px solid var(--line)}
