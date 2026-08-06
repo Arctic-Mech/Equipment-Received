@@ -232,6 +232,7 @@
       <button class="sub-pill" data-safety="training">Training</button>
       <button class="sub-pill" data-safety="sds">SDS</button>
       <button class="sub-pill" data-safety="drug">Drug Cards</button>
+      <button class="sub-pill" data-safety="ptp">PTP</button>
     </div>
 
     <div class="safety-pane active" id="safety-points">
@@ -262,6 +263,19 @@
         <input class="sf-search" id="sfSdsSearch" type="search" placeholder="Search chemical, vendor, use…" autocomplete="off">
       </div>
       <div id="sfSdsList"></div>
+    </div>
+
+    <div class="safety-pane" id="safety-ptp">
+      <div class="sf-head">
+        <div class="sf-title"><h2>Pre-Task Plans</h2><div class="sf-meta" id="ptpMeta">—</div></div>
+      </div>
+      <div class="ptp-pick" id="ptpPick"></div>
+      <div class="ptp-bar">
+        <button class="ptp-btn primary" id="ptpPdf">⬇ Export PDF</button>
+        <button class="ptp-btn" id="ptpClear">Clear all</button>
+        <span class="ptp-saved" id="ptpSaved"></span>
+      </div>
+      <form id="ptpForm" autocomplete="off"></form>
     </div>
 
     <div class="safety-pane" id="safety-drug">
@@ -594,6 +608,7 @@
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>
