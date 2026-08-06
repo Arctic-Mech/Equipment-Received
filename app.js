@@ -9,6 +9,7 @@ import { getFirestore, initializeFirestore, persistentLocalCache, persistentMult
 import { $ } from "./dom.js";
 import { idbOpen, idbSet, idbGet, idbDel, idbKeys } from "./idb.js";
 import { toast, copyToClipboard } from "./toast.js";
+import { PTP_TEMPLATES, ptpBlank, ptpLoad, ptpSave, ptpWipe, ptpFormHTML, ptpCollect, ptpPdf, ptpFileName } from "./ptp.js";
 import { esc, normJob, isRealJob, makeId, fmtDateKey, MON, rowDate, longDate,
          todayIso, monthKey, monthLabel, rateChips, money, lastSeenText } from "./format.js";
 
@@ -2587,11 +2588,141 @@ function renderSfSds(){
   }).join("")+`</div>`;
 }
 
+/* ---------- Pre-Task Plans ----------
+   Two templates behind one renderer; see ptp.js for the specs and the PDF. Everything here is
+   wiring: pick a template, keep what was typed, hand it to the PDF writer. */
+let PTP_KIND=(()=>{ try{ return localStorage.getItem("ptp_kind")==="arch"?"arch":"standard"; }catch(e){ return "standard"; } })();
+let PTP_DATA=null, ptpSaveTimer=null;
+
+function ptpTpl(){ return PTP_TEMPLATES[PTP_KIND]||PTP_TEMPLATES.standard; }
+function ptpSavedNote(msg,bad){ const el=$("ptpSaved"); if(!el)return; el.textContent=msg||""; el.classList.toggle("bad",!!bad); }
+// One place that both persists and reports, so a failed write can never be reported as "Saved"
+// (private browsing and a full quota both throw, and losing a plan silently is the worst outcome).
+function ptpPersist(note){
+  const ok=ptpSave(ptpTpl(),PTP_DATA);
+  ptpSavedNote(ok?(note||"Saved"):"NOT saved — this device is out of storage",!ok);
+  return ok;
+}
+
+function renderPtp(){
+  const wrap=$("ptpForm"); if(!wrap) return;
+  const t=ptpTpl();
+  if(!PTP_DATA || PTP_DATA.tpl!==t.key) PTP_DATA=ptpLoad(t);
+  $("ptpPick").innerHTML=Object.values(PTP_TEMPLATES).map(x=>
+    `<button type="button" class="ptp-tab ${x.key===t.key?"on":""}" data-ptpkind="${esc(x.key)}">
+       <b>${esc(x.label)}</b><i>${esc(x.blurb)}</i></button>`).join("");
+  $("ptpMeta").textContent=`${t.label} · saved on this device`;
+  wrap.innerHTML=ptpFormHTML(t,PTP_DATA);
+  // lockDateInputs() runs once at boot; this form is built long after, so its date fields would
+  // otherwise be the only ones in the app that accept typed-in text.
+  if(typeof lockDateInputs==="function") lockDateInputs();
+}
+
+// Typing saves, but not on every keystroke -- localStorage writes are synchronous and would
+// stutter a cheap phone mid-sentence.
+function ptpTouch(){
+  clearTimeout(ptpSaveTimer);
+  ptpSaveTimer=setTimeout(()=>{
+    ptpSaveTimer=null;
+    ptpCollect($("ptpForm"),PTP_DATA);
+    ptpPersist();
+  },400);
+}
+/* The debounce means the last few hundred milliseconds of typing live only in the DOM. A phone
+   backgrounded mid-sentence would drop them, so write immediately when the page goes away. */
+function ptpFlush(){
+  if(!ptpSaveTimer) return;
+  clearTimeout(ptpSaveTimer); ptpSaveTimer=null;
+  if(!PTP_DATA||!$("ptpForm")) return;
+  ptpCollect($("ptpForm"),PTP_DATA); ptpSave(ptpTpl(),PTP_DATA);
+}
+document.addEventListener("visibilitychange",()=>{ if(document.hidden) ptpFlush(); });
+window.addEventListener("pagehide",ptpFlush);
+
+// Document-level, so it fires for typing anywhere in the app. Both guards matter: the closest()
+// check keeps it off other forms, and PTP_DATA is null until the pane has been opened once.
+document.addEventListener("input",e=>{ if(PTP_DATA && e.target.closest && e.target.closest("#ptpForm")) ptpTouch(); });
+
+document.addEventListener("click",e=>{
+  if(!$("ptpForm")) return;
+  const pick=e.target.closest("[data-ptpkind]");
+  if(pick){
+    // Collect before switching or the half-typed form is lost with no undo.
+    clearTimeout(ptpSaveTimer); ptpSaveTimer=null;   // a queued save would fire against the NEW template
+    if(PTP_DATA){ ptpCollect($("ptpForm"),PTP_DATA); ptpSave(ptpTpl(),PTP_DATA); }
+    PTP_KIND=pick.dataset.ptpkind; try{ localStorage.setItem("ptp_kind",PTP_KIND); }catch(err){}
+    PTP_DATA=null; renderPtp(); ptpSavedNote(""); return;
+  }
+  if(!PTP_DATA) return;                      // nothing below is reachable before the pane renders
+  const yn=e.target.closest("[data-yn]");
+  if(yn){
+    const [i,v]=yn.dataset.yn.split("|");
+    ptpCollect($("ptpForm"),PTP_DATA);
+    const now=PTP_DATA.answers["q"+i]===v?"":v;                 // tapping the same answer clears it
+    PTP_DATA.answers["q"+i]=now;
+    // Patch in place rather than re-rendering: a full rebuild of a form this long loses the
+    // caret, the scroll position and any textarea that had been dragged taller.
+    yn.parentElement.querySelectorAll(".yn").forEach(b=>
+      b.classList.toggle("on", b.dataset.yn.split("|")[1]===now));
+    ptpPersist(); return;
+  }
+  const chk=e.target.closest("[data-chk]");
+  if(chk){
+    ptpCollect($("ptpForm"),PTP_DATA);
+    const k="c"+chk.dataset.chk, on=!PTP_DATA.checks[k];
+    PTP_DATA.checks[k]=on;
+    chk.classList.toggle("on",on);
+    const bx=chk.querySelector(".bx"); if(bx) bx.textContent=on?"\u2713":"";
+    ptpPersist(); return;
+  }
+  const add=e.target.closest("[data-add]");
+  if(add){
+    ptpCollect($("ptpForm"),PTP_DATA);
+    const w=add.dataset.add;
+    if(w==="crew") PTP_DATA.crew.push("","","");
+    else PTP_DATA[w].push(["","",""]);
+    ptpPersist(); renderPtp(); return;
+  }
+  const del=e.target.closest("[data-delrow]");
+  if(del){
+    const [w,i]=del.dataset.delrow.split("|");
+    ptpCollect($("ptpForm"),PTP_DATA);
+    const row=PTP_DATA[w][Number(i)]||[];
+    if(row.some(x=>String(x||"").trim()) && !confirm("Remove this row?\n\nWhat you typed in it is deleted.")) return;
+    if(PTP_DATA[w].length>1) PTP_DATA[w].splice(Number(i),1); else PTP_DATA[w][0]=["","",""];
+    ptpPersist(); renderPtp(); return;
+  }
+});
+
+$("ptpClear").addEventListener("click",()=>{
+  if(!PTP_DATA) return;
+  const t=ptpTpl();
+  if(!confirm(`Clear the whole ${t.label}?\n\nEverything typed into this form is erased, including the saved copy on this device. This can't be undone.`)) return;
+  clearTimeout(ptpSaveTimer); ptpSaveTimer=null;   // else a queued save puts it all straight back
+  ptpWipe(t); PTP_DATA=ptpBlank(t); renderPtp(); ptpSavedNote("Cleared"); toast(t.label+" cleared");
+});
+
+$("ptpPdf").addEventListener("click",()=>{
+  if(!PTP_DATA) return;
+  const t=ptpTpl();
+  const lib=window.jspdf&&window.jspdf.jsPDF;
+  if(!lib){ toast("PDF writer didn't load. Check your connection and retry."); return; }
+  clearTimeout(ptpSaveTimer); ptpSaveTimer=null;
+  ptpCollect($("ptpForm"),PTP_DATA); ptpSave(t,PTP_DATA);
+  try{
+    const logo=document.querySelector(".brand img");
+    const doc=ptpPdf(lib,t,PTP_DATA,logo?logo.src:null);
+    doc.save(ptpFileName(t,PTP_DATA));
+    toast("PDF saved");
+  }catch(err){ console.error("ptp pdf",err); toast("Couldn't build the PDF: "+(err.message||err)); }
+});
+
 // Sub-tab pills + searches
 document.querySelectorAll("[data-safety]").forEach(b=>b.addEventListener("click",()=>{
   SF_TAB=b.dataset.safety;
   document.querySelectorAll("[data-safety]").forEach(x=>x.classList.toggle("active",x===b));
   document.querySelectorAll(".safety-pane").forEach(p=>p.classList.toggle("active",p.id==="safety-"+SF_TAB));
+  if(SF_TAB==="ptp") renderPtp();
   window.scrollTo(0,0);
 }));
 document.querySelectorAll("[data-trainfilter]").forEach(b=>b.addEventListener("click",()=>{
