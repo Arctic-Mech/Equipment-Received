@@ -20,6 +20,8 @@ export async function getDoc(ref){
    that renders from its own snapshot (the shared PTP pool) looks broken in tests while working
    in production -- the write was recorded but nothing ever told the UI about it. */
 const docWatchers = [];
+// Lets a suite push a document change the way another device would.
+if(typeof window!=="undefined") window.__echoDoc=(coll,id,data)=>echo(coll,id,data);
 function echo(coll, id, data){
   const s = (window.__SEED = window.__SEED || {});
   const c = (s[coll] = s[coll] || {});
@@ -28,7 +30,20 @@ function echo(coll, id, data){
     .forEach(w => { try{ w.cb({ exists:()=>true, data:()=>c[id], id, metadata:{fromCache:false} }); }catch(e){} });
 }
 
+/* Lets a suite reproduce a Firestore client the SDK has terminated. Both wordings are real:
+   the JS SDK reports "failed-precondition" from some entry points and "The client has already
+   been terminated." from others, which is why the app had to recognise both. */
+function killIfAsked(){
+  const m = window.__FB_KILL;
+  if(!m) return;
+  const e = new Error(m === "precondition" ? "The operation could not be completed"
+                                           : "The client has already been terminated.");
+  e.code = m === "precondition" ? "failed-precondition" : "failed-precondition";
+  throw e;
+}
+
 export async function setDoc(ref, data){
+  killIfAsked();
   window.__WRITES = window.__WRITES || [];
   window.__WRITES.push({op:"set", coll:ref.__coll, id:ref.__id, data});
   echo(ref.__coll, ref.__id, data);
@@ -39,7 +54,7 @@ export async function deleteDoc(ref){
   window.__WRITES.push({op:"del", coll:ref.__coll, id:ref.__id});
   return;
 }
-export function writeBatch(){ return {
+export function writeBatch(){ killIfAsked(); return {
   set(ref,data){ (window.__WRITES=window.__WRITES||[]).push({op:"set",coll:ref.__coll,id:ref.__id,data}); },
   delete(ref){ (window.__WRITES=window.__WRITES||[]).push({op:"del",coll:ref.__coll,id:ref.__id}); },
   async commit(){} }; }
