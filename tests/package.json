@@ -1,0 +1,11 @@
+{
+  "name": "equipment-received-tests",
+  "private": true,
+  "type": "module",
+  "description": "Browser suites for the Equipment Received app. Serve the repo itself -- never a copy.",
+  "scripts": {
+    "setup": "./setup.sh",
+    "test": "./run.sh"
+  },
+  "devDependencies": { "playwright": "^1.47.0" }
+}

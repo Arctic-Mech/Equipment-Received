@@ -9,11 +9,19 @@ import { getFirestore, initializeFirestore, persistentLocalCache, persistentMult
 import { $ } from "./dom.js";
 import { idbOpen, idbSet, idbGet, idbDel, idbKeys } from "./idb.js";
 import { toast, copyToClipboard } from "./toast.js";
-import { PTP_TEMPLATES, ptpBlank, ptpLoad, ptpSave, ptpWipe, ptpFormHTML, ptpCollect, ptpPdf, ptpFileName } from "./ptp.js";
+import { PTP_TEMPLATES, ptpBlank, ptpLoad, ptpSave, ptpWipe, ptpFormHTML, ptpCollect, ptpPdf, ptpFileName,
+         ptpQuestions, ptpCircleItems, ptpAttList, ptpAttAdd, ptpAttDel, ptpAttClear, ptpMerge } from "./ptp.js";
 import { esc, normJob, isRealJob, makeId, fmtDateKey, MON, rowDate, longDate,
          todayIso, monthKey, monthLabel, rateChips, money, lastSeenText } from "./format.js";
 
-if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+/* pdf.js now loads async, so it usually is NOT here yet when this module runs. Set the worker
+   path at the moment of use instead, and let callers ask whether the library actually arrived. */
+function pdfReady(){
+  if(!window.pdfjsLib) return false;
+  if(!pdfjsLib.GlobalWorkerOptions.workerSrc)
+    pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  return true;
+}
 
 const firebaseConfig={apiKey:"AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",authDomain:"equipment-received.firebaseapp.com",projectId:"equipment-received",storageBucket:"equipment-received.firebasestorage.app",messagingSenderId:"164676400073",appId:"1:164676400073:web:552cc0e3dcc8e06951ae18"};
 let db=null,fbReady=false;
@@ -261,7 +269,7 @@ const APP_VERSION="7.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":s==="cache"?"cache":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":s==="cache"?"Saved data":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
-  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
+  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",deliveredBy:v.deliveredBy||"",deliveredMarkedOn:v.deliveredMarkedOn||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
 
   /* ---- Connection badge ----
      This used to hang off the arrivals listener, which is why it could sit on "Saved data"
@@ -283,6 +291,9 @@ function startSync(){
     e=>{ console.error("sync probe", e); setSync("err"); });
   onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("rentList",e.code);});
   onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("toolList",e.code);});
+  onSnapshot(doc(db,"config","ptpPool"),d=>{ PTP_POOL=d.exists()?(d.data()||{}):{};
+    if(SF_TAB==="ptp" && $("ptpForm") && $("ptpForm").innerHTML) renderPtp(); },
+    e=>console.error("ptpPool",e));
   onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>console.error("pdfmeta",e));
   onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null,lastSeen:tsMs(v.lastSeen)});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>console.error("people",e));
   onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>console.error("shares",e));
@@ -350,7 +361,7 @@ function arrivalRow(r,opts={}){
   const hasPhoto=!!r.photoBy;
   const cam=`<button class="mini-btn cam ${hasPhoto?'has':''}" data-cam="${esc(r.id)}" title="${hasPhoto?'Photo by '+esc(r.photoBy):'Add photo'}"><svg width="17" height="17" viewBox="0 0 24 24" fill="${hasPhoto?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></button>`;
   const deliv=`<button class="mini-btn deliv-btn ${r.delivered?'set':''}" data-deliv="${esc(r.id)}" title="${r.delivered?'Delivered '+esc(longDate(r.deliveredDate)):r.reqDeliv?'Requested '+esc(longDate(r.reqDeliv)):'Delivery'}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></button>`;
-  const place = r.delivered ? `<span class="m deliv">✓ Delivered${r.deliveredDate?" "+esc(longDate(r.deliveredDate).split(",")[0]):""}</span>`
+  const place = r.delivered ? `<span class="m deliv">✓ Delivered${r.deliveredDate?" "+esc(longDate(r.deliveredDate).split(",")[0]):""}</span>`+markedByChip(r)
     : r.reqDeliv ? `<span class="m reqd">Req ${esc(longDate(r.reqDeliv).split(",")[0])}</span>`
     : r.storageLocation ? `<span class="m loc">📍 ${esc(r.storageLocation)}</span>`
     : `<span class="m none">—</span>`;
@@ -422,6 +433,27 @@ function refreshMonths(){
   fill($("mjMonth"),[...new Set(mjKeys.filter(Boolean))].sort().reverse());
 }
 
+/* ---------- How much of a list to put in the DOM ----------
+   These lists render straight into the document, so their length IS the app's performance
+   ceiling. Measured at 12,000 arrivals: an uncapped merged My Jobs list produced 470,000 DOM
+   nodes and a 12-second tab switch on a phone. The cap is what keeps a five-year-old database
+   usable. Raising it is one tap and the total is always stated, so nothing is hidden silently.
+   The counter resets itself when the filters change -- derived from a signature rather than
+   from every handler remembering, because one day a new handler would forget. */
+const PAGE_STEP=200;
+let feedShown=PAGE_STEP, feedSig=null, mjShown=PAGE_STEP, mjSig=null, delShown=PAGE_STEP, delSig=null;
+function pageBump(which){
+  if(which==="feed"){ feedShown+=PAGE_STEP; renderFeed(); }
+  else if(which==="del"){ delShown+=PAGE_STEP; renderDeliveries(); }
+  else { mjShown+=PAGE_STEP; renderJobs(); }
+}
+function moreBtn(which,shown,total){
+  if(total<=shown) return "";
+  const left=total-shown;
+  return `<button type="button" class="show-more" data-showmore="${which}">
+    Show ${Math.min(PAGE_STEP,left)} more <i>${shown.toLocaleString()} of ${total.toLocaleString()}</i></button>`;
+}
+
 /* ---------- Render: Arrivals ---------- */
 function renderFeed(){
   if(typeof renderAutoImport==="function") renderAutoImport();
@@ -436,10 +468,9 @@ function renderFeed(){
   if(!ARRIVALS.length){ list.innerHTML=`<div class="empty"><div class="ico">📦</div><h3>No arrivals yet</h3><p>Once Bobby logs equipment or imports the master sheet, it shows here.</p></div>`; $("feedMeta").textContent="0 arrivals"; return; }
   if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing found${month?` in ${monthLabel(month)}`:""}${q?` for "${esc(q)}"`:""}.</p></div>`; $("feedMeta").textContent="0 shown"; return; }
   $("feedMeta").innerHTML=(q||month)?`<b>${rows.length}</b> of ${ARRIVALS.length.toLocaleString()} arrivals`:`<b>${ARRIVALS.length.toLocaleString()}</b> arrivals`;
-  const LIMIT=600,slice=rows.slice(0,LIMIT);
-  let html=slice.map(r=>arrivalRow(r)).join("");
-  if(rows.length>LIMIT) html+=`<div class="empty" style="padding:24px"><p>Showing ${LIMIT} of ${rows.length.toLocaleString()}. Pick a month or search to narrow.</p></div>`;
-  list.innerHTML=html;
+  const sig=q+"\u0000"+month;
+  if(sig!==feedSig){ feedSig=sig; feedShown=PAGE_STEP; }   // a new filter starts from the top again
+  list.innerHTML=rows.slice(0,feedShown).map(r=>arrivalRow(r)).join("")+moreBtn("feed",feedShown,rows.length);
 }
 
 /* ---------- Render: Rentals (grouped by job, collapsible) ---------- */
@@ -777,10 +808,14 @@ function renderJobs(){
       ? `<span class="mj-jtag">${esc(MJ_SEL)}</span><b>${esc(selName)}</b>`
       : `<b>All my jobs</b><span class="mj-mh-sub">newest first</span>`}</div>
      <div class="mj-mh-c"><span><b>${items.length}</b> ${items.length===1?seg.one:seg.plural}</span>${MJ_SEL?`<button class="mj-showall" data-mjpick="">← All jobs</button>`:""}</div>`;
+  const mjKey=[MJ_SEL,mjSeg,month,sq].join("\u0000");
+  if(mjKey!==mjSig){ mjSig=mjKey; mjShown=PAGE_STEP; }
+  const shown=items.slice(0,mjShown);
   $("mjItems").innerHTML = items.length
     // compact hides an arrival card's job badge and name, which is right when one job is picked
     // and the header already says which — but in the merged list that's the thing you need most.
-    ? `<div class="${mjSeg==="arrivals"?"rows":"tlines"}">${items.map(r=>seg.row(r,{star:true,compact:!!MJ_SEL,job:!MJ_SEL,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`
+    ? `<div class="${mjSeg==="arrivals"?"rows":"tlines"}">${shown.map(r=>seg.row(r,{star:true,compact:!!MJ_SEL,job:!MJ_SEL,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`
+      + moreBtn("jobs",mjShown,items.length)
     : `<div class="sub-empty">No ${seg.plural}${sq?" match your search":month?" this month":MJ_SEL?" on this job":" on your jobs"} yet.</div>`;
   renderMjBar({
     mode:"normal",
@@ -959,6 +994,7 @@ document.addEventListener("click",e=>{
   const save=e.target.closest("[data-savejob]"); if(save){ const j=save.dataset.savejob; MY_JOBS.includes(j)?removeJob(j):addJob(j); return; }
   const addb=e.target.closest("[data-addjob]"); if(addb){ addJob(addb.dataset.addjob); return; }
   const rem=e.target.closest("[data-removejob]"); if(rem){ e.stopPropagation(); removeJob(rem.dataset.removejob); return; }
+  const more=e.target.closest("[data-showmore]"); if(more){ e.stopPropagation(); pageBump(more.dataset.showmore); return; }
   const cam=e.target.closest("[data-cam]"); if(cam){ e.stopPropagation(); openCamera(cam.dataset.cam); return; }
   const dv=e.target.closest("[data-deliv]"); if(dv){ e.stopPropagation(); openDeliv(dv.dataset.deliv); return; }
   const pj=e.target.closest("[data-pdfjob]"); if(pj){ e.stopPropagation(); openPdfAt(pj.dataset.pdfjob); return; }
@@ -991,6 +1027,8 @@ document.addEventListener("click",e=>{
 });
 // Keyboard equivalents for the job rows, which are divs so they can hold their own buttons.
 document.addEventListener("keydown",e=>{
+  const pa=e.key==="Enter"&&e.target.closest&&e.target.closest("[data-pooladd]");
+  if(pa){ e.preventDefault(); const v=pa.value; pa.value=""; ptpPoolAdd(pa.dataset.pooladd,v); return; }
   if(e.key==="Escape"&&MJ_SHEET){ mjSheet(null,false); return; }
   if(e.key!=="Enter"&&e.key!==" ")return;
   const open=e.target.closest&&e.target.closest("[data-mjopen]");
@@ -1401,8 +1439,16 @@ async function saveDeliv(clear){
   if(!delivTarget)return; if(!fbReady){toast("No Firebase connection");return;}
   const btn=$("delivSubmit"); btn.disabled=true; btn.textContent="Saving…";
   let payload;
-  if(clear) payload={reqDeliv:"",delivered:false,deliveredDate:"",partial:false,deliveryDate:""};
-  else { const delivered=$("d_delivered").checked; payload={reqDeliv:$("d_req").value||"",delivered,deliveredDate:delivered?($("d_date").value||todayIso()):"",partial:$("d_partial").checked,deliveryDate:delivered?($("d_date").value||todayIso()):""}; }
+  const was=ARRIVALS.find(x=>x.id===delivTarget);
+  if(clear) payload={reqDeliv:"",delivered:false,deliveredDate:"",partial:false,deliveryDate:"",deliveredBy:"",deliveredMarkedOn:""};
+  else {
+    const delivered=$("d_delivered").checked;
+    payload={reqDeliv:$("d_req").value||"",delivered,deliveredDate:delivered?($("d_date").value||todayIso()):"",partial:$("d_partial").checked,deliveryDate:delivered?($("d_date").value||todayIso()):""};
+    // Stamp only on the transition. Re-saving to fix a typo in the delivery date must not
+    // rewrite who marked it -- that record is the point of keeping it.
+    if(delivered && !(was&&was.delivered)) payload={...payload,deliveredBy:whoLabel(),deliveredMarkedOn:todayIso()};
+    else if(!delivered) payload={...payload,deliveredBy:"",deliveredMarkedOn:""};
+  }
   try{ await setDoc(doc(db,"arrivals",delivTarget),{...payload,updatedAt:serverTimestamp()},{merge:true}); closeModal("delivModal"); toast(clear?"Delivery info cleared":"Delivery saved"); delivTarget=clear?null:delivTarget; }
   catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
   finally{ btn.disabled=false; btn.textContent="Save"; }
@@ -1449,7 +1495,7 @@ async function wdDoPair(partial){
     // local day, matching what the manual delivery modal already writes.
     let schedDate=""; if(schedIso){ const d=new Date(schedIso); if(!isNaN(d)) schedDate=fmtDateKey(d); }
     if(!schedDate) schedDate=todayIso();
-    try{ await setDoc(doc(db,"arrivals",arrivalId),{delivered:true,deliveredDate:schedDate,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error(e); }
+    try{ await setDoc(doc(db,"arrivals",arrivalId),{delivered:true,deliveredDate:schedDate,deliveredBy:whoLabel(),deliveredMarkedOn:todayIso(),updatedAt:serverTimestamp()},{merge:true}); }catch(e){ console.error(e); }
     toast(partial?"Delivered (partial)":"Marked delivered");
   } else {
     toast(partial?"Paired (partial)":"Paired with arrival");
@@ -1530,6 +1576,24 @@ document.addEventListener("click",async e=>{ const sv=e.target.closest("[data-ps
 
 /* ---------- Deliveries page ---------- */
 $("delSearch").addEventListener("input",renderDeliveries); $("delClr").addEventListener("click",()=>{$("delSearch").value="";renderDeliveries();});
+/* "Jaren E." -- enough to know who without a full name eating the row. Falls back to a plain
+   marker rather than an empty string, so a stamp always says something. */
+function whoLabel(){
+  if(!USER) return "someone";
+  const f=(USER.first||"").trim(), l=(USER.last||"").trim();
+  return (f+(l?" "+l[0]+".":"")).trim()||"someone";
+}
+// "marked by Jaren E., 8/7/26" -- who pressed the button and when they pressed it, which is
+// separate from the delivery date itself and is the part nobody can reconstruct afterwards.
+function markedByChip(r){
+  if(!r.delivered || !(r.deliveredBy||r.deliveredMarkedOn)) return "";
+  const on=r.deliveredMarkedOn?shortDate(r.deliveredMarkedOn):"";
+  return `<span class="m markedby">marked by ${esc(r.deliveredBy||"someone")}${on?", "+esc(on):""}</span>`;
+}
+function shortDate(iso){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||""));
+  return m?`${+m[2]}/${+m[3]}/${m[1].slice(2)}`:String(iso||"");
+}
 function delivIconsFor(r){
   const hasPhoto=!!r.photoBy;
   const cam=`<button class="mini-btn cam ${hasPhoto?'has':''}" data-cam="${esc(r.id)}" title="${hasPhoto?'Photo by '+esc(r.photoBy):'Add photo'}"><svg width="17" height="17" viewBox="0 0 24 24" fill="${hasPhoto?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></button>`;
@@ -1538,7 +1602,7 @@ function delivIconsFor(r){
   const cpy=`<button class="mini-btn ac-copy" data-copyname="${esc(r.description||"")}" title="Copy arrival name">Copy Name</button>`;
   return cpy+cam+shr+deliv;
 }
-function deliveryRow(r){ const job=normJob(r.jobNumber); return `<div class="acard open" data-type="arrival" data-id="${esc(r.id)}"><div class="acard-head" style="cursor:default"><div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div><div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div><div class="ac-icons">${delivIconsFor(r)}</div><div class="ac-desc">${esc(r.description)||""}</div><div class="ac-foot">${r.delivered?`<span class="m deliv">✓ Delivered${r.deliveredDate?" "+esc(longDate(r.deliveredDate).split(",")[0]):""}</span>`:`<span class="m reqd">Requested ${esc(longDate(r.reqDeliv).split(",")[0])}</span>`}${r.partial?'<span class="m partial">⚠ Partial</span>':""}${r.storageLocation?`<span class="m loc">📍 ${esc(r.storageLocation)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}</div></div></div>`; }
+function deliveryRow(r){ const job=normJob(r.jobNumber); return `<div class="acard open" data-type="arrival" data-id="${esc(r.id)}"><div class="acard-head" style="cursor:default"><div class="ac-job"><span class="jobbadge ${isRealJob(job)?'':'na'}">${esc(isRealJob(job)?job:"—")}</span></div><div class="ac-name">${esc(r.jobName)||'<span style="color:var(--steel-light)">No job name</span>'}</div><div class="ac-icons">${delivIconsFor(r)}</div><div class="ac-desc">${esc(r.description)||""}</div><div class="ac-foot">${r.delivered?`<span class="m deliv">✓ Delivered${r.deliveredDate?" "+esc(longDate(r.deliveredDate).split(",")[0]):""}</span>`+markedByChip(r):`<span class="m reqd">Requested ${esc(longDate(r.reqDeliv).split(",")[0])}</span>`}${r.partial?'<span class="m partial">⚠ Partial</span>':""}${r.storageLocation?`<span class="m loc">📍 ${esc(r.storageLocation)}</span>`:""}${r.photoBy?`<span class="m loc">📷 ${esc(r.photoBy)}</span>`:""}</div></div></div>`; }
 
 /* ---------- Deliveries calendar ---------- */
 let arrCalYear, arrCalMonth, arrCalSelDay=null, arrViewMode="list";
@@ -1975,7 +2039,12 @@ function renderDeliveries(){
   let html="";
   html+=`<div class="del-section"><h3>Orders <span class="cnt">${orders.length}</span></h3>${orders.length?orders.map(wdOrderCard).join(""):`<div class="sub-empty">No orders match this filter.</div>`}</div>`;
   if(req.length) html+=`<div class="del-section"><h3>Arrival deliveries requested <span class="cnt">${req.length}</span></h3>${req.map(deliveryRow).join("")}</div>`;
-  if(done.length) html+=`<div class="del-section"><h3>Delivered <span class="cnt">${done.length}</span></h3>${done.map(deliveryRow).join("")}</div>`;
+  // Delivered is the one list here with no natural ceiling -- an arrival stays delivered forever,
+  // so without a cap this section is the whole history of the company, rendered every time.
+  const dsig=q+"\u0000"+calShipFilter;
+  if(dsig!==delSig){ delSig=dsig; delShown=PAGE_STEP; }
+  if(done.length) html+=`<div class="del-section"><h3>Delivered <span class="cnt">${done.length}</span></h3>`
+    +done.slice(0,delShown).map(deliveryRow).join("")+moreBtn("del",delShown,done.length)+`</div>`;
   list.innerHTML=html;
   wdLoadArrivalThumbs();
 }
@@ -2593,6 +2662,10 @@ function renderSfSds(){
    wiring: pick a template, keep what was typed, hand it to the PDF writer. */
 let PTP_KIND=(()=>{ try{ return localStorage.getItem("ptp_kind")==="arch"?"arch":"standard"; }catch(e){ return "standard"; } })();
 let PTP_DATA=null, ptpSaveTimer=null;
+/* The shared pool of extra questions and checklist items, in one Firestore document so that
+   adding one on a phone in the field puts it on everyone else's form too. Shape:
+   { standard:{questions:[..],circle:[..]}, arch:{...} } */
+let PTP_POOL={}, PTP_ATTS=[];
 
 function ptpTpl(){ return PTP_TEMPLATES[PTP_KIND]||PTP_TEMPLATES.standard; }
 function ptpSavedNote(msg,bad){ const el=$("ptpSaved"); if(!el)return; el.textContent=msg||""; el.classList.toggle("bad",!!bad); }
@@ -2612,10 +2685,60 @@ function renderPtp(){
     `<button type="button" class="ptp-tab ${x.key===t.key?"on":""}" data-ptpkind="${esc(x.key)}">
        <b>${esc(x.label)}</b><i>${esc(x.blurb)}</i></button>`).join("");
   $("ptpMeta").textContent=`${t.label} · saved on this device`;
-  wrap.innerHTML=ptpFormHTML(t,PTP_DATA);
+  wrap.innerHTML=ptpFormHTML(t,PTP_DATA,PTP_POOL);
+  renderPtpAtts();
   // lockDateInputs() runs once at boot; this form is built long after, so its date fields would
   // otherwise be the only ones in the app that accept typed-in text.
   if(typeof lockDateInputs==="function") lockDateInputs();
+}
+
+/* ---- attachments ---- */
+const attSize=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
+async function renderPtpAtts(){
+  const box=$("ptpAtts"); if(!box) return;
+  PTP_ATTS=await ptpAttList(ptpTpl());
+  box.innerHTML=`<div class="ptp-h">Files to send with the plan</div>
+    <div class="ptp-attlist">${PTP_ATTS.length?PTP_ATTS.map(a=>
+      `<div class="ptp-att"><span class="ico">${/pdf/i.test(a.type)||/\.pdf$/i.test(a.name)?"📄":"🖼"}</span>
+        <span class="nm">${esc(a.name)}</span><span class="sz">${attSize(a.size)}</span>
+        <button type="button" class="ptp-del" data-attdel="${esc(a.id)}" title="Remove this file">✕</button></div>`).join("")
+      :`<div class="ptp-attempty">Nothing attached. Drawings, SDS sheets or photos added here are printed after the plan, in one PDF.</div>`}</div>
+    <label class="ptp-add as-label">+ Add a file<input type="file" id="ptpAttFile" accept="application/pdf,image/png,image/jpeg" multiple hidden></label>`;
+  const inp=$("ptpAttFile");
+  if(inp) inp.addEventListener("change",async e=>{
+    const files=[...(e.target.files||[])];
+    for(const f of files){
+      // A phone photo is a few MB and IndexedDB copes; a 200MB scan is a mistake, not a plan.
+      if(f.size>40*1048576){ toast(`${f.name} is too big (${attSize(f.size)}). 40 MB max.`); continue; }
+      try{ await ptpAttAdd(ptpTpl(),f); }catch(err){ console.error("ptp att",err); toast("Couldn't save "+f.name); }
+    }
+    e.target.value=""; renderPtpAtts();
+  });
+}
+
+/* ---- the shared pool ---- */
+async function ptpPoolAdd(which,text){
+  const t=ptpTpl(), v=String(text||"").trim();
+  if(!v) return;
+  if(v.length>200){ toast("That's too long for a checklist line"); return; }
+  const list=which==="questions"?ptpQuestions(t,PTP_POOL):ptpCircleItems(t,PTP_POOL);
+  if(list.some(i=>i.text.toLowerCase()===v.toLowerCase())){ toast("That's already on the list"); return; }
+  if(!fbReady){ toast("No connection — can't share that with everyone yet"); return; }
+  const cur=(PTP_POOL[t.key]&&PTP_POOL[t.key][which])||[];
+  try{
+    await setDoc(doc(db,"config","ptpPool"),{[t.key]:{...(PTP_POOL[t.key]||{}),[which]:[...cur,v]}},{merge:true});
+    toast("Added for everyone");
+  }catch(e){ console.error("ptpPool",e); toast("Couldn't save that: "+(e.code||e.message)); }
+}
+async function ptpPoolRemove(which,text){
+  const t=ptpTpl();
+  if(!confirm(`Remove "${text}" from the ${which==="questions"?"question":"checklist"} list?\n\nIt disappears for everyone, on every future plan. Built-in items from the company form can't be removed.`)) return;
+  const cur=(PTP_POOL[t.key]&&PTP_POOL[t.key][which])||[];
+  try{
+    await setDoc(doc(db,"config","ptpPool"),
+      {[t.key]:{...(PTP_POOL[t.key]||{}),[which]:cur.filter(x=>String(x).trim()!==text)}},{merge:true});
+    toast("Removed");
+  }catch(e){ console.error("ptpPool",e); toast("Couldn't remove that"); }
 }
 
 // Typing saves, but not on every keystroke -- localStorage writes are synchronous and would
@@ -2654,12 +2777,23 @@ document.addEventListener("click",e=>{
     PTP_DATA=null; renderPtp(); ptpSavedNote(""); return;
   }
   if(!PTP_DATA) return;                      // nothing below is reachable before the pane renders
+  const pgo=e.target.closest("[data-poolgo]");
+  if(pgo){
+    const which=pgo.dataset.poolgo;
+    const box=$("ptpForm").querySelector(`[data-pooladd="${which}"]`);
+    if(box){ const v=box.value; box.value=""; ptpPoolAdd(which,v); }
+    return;
+  }
+  const prm=e.target.closest("[data-poolrm]");
+  if(prm){ const [which,txt]=prm.dataset.poolrm.split("|"); ptpPoolRemove(which,txt); return; }
+  const adel=e.target.closest("[data-attdel]");
+  if(adel){ ptpAttDel(ptpTpl(),adel.dataset.attdel).then(renderPtpAtts); return; }
   const yn=e.target.closest("[data-yn]");
   if(yn){
     const [i,v]=yn.dataset.yn.split("|");
     ptpCollect($("ptpForm"),PTP_DATA);
-    const now=PTP_DATA.answers["q"+i]===v?"":v;                 // tapping the same answer clears it
-    PTP_DATA.answers["q"+i]=now;
+    const now=PTP_DATA.answers[i]===v?"":v;                     // tapping the same answer clears it
+    PTP_DATA.answers[i]=now;
     // Patch in place rather than re-rendering: a full rebuild of a form this long loses the
     // caret, the scroll position and any textarea that had been dragged taller.
     yn.parentElement.querySelectorAll(".yn").forEach(b=>
@@ -2669,7 +2803,7 @@ document.addEventListener("click",e=>{
   const chk=e.target.closest("[data-chk]");
   if(chk){
     ptpCollect($("ptpForm"),PTP_DATA);
-    const k="c"+chk.dataset.chk, on=!PTP_DATA.checks[k];
+    const k=chk.dataset.chk, on=!PTP_DATA.checks[k];
     PTP_DATA.checks[k]=on;
     chk.classList.toggle("on",on);
     const bx=chk.querySelector(".bx"); if(bx) bx.textContent=on?"\u2713":"";
@@ -2699,7 +2833,11 @@ $("ptpClear").addEventListener("click",()=>{
   const t=ptpTpl();
   if(!confirm(`Clear the whole ${t.label}?\n\nEverything typed into this form is erased, including the saved copy on this device. This can't be undone.`)) return;
   clearTimeout(ptpSaveTimer); ptpSaveTimer=null;   // else a queued save puts it all straight back
-  ptpWipe(t); PTP_DATA=ptpBlank(t); renderPtp(); ptpSavedNote("Cleared"); toast(t.label+" cleared");
+  ptpWipe(t); PTP_DATA=ptpBlank(t);
+  // "Clear all" has to mean all of it, attachments included -- otherwise last week's drawings
+  // ride along on next week's plan.
+  ptpAttClear(t).catch(()=>{}).then(()=>{ renderPtp(); ptpSavedNote("Cleared"); });
+  toast(t.label+" cleared");
 });
 
 $("ptpPdf").addEventListener("click",()=>{
@@ -2709,12 +2847,29 @@ $("ptpPdf").addEventListener("click",()=>{
   if(!lib){ toast("PDF writer didn't load. Check your connection and retry."); return; }
   clearTimeout(ptpSaveTimer); ptpSaveTimer=null;
   ptpCollect($("ptpForm"),PTP_DATA); ptpSave(t,PTP_DATA);
-  try{
-    const logo=document.querySelector(".brand img");
-    const doc=ptpPdf(lib,t,PTP_DATA,logo?logo.src:null);
-    doc.save(ptpFileName(t,PTP_DATA));
-    toast("PDF saved");
-  }catch(err){ console.error("ptp pdf",err); toast("Couldn't build the PDF: "+(err.message||err)); }
+  const btn=$("ptpPdf"); const label=btn.textContent;
+  btn.disabled=true; btn.textContent="Building…";
+  (async()=>{
+    try{
+      const logo=document.querySelector(".brand img");
+      const doc=ptpPdf(lib,t,PTP_DATA,logo?logo.src:null,PTP_POOL);
+      const atts=await ptpAttList(t);
+      if(!atts.length){ doc.save(ptpFileName(t,PTP_DATA)); toast("PDF saved"); return; }
+      // Attachments are merged, not appended by hand: pdf-lib copies the pages so a drawing
+      // stays vector and searchable instead of becoming a screenshot of itself.
+      const PDFLib=window.PDFLib;
+      if(!PDFLib){ doc.save(ptpFileName(t,PTP_DATA));
+        toast("Saved the plan, but the merge tool didn't load — attachments left out"); return; }
+      const { bytes, skipped }=await ptpMerge(PDFLib,doc.output("arraybuffer"),atts);
+      const url=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
+      const a=document.createElement("a"); a.href=url; a.download=ptpFileName(t,PTP_DATA);
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),4000);
+      toast(skipped.length?`PDF saved — couldn't read ${skipped.join(", ")}`
+                          :`PDF saved with ${atts.length} attached file${atts.length===1?"":"s"}`);
+    }catch(err){ console.error("ptp pdf",err); toast("Couldn't build the PDF: "+(err.message||err)); }
+    finally{ btn.disabled=false; btn.textContent=label; }
+  })();
 });
 
 // Sub-tab pills + searches
@@ -3046,7 +3201,7 @@ async function handleSfFile(kind,file){
     const parts=[];        // [{kind, label, docs, dropped}]
     if(kind==="sds") parts.push({kind:"sds",label:"SDS sheets",...prep("sds",parseSdsWorkbook(buf))});
     else if(kind==="points"){
-      if(!window.pdfjsLib) throw new Error("PDF reader didn't load. Check your connection and retry.");
+      if(!pdfReady()) throw new Error("PDF reader didn't load. Check your connection and retry.");
       parts.push({kind:"points",label:"employees",...prep("points",parseSafetyPointsPdf(await sfPdfRows(buf)))});
     } else {
       // The training log and the drug cards ride in the same workbook, so one drop fills both.
@@ -3137,7 +3292,7 @@ async function handleExcel(file){
 async function handlePdf(file){
   const body=$("importBody"); body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Reading PDF…</h4><p>${esc(file.name)}</p></div>`;
   if(!fbReady){ body.innerHTML=stageErr("No Firebase connection."); return; }
-  if(!window.pdfjsLib){ body.innerHTML=stageErr("PDF reader didn't load. Check your connection and retry."); return; }
+  if(!pdfReady()){ body.innerHTML=stageErr("PDF reader didn't load. Check your connection and retry."); return; }
   try{
     const buf=await file.arrayBuffer();
     const {items,pageMap,pages}=await parseToolPdf(buf.slice(0));
@@ -3158,7 +3313,7 @@ function abToB64(buf){ let bin=""; const bytes=new Uint8Array(buf),chunk=0x8000;
 
 /* ---------- PDF viewer (verify a job in the tool report) ---------- */
 async function openPdfAt(job){
-  if(!window.pdfjsLib){ toast("PDF reader didn't load"); return; }
+  if(!pdfReady()){ toast("PDF reader didn't load"); return; }
   if(!PDF_META){ toast("No tool report uploaded yet"); return; }
   if(PDF_META.tooBig){ toast("PDF too large to store"); return; }
   const page=(PDF_META.pageMap&&PDF_META.pageMap[job])||1;

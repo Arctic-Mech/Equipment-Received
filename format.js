@@ -27,11 +27,46 @@ function makeId(parts){ const key=parts.join("|").toLowerCase(); let h=5381; for
 const monIdx=n=>MON.findIndex(m=>m.toLowerCase()===String(n).slice(0,3).toLowerCase())+1;
 function fmtDateKey(d){ if(!d)return""; if(d instanceof Date&&!isNaN(d))return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); const s=String(d).trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return m[1]+"-"+m[2].padStart(2,"0")+"-"+m[3].padStart(2,"0"); m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(m){let y=m[3];if(y.length===2)y="20"+y;return y+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");} m=s.match(/([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})/); if(m&&monIdx(m[1]))return String(Number(m[3])).padStart(4,"0")+"-"+String(monIdx(m[1])).padStart(2,"0")+"-"+String(Number(m[2])).padStart(2,"0"); m=s.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?\s*,?\s*(\d{4})/); if(m&&monIdx(m[2]))return String(Number(m[3])).padStart(4,"0")+"-"+String(monIdx(m[2])).padStart(2,"0")+"-"+String(Number(m[1])).padStart(2,"0"); return""; }
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function rowDate(iso){ if(!iso)return{top:"—",bot:""}; const[y,mo,da]=iso.split("-").map(Number); const d=new Date(y,mo-1,da); if(isNaN(d))return{top:iso,bot:""}; const today=new Date(); today.setHours(0,0,0,0); const diff=Math.round((today-d)/86400000); const top=MON[mo-1]+" "+da; if(diff===0)return{top,bot:"Today",rel:true}; if(diff===1)return{top,bot:"Yesterday",rel:true}; if(diff>=2&&diff<=6)return{top,bot:diff+" days ago",rel:true}; return{top,bot:String(y)}; }
-function longDate(iso){ if(!iso)return""; const[y,mo,da]=iso.split("-").map(Number); if(!mo)return iso; return MON[mo-1]+" "+da+", "+y; }
+/* These four are handed values straight out of Firestore, and Firestore holds whatever the
+   importer or a hand-edit put there -- a renamed spreadsheet column has already produced an Excel
+   serial NUMBER in a date cell. `iso.split` on a number throws and takes the whole render with it,
+   so every one of them coerces first and degrades to showing the raw cell rather than crashing.
+   isoParts also rejects dates Date() would silently roll forward (2026-02-31 -> Mar 3), which is
+   how "undefined 45" used to reach the screen.
+   Not part of the contract_check contract -- only normJob, fmtDateKey and makeId are pinned to
+   email_import.py -- so these are free to be stricter than their Python counterparts. */
+const ISO_RE = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
+function isoParts(v){
+  const m = ISO_RE.exec(String(v == null ? "" : v).trim());
+  if(!m) return null;
+  const y = +m[1], mo = +m[2], da = +m[3];
+  if(mo < 1 || mo > 12 || da < 1 || da > 31) return null;
+  const d = new Date(y, mo - 1, da);
+  if(d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== da) return null;
+  return { y, mo, da, d };
+}
+const rawStr = v => String(v == null ? "" : v).trim();
+function rowDate(iso){
+  const raw = rawStr(iso);
+  if(!raw) return { top:"—", bot:"" };
+  const p = isoParts(raw);
+  if(!p) return { top: raw, bot:"" };
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((today - p.d) / 86400000);
+  const top = MON[p.mo - 1] + " " + p.da;
+  if(diff === 0) return { top, bot:"Today", rel:true };
+  if(diff === 1) return { top, bot:"Yesterday", rel:true };
+  if(diff >= 2 && diff <= 6) return { top, bot: diff + " days ago", rel:true };
+  return { top, bot: String(p.y) };
+}
+function longDate(iso){ const p = isoParts(iso); return p ? MON[p.mo - 1] + " " + p.da + ", " + p.y : rawStr(iso); }
+function monthKey(iso){ const p = isoParts(iso); return p ? p.y + "-" + String(p.mo).padStart(2,"0") : ""; }
+function monthLabel(k){
+  const m = /^(\d{4})-(\d{1,2})$/.exec(rawStr(k));
+  return (m && +m[2] >= 1 && +m[2] <= 12) ? MON[+m[2] - 1] + " " + m[1] : rawStr(k);
+}
 function todayIso(){ return fmtDateKey(new Date()); }
-function monthKey(iso){ return iso?iso.slice(0,7):""; }
-function monthLabel(k){ const[y,m]=k.split("-").map(Number); return MON[m-1]+" "+y; }
+
 // Daily/Weekly/Monthly are assigned by POSITION, so only label a split rate when every part is
 // actually a number. The Rate column is free text, and "$310/wk" would otherwise render as
 // Daily $310 / Weekly "wk". Anything that isn't a clean 2-3 number split falls through to the

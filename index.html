@@ -275,6 +275,7 @@
         <button class="ptp-btn" id="ptpClear">Clear all</button>
         <span class="ptp-saved" id="ptpSaved"></span>
       </div>
+      <div class="ptp-sec" id="ptpAtts"></div>
       <form id="ptpForm" autocomplete="off"></form>
     </div>
 
@@ -606,9 +607,15 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- async on purpose. These three are only needed when someone imports a spreadsheet, opens the
+     tool-report PDF, or exports a PTP -- none of which happens on the first screen. Left blocking,
+     a jobsite with bad signal shows a blank app until the CDN times out, because the module below
+     waits for DOMContentLoaded and DOMContentLoaded waits for these. Every use site already checks
+     that its library arrived and says so plainly if it did not. -->
+<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>
