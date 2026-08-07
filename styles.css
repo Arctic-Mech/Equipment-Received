@@ -545,6 +545,16 @@
     .ptp-yn .yn{flex:1}
   }
 
+  .show-more{display:flex;flex-direction:column;align-items:center;gap:2px;width:calc(100% - 28px);
+    margin:10px 14px 4px;min-height:52px;padding:10px;border:1.5px dashed var(--steel-light);border-radius:11px;
+    background:var(--card);font-family:'Barlow Condensed';font-weight:700;font-size:15px;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--ink)}
+  .show-more i{font-style:normal;font-family:'Inter';font-weight:500;font-size:11.5px;letter-spacing:0;
+    text-transform:none;color:var(--steel)}
+  .show-more:active{background:var(--line-soft)}
+  .show-more:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+  .mj-main .show-more{width:100%;margin:10px 0 4px}
+
   /* ---------- Admin ---------- */
   .admin-lock{padding:40px 24px;text-align:center;max-width:380px;margin:0 auto}
   .admin-lock .lockico{width:62px;height:62px;border-radius:16px;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:var(--hivis)}

@@ -606,9 +606,14 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- async on purpose. These three are only needed when someone imports a spreadsheet, opens the
+     tool-report PDF, or exports a PTP -- none of which happens on the first screen. Left blocking,
+     a jobsite with bad signal shows a blank app until the CDN times out, because the module below
+     waits for DOMContentLoaded and DOMContentLoaded waits for these. Every use site already checks
+     that its library arrived and says so plainly if it did not. -->
+<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

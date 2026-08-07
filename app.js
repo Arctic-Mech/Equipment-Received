@@ -13,7 +13,14 @@ import { PTP_TEMPLATES, ptpBlank, ptpLoad, ptpSave, ptpWipe, ptpFormHTML, ptpCol
 import { esc, normJob, isRealJob, makeId, fmtDateKey, MON, rowDate, longDate,
          todayIso, monthKey, monthLabel, rateChips, money, lastSeenText } from "./format.js";
 
-if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+/* pdf.js now loads async, so it usually is NOT here yet when this module runs. Set the worker
+   path at the moment of use instead, and let callers ask whether the library actually arrived. */
+function pdfReady(){
+  if(!window.pdfjsLib) return false;
+  if(!pdfjsLib.GlobalWorkerOptions.workerSrc)
+    pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  return true;
+}
 
 const firebaseConfig={apiKey:"AIzaSyBwf2lyLcJWz8qfuEHn76-tIbOm117Tltg",authDomain:"equipment-received.firebaseapp.com",projectId:"equipment-received",storageBucket:"equipment-received.firebasestorage.app",messagingSenderId:"164676400073",appId:"1:164676400073:web:552cc0e3dcc8e06951ae18"};
 let db=null,fbReady=false;
@@ -422,6 +429,27 @@ function refreshMonths(){
   fill($("mjMonth"),[...new Set(mjKeys.filter(Boolean))].sort().reverse());
 }
 
+/* ---------- How much of a list to put in the DOM ----------
+   These lists render straight into the document, so their length IS the app's performance
+   ceiling. Measured at 12,000 arrivals: an uncapped merged My Jobs list produced 470,000 DOM
+   nodes and a 12-second tab switch on a phone. The cap is what keeps a five-year-old database
+   usable. Raising it is one tap and the total is always stated, so nothing is hidden silently.
+   The counter resets itself when the filters change -- derived from a signature rather than
+   from every handler remembering, because one day a new handler would forget. */
+const PAGE_STEP=200;
+let feedShown=PAGE_STEP, feedSig=null, mjShown=PAGE_STEP, mjSig=null, delShown=PAGE_STEP, delSig=null;
+function pageBump(which){
+  if(which==="feed"){ feedShown+=PAGE_STEP; renderFeed(); }
+  else if(which==="del"){ delShown+=PAGE_STEP; renderDeliveries(); }
+  else { mjShown+=PAGE_STEP; renderJobs(); }
+}
+function moreBtn(which,shown,total){
+  if(total<=shown) return "";
+  const left=total-shown;
+  return `<button type="button" class="show-more" data-showmore="${which}">
+    Show ${Math.min(PAGE_STEP,left)} more <i>${shown.toLocaleString()} of ${total.toLocaleString()}</i></button>`;
+}
+
 /* ---------- Render: Arrivals ---------- */
 function renderFeed(){
   if(typeof renderAutoImport==="function") renderAutoImport();
@@ -436,10 +464,9 @@ function renderFeed(){
   if(!ARRIVALS.length){ list.innerHTML=`<div class="empty"><div class="ico">📦</div><h3>No arrivals yet</h3><p>Once Bobby logs equipment or imports the master sheet, it shows here.</p></div>`; $("feedMeta").textContent="0 arrivals"; return; }
   if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing found${month?` in ${monthLabel(month)}`:""}${q?` for "${esc(q)}"`:""}.</p></div>`; $("feedMeta").textContent="0 shown"; return; }
   $("feedMeta").innerHTML=(q||month)?`<b>${rows.length}</b> of ${ARRIVALS.length.toLocaleString()} arrivals`:`<b>${ARRIVALS.length.toLocaleString()}</b> arrivals`;
-  const LIMIT=600,slice=rows.slice(0,LIMIT);
-  let html=slice.map(r=>arrivalRow(r)).join("");
-  if(rows.length>LIMIT) html+=`<div class="empty" style="padding:24px"><p>Showing ${LIMIT} of ${rows.length.toLocaleString()}. Pick a month or search to narrow.</p></div>`;
-  list.innerHTML=html;
+  const sig=q+"\u0000"+month;
+  if(sig!==feedSig){ feedSig=sig; feedShown=PAGE_STEP; }   // a new filter starts from the top again
+  list.innerHTML=rows.slice(0,feedShown).map(r=>arrivalRow(r)).join("")+moreBtn("feed",feedShown,rows.length);
 }
 
 /* ---------- Render: Rentals (grouped by job, collapsible) ---------- */
@@ -777,10 +804,14 @@ function renderJobs(){
       ? `<span class="mj-jtag">${esc(MJ_SEL)}</span><b>${esc(selName)}</b>`
       : `<b>All my jobs</b><span class="mj-mh-sub">newest first</span>`}</div>
      <div class="mj-mh-c"><span><b>${items.length}</b> ${items.length===1?seg.one:seg.plural}</span>${MJ_SEL?`<button class="mj-showall" data-mjpick="">← All jobs</button>`:""}</div>`;
+  const mjKey=[MJ_SEL,mjSeg,month,sq].join("\u0000");
+  if(mjKey!==mjSig){ mjSig=mjKey; mjShown=PAGE_STEP; }
+  const shown=items.slice(0,mjShown);
   $("mjItems").innerHTML = items.length
     // compact hides an arrival card's job badge and name, which is right when one job is picked
     // and the header already says which — but in the merged list that's the thing you need most.
-    ? `<div class="${mjSeg==="arrivals"?"rows":"tlines"}">${items.map(r=>seg.row(r,{star:true,compact:!!MJ_SEL,job:!MJ_SEL,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`
+    ? `<div class="${mjSeg==="arrivals"?"rows":"tlines"}">${shown.map(r=>seg.row(r,{star:true,compact:!!MJ_SEL,job:!MJ_SEL,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`
+      + moreBtn("jobs",mjShown,items.length)
     : `<div class="sub-empty">No ${seg.plural}${sq?" match your search":month?" this month":MJ_SEL?" on this job":" on your jobs"} yet.</div>`;
   renderMjBar({
     mode:"normal",
@@ -959,6 +990,7 @@ document.addEventListener("click",e=>{
   const save=e.target.closest("[data-savejob]"); if(save){ const j=save.dataset.savejob; MY_JOBS.includes(j)?removeJob(j):addJob(j); return; }
   const addb=e.target.closest("[data-addjob]"); if(addb){ addJob(addb.dataset.addjob); return; }
   const rem=e.target.closest("[data-removejob]"); if(rem){ e.stopPropagation(); removeJob(rem.dataset.removejob); return; }
+  const more=e.target.closest("[data-showmore]"); if(more){ e.stopPropagation(); pageBump(more.dataset.showmore); return; }
   const cam=e.target.closest("[data-cam]"); if(cam){ e.stopPropagation(); openCamera(cam.dataset.cam); return; }
   const dv=e.target.closest("[data-deliv]"); if(dv){ e.stopPropagation(); openDeliv(dv.dataset.deliv); return; }
   const pj=e.target.closest("[data-pdfjob]"); if(pj){ e.stopPropagation(); openPdfAt(pj.dataset.pdfjob); return; }
@@ -1975,7 +2007,12 @@ function renderDeliveries(){
   let html="";
   html+=`<div class="del-section"><h3>Orders <span class="cnt">${orders.length}</span></h3>${orders.length?orders.map(wdOrderCard).join(""):`<div class="sub-empty">No orders match this filter.</div>`}</div>`;
   if(req.length) html+=`<div class="del-section"><h3>Arrival deliveries requested <span class="cnt">${req.length}</span></h3>${req.map(deliveryRow).join("")}</div>`;
-  if(done.length) html+=`<div class="del-section"><h3>Delivered <span class="cnt">${done.length}</span></h3>${done.map(deliveryRow).join("")}</div>`;
+  // Delivered is the one list here with no natural ceiling -- an arrival stays delivered forever,
+  // so without a cap this section is the whole history of the company, rendered every time.
+  const dsig=q+"\u0000"+calShipFilter;
+  if(dsig!==delSig){ delSig=dsig; delShown=PAGE_STEP; }
+  if(done.length) html+=`<div class="del-section"><h3>Delivered <span class="cnt">${done.length}</span></h3>`
+    +done.slice(0,delShown).map(deliveryRow).join("")+moreBtn("del",delShown,done.length)+`</div>`;
   list.innerHTML=html;
   wdLoadArrivalThumbs();
 }
@@ -3046,7 +3083,7 @@ async function handleSfFile(kind,file){
     const parts=[];        // [{kind, label, docs, dropped}]
     if(kind==="sds") parts.push({kind:"sds",label:"SDS sheets",...prep("sds",parseSdsWorkbook(buf))});
     else if(kind==="points"){
-      if(!window.pdfjsLib) throw new Error("PDF reader didn't load. Check your connection and retry.");
+      if(!pdfReady()) throw new Error("PDF reader didn't load. Check your connection and retry.");
       parts.push({kind:"points",label:"employees",...prep("points",parseSafetyPointsPdf(await sfPdfRows(buf)))});
     } else {
       // The training log and the drug cards ride in the same workbook, so one drop fills both.
@@ -3137,7 +3174,7 @@ async function handleExcel(file){
 async function handlePdf(file){
   const body=$("importBody"); body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Reading PDF…</h4><p>${esc(file.name)}</p></div>`;
   if(!fbReady){ body.innerHTML=stageErr("No Firebase connection."); return; }
-  if(!window.pdfjsLib){ body.innerHTML=stageErr("PDF reader didn't load. Check your connection and retry."); return; }
+  if(!pdfReady()){ body.innerHTML=stageErr("PDF reader didn't load. Check your connection and retry."); return; }
   try{
     const buf=await file.arrayBuffer();
     const {items,pageMap,pages}=await parseToolPdf(buf.slice(0));
@@ -3158,7 +3195,7 @@ function abToB64(buf){ let bin=""; const bytes=new Uint8Array(buf),chunk=0x8000;
 
 /* ---------- PDF viewer (verify a job in the tool report) ---------- */
 async function openPdfAt(job){
-  if(!window.pdfjsLib){ toast("PDF reader didn't load"); return; }
+  if(!pdfReady()){ toast("PDF reader didn't load"); return; }
   if(!PDF_META){ toast("No tool report uploaded yet"); return; }
   if(PDF_META.tooBig){ toast("PDF too large to store"); return; }
   const page=(PDF_META.pageMap&&PDF_META.pageMap[job])||1;
