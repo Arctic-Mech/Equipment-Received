@@ -75,6 +75,13 @@ function fbSaveMsg(e){
   return (e&&(e.code||e.message))||String(e);
 }
 
+/* Lowercase anything for searching. Every field on a record comes from Firestore, and Firestore
+   does not promise types: a PO of "0012" typed into a spreadsheet cell arrives as the number 12,
+   and `(12||"").toLowerCase()` throws. Because that throw happens inside renderFeed, it aborted
+   renderAll() and every list on the page stopped updating -- one odd cell, whole app frozen,
+   but only while a search term was present, which made it look random. */
+const lc = v => v == null ? "" : String(v).toLowerCase();
+
 /* ---------- State ---------- */
 let ARRIVALS=[],RENTALS=[],TOOLS=[];
 let MY_JOBS=[];                     // solely Firebase-synced via people/{id} — never cached locally
@@ -275,7 +282,7 @@ function autoLinkOrderedJobs(){
   for(const o of WD_ORDERS){
     const job=normJob(o.job); if(!isRealJob(job)) continue;
     if(MY_JOBS.includes(job)||REMOVED_JOBS.has(job)) continue;
-    if((o.orderedByEmail||"").toLowerCase()===myEmail){ MY_JOBS.push(job); added=true; }
+    if(lc(o.orderedByEmail)===myEmail){ MY_JOBS.push(job); added=true; }
   }
   if(added) syncUserJobs();
   return added;
@@ -363,7 +370,13 @@ function onPeople(){
   if(firstLoad){ if(autoLinkJobs())changed=true; }   // now that removedJobs is known, it's safe to auto-link
   if(changed) renderJobs();
 }
-function syncUserJobs(){ lastJobEdit=Date.now(); if(!USER||!fbReady)return; try{ setDoc(doc(db,"people",USER.id),{savedJobs:MY_JOBS,removedJobs:[...REMOVED_JOBS],jobOrder:JOB_ORDER,updatedAt:serverTimestamp()},{merge:true}); }catch(e){console.error("syncjobs",e);} }
+/* The userRecordLoaded guard is the important part. merge:true merges FIELDS, not the contents of
+   an array -- savedJobs is replaced wholesale by whatever MY_JOBS holds right now. If the read of
+   people/{id} has not finished (or failed, which is exactly what happens on a weak signal in a
+   basement), MY_JOBS is still the empty array it was initialised to, and this call would hand the
+   server an empty list, deleting every saved job that person had. Writing nothing is always
+   recoverable; writing [] is not. */
+function syncUserJobs(){ lastJobEdit=Date.now(); if(!USER||!fbReady||!userRecordLoaded)return; try{ setDoc(doc(db,"people",USER.id),{savedJobs:MY_JOBS,removedJobs:[...REMOVED_JOBS],jobOrder:JOB_ORDER,updatedAt:serverTimestamp()},{merge:true}); }catch(e){console.error("syncjobs",e);} }
 /* Firestore hands back a Timestamp; a serverTimestamp() that hasn't round-tripped yet reads as
    null from the local cache. Normalise both to plain millis, 0 for "never". */
 function tsMs(v){ if(!v)return 0; if(typeof v==="number")return v; if(typeof v.toMillis==="function")return v.toMillis(); if(v.seconds!=null)return v.seconds*1000; return 0; }
@@ -499,7 +512,7 @@ function renderFeed(){
   $("feedClr").style.display=q?"block":"none";
   let rows=ARRIVALS;
   if(month) rows=rows.filter(r=>monthKey(r.dateReceived)===month);
-  if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.description,r.supplier,r.po,r.requestedBy].some(v=>(v||"").toLowerCase().includes(q)));
+  if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.description,r.supplier,r.po,r.requestedBy].some(v=>lc(v).includes(q)));
   const list=$("feedList");
   if(!ARRIVALS.length){ list.innerHTML=`<div class="empty"><div class="ico">📦</div><h3>No arrivals yet</h3><p>Once Bobby logs equipment or imports the master sheet, it shows here.</p></div>`; $("feedMeta").textContent="0 arrivals"; return; }
   if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>Nothing found${month?` in ${monthLabel(month)}`:""}${q?` for "${esc(q)}"`:""}.</p></div>`; $("feedMeta").textContent="0 shown"; return; }
@@ -538,7 +551,7 @@ function renderRentals(){ if(typeof renderAutoImport==="function")renderAutoImpo
   $("rentClr").style.display=q?"block":"none"; $("pillRent").textContent=(RENTALS.length+TOOLS.length)>999?(Math.floor((RENTALS.length+TOOLS.length)/100)/10)+"k":(RENTALS.length+TOOLS.length);
   let rows=RENTALS;
   if(st) rows=rows.filter(r=> st==="Returned"?/return/i.test(r.status):!/return/i.test(r.status));
-  if(q) rows=rows.filter(r=>[r.rentalId,r.jobNumber,r.jobName,r.equipment,r.vendor,r.orderedBy,r.po].some(v=>(v||"").toLowerCase().includes(q)));
+  if(q) rows=rows.filter(r=>[r.rentalId,r.jobNumber,r.jobName,r.equipment,r.vendor,r.orderedBy,r.po].some(v=>lc(v).includes(q)));
   const list=$("rentList");
   if(!RENTALS.length){ list.innerHTML=`<div class="empty"><div class="ico">🚜</div><h3>No rentals yet</h3><p>Bobby can log a rental from Admin, or import the master sheet.</p></div>`; $("rentMeta").textContent="0 rentals"; return; }
   if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>No rentals match that filter.</p></div>`; $("rentMeta").textContent="0 shown"; return; }
@@ -579,7 +592,7 @@ function renderTools(){ if(typeof renderAutoImport==="function")renderAutoImport
   const asOf=$("toolAsOf"); if(asOf){ const when=PDF_META?fmtTs(PDF_META.uploadedAt):""; if(when){ asOf.style.display="block"; asOf.innerHTML=`As of <b>${esc(when)}</b>, this is the tool rental list${PDF_META.name?` (from ${esc(PDF_META.name)})`:""}.`; } else asOf.style.display="none"; }
   let rows=TOOLS;
   if(st) rows=rows.filter(r=> st==="Returned"?/return/i.test(r.status):!/return/i.test(r.status));
-  if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.toolType,r.toolId].some(v=>(v||"").toLowerCase().includes(q)));
+  if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.toolType,r.toolId].some(v=>lc(v).includes(q)));
   const list=$("toolList");
   if(!TOOLS.length){ list.innerHTML=`<div class="empty"><div class="ico">🔧</div><h3>No tool rentals yet</h3><p>Upload the Webduct tool rental PDF from the Admin tab.</p></div>`; $("toolMeta").textContent="0 tools"; return; }
   if(!rows.length){ list.innerHTML=`<div class="empty"><div class="ico">🔍</div><h3>No matches</h3><p>No tools match that filter.</p></div>`; $("toolMeta").textContent="0 shown"; return; }
@@ -615,7 +628,7 @@ function renderSharePrompts(){
 const ARR_TAG_FIELDS=["description","supplier","po","requestedBy","jobName","storageLocation"];
 const RENT_TAG_FIELDS=["equipment","vendor","rentalId","po","orderedBy"];
 const TOOL_TAG_FIELDS=["toolType","toolId"];
-function tagMatch(r,fields,sq){ return fields.some(f=>(r[f]||"").toLowerCase().includes(sq)); }
+function tagMatch(r,fields,sq){ return fields.some(f=>lc(r[f]).includes(sq)); }
 
 /* ---------- My Jobs ----------
    Split layout: the left pane picks a job, the right pane is the items. With nothing picked the
@@ -729,7 +742,7 @@ function renderJobs(){
 
   const sq=$("jobSearch").value.trim().toLowerCase(),sugWrap=$("jobSuggest");
   $("jobAddBtn").style.display=viewingOther?"none":"";
-  if(sq && !viewingOther){ const matches=[...jobsMap.values()].filter(o=>o.jobNumber.toLowerCase().includes(sq)||(o.jobName||"").toLowerCase().includes(sq)).filter(o=>!jobsList.includes(o.jobNumber)).sort((a,b)=>b.last<a.last?-1:1).slice(0,8); sugWrap.innerHTML=matches.length?matches.map(o=>`<div class="s-item"><span class="sj">${esc(o.jobNumber)}</span><span class="sn">${esc(o.jobName||"—")}</span><button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join(""):`<div class="s-item" style="justify-content:center;color:var(--steel)">No match — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`; } else sugWrap.innerHTML="";
+  if(sq && !viewingOther){ const matches=[...jobsMap.values()].filter(o=>lc(o.jobNumber).includes(sq)||lc(o.jobName).includes(sq)).filter(o=>!jobsList.includes(o.jobNumber)).sort((a,b)=>b.last<a.last?-1:1).slice(0,8); sugWrap.innerHTML=matches.length?matches.map(o=>`<div class="s-item"><span class="sj">${esc(o.jobNumber)}</span><span class="sn">${esc(o.jobName||"—")}</span><button data-addjob="${esc(o.jobNumber)}">+ Save</button></div>`).join(""):`<div class="s-item" style="justify-content:center;color:var(--steel)">No match — tap Save to add "${esc($("jobSearch").value.trim())}" anyway</div>`; } else sugWrap.innerHTML="";
 
   const month=$("mjMonth").value;
   const wrap=$("foldersList"), split=$("mjSplit");
@@ -770,7 +783,7 @@ function renderJobs(){
       if(sq){
         const nm=jobsMap.get(job)?.jobName||items[0]?.jobName||"";
         // Naming the job in the search shows all of it; otherwise the search filters its items.
-        if(!(job.toLowerCase().includes(sq)||nm.toLowerCase().includes(sq)))
+        if(!(lc(job).includes(sq)||lc(nm).includes(sq)))
           items=items.filter(r=>tagMatch(r,seg.tags,sq));
       }
     }
@@ -891,7 +904,7 @@ const FEED_GROUP=["feed","rentals","deliveries"];
 const TAB_VIEWS=["feed","jobs","safety"];
 function personalHashFor(p){ if(!p)return ""; return ((p.first||"")+(p.last||"")).replace(/[^A-Za-z0-9]/g,""); }
 function personalHash(){ return USER?(personalHashFor(USER)||"myjobs"):"myjobs"; }
-function findPersonByHash(h){ if(!h)return null; const hl=h.toLowerCase(); return PEOPLE.find(p=>personalHashFor(p).toLowerCase()===hl); }
+function findPersonByHash(h){ if(!h)return null; const hl=lc(h); return PEOPLE.find(p=>personalHashFor(p).toLowerCase()===hl); }
 function hashForView(name){ if(name==="feed")return "arrivals"; if(name==="jobs")return VIEW_AS?personalHashFor(VIEW_AS):personalHash(); return name; }
 function viewForHash(h){
   if(!h)return null;
@@ -1094,7 +1107,7 @@ function moveJob(job,dir){ const order=MJ_VIEW.slice(); const i=order.indexOf(jo
 /* ---------- Identity (Webduct login primary; name captured once per email) ---------- */
 function renderWho(){ const av=$("whoAv"),nm=$("whoName"); if(!av)return; if(USER){ av.textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); nm.textContent=USER.first; } else { av.textContent="?"; nm.textContent="Sign in"; } if(typeof applyAccess==="function")applyAccess(); }
 function findPersonByName(f,l){ const nn=nameNorm(f,l); return PEOPLE.find(p=>p.nameNorm===nn); }
-function findPersonByEmail(em){ const e=(em||"").trim().toLowerCase(); if(!e)return null; return PEOPLE.find(p=>(p.email||"").trim().toLowerCase()===e); }
+function findPersonByEmail(em){ const e=lc(em).trim(); if(!e)return null; return PEOPLE.find(p=>lc(p.email).trim()===e); }
 
 function openName(){
   $("n_first").value=USER?.first||""; $("n_last").value=USER?.last||"";
@@ -1110,6 +1123,10 @@ function closeName(){ closeModal("nameModal"); }
 async function signInAs(first,last,email,token){
   const existing=findPersonByEmail(email)||findPersonByName(first,last);
   const id=existing?existing.id:personId(first,last);
+  // Same reason as the write below: a blank box must not throw away the address already on file,
+  // or this session runs without the permissions that address grants.
+  const keepEmail=String(email||"").trim()||String((existing&&existing.email)||"").trim();
+  email=keepEmail;
   USER={first,last,email,id}; saveUser();
   // The sign-in write below carries lastSeen, so start the throttle window here.
   lastSeenWrite=Date.now(); try{ localStorage.setItem("er_seen_at",String(lastSeenWrite)); }catch(e){}
@@ -1117,7 +1134,13 @@ async function signInAs(first,last,email,token){
   MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; MJ_SEL=""; userRecordLoaded=false;
   if(fbReady){
     try{
-      await setDoc(doc(db,"people",id),{first,last,nameNorm:nameNorm(first,last),email,lastSeen:serverTimestamp(),updatedAt:serverTimestamp()},{merge:true});
+      /* The email box is optional, and merge:true still overwrites a field that is present in the
+         payload -- so signing in with it blank used to replace a stored @arctic.biz address with
+         "". Permissions are derived from that address, so the person lost access to the whole app
+         by filling the form in the way the form invites. Only send email when there is one. */
+      const rec={first,last,nameNorm:nameNorm(first,last),lastSeen:serverTimestamp(),updatedAt:serverTimestamp()};
+      if(String(email||"").trim()) rec.email=email;
+      await setDoc(doc(db,"people",id),rec,{merge:true});
       const snap=await getDoc(doc(db,"people",id));
       if(snap.exists()){ const me=snap.data();
         MY_JOBS=Array.isArray(me.savedJobs)?me.savedJobs.slice():[];
@@ -1125,12 +1148,17 @@ async function signInAs(first,last,email,token){
         JOB_ORDER=Array.isArray(me.jobOrder)?me.jobOrder.slice():[];
       }
       userRecordLoaded=true;
-    }catch(e){console.error(e); toast("Signed in, but couldn't load your saved jobs");}
-  } else { toast("No connection — your saved jobs can't load right now"); }
+    }catch(e){console.error(e);}
+  }
   const added=autoLinkJobs(); syncUserJobs();
   closeName(); renderWho(); renderAll();
   if($("view-jobs").classList.contains("active")) setView("jobs");
-  toast(added?"Signed in — matching jobs linked":"Signed in");
+  /* Both warnings above used to be raised here and then immediately overwritten by the cheerful
+     "Signed in" that always followed -- so a person whose saved jobs had failed to load was told
+     everything was fine, saw an empty My Jobs, and re-added jobs they already had. Say the one
+     thing that is true. */
+  toast(!userRecordLoaded ? "Signed in — but your saved jobs couldn't load. Check your signal and reload."
+        : added ? "Signed in — matching jobs linked" : "Signed in");
   // Every login triggers an order pull using the shared admin key (loaded from Firebase).
   if(typeof wdAutoSync==="function") setTimeout(()=>wdAutoSync(), 1500);
   applyAccess();
@@ -1548,7 +1576,7 @@ onActivate($("shareLinkCopy"),async()=>{
     toast("Tap and hold the link, then Copy");
   }
 });
-$("shareTo").addEventListener("input",()=>{ const q=$("shareTo").value.trim().toLowerCase(); const sug=$("shareSug"); if(!q){ sug.className="people-sug"; sug.innerHTML=""; return; } const list=PEOPLE.filter(p=>p.id!==USER?.id).filter(p=>(p.first+" "+p.last).toLowerCase().includes(q)||(p.email||"").toLowerCase().includes(q)).slice(0,6); sug.innerHTML=list.length?list.map(p=>`<div class="ps-item" data-sharepick="${esc(p.id)}"><span class="ps-av">${esc(((p.first[0]||"")+(p.last[0]||"")).toUpperCase())}</span><div><div class="ps-name">${esc(p.first+" "+p.last)}</div><div class="ps-email">${esc(p.email||"")}</div></div></div>`).join(""):`<div class="ps-item" style="color:var(--steel)">No one found by that name. Bobby can add people in Admin → Manage People.</div>`; sug.className="people-sug show"; });
+$("shareTo").addEventListener("input",()=>{ const q=$("shareTo").value.trim().toLowerCase(); const sug=$("shareSug"); if(!q){ sug.className="people-sug"; sug.innerHTML=""; return; } const list=PEOPLE.filter(p=>p.id!==USER?.id).filter(p=>(p.first+" "+p.last).toLowerCase().includes(q)||lc(p.email).includes(q)).slice(0,6); sug.innerHTML=list.length?list.map(p=>`<div class="ps-item" data-sharepick="${esc(p.id)}"><span class="ps-av">${esc(((p.first[0]||"")+(p.last[0]||"")).toUpperCase())}</span><div><div class="ps-name">${esc(p.first+" "+p.last)}</div><div class="ps-email">${esc(p.email||"")}</div></div></div>`).join(""):`<div class="ps-item" style="color:var(--steel)">No one found by that name. Bobby can add people in Admin → Manage People.</div>`; sug.className="people-sug show"; });
 document.addEventListener("click",e=>{ const pick=e.target.closest("[data-sharepick]"); if(pick){ createShare(pick.dataset.sharepick); } });
 async function createShare(toId){ const p=PEOPLE.find(x=>x.id===toId); if(!p||!USER||!shareJob){return;} if(!fbReady){toast("No connection");return;} const r=ARRIVALS.find(x=>x.id===shareArrivalId); try{ await setDoc(doc(db,"shares","s-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),{toId,toName:p.first+" "+p.last,fromId:USER.id,fromName:USER.first+" "+USER.last,jobNumber:shareJob,jobName:r?.jobName||"",arrivalId:shareArrivalId,status:"pending",createdAt:serverTimestamp()}); closeModal("shareModal"); toast("Shared with "+p.first); }catch(e){ console.error(e); toast("Share failed: "+(e.code||e.message)); } }
 async function acceptShare(id){ const s=SHARES.find(x=>x.id===id); if(!s)return; addJob(s.jobNumber); if(fbReady){ try{ await setDoc(doc(db,"shares",id),{status:"accepted"},{merge:true}); }catch(e){console.error(e);} } }
@@ -1685,7 +1713,18 @@ function setArrView(mode){
 let calYear, calMonth, calSelDay=null;   // selected day = "YYYY-MM-DD"
 let calDayOpenJob=null;                  // docId of the one order expanded inside the day cell (only one at a time)
 let calSortByTime=false;                 // day view: sort deliveries by earliest delivery time
-function dateKeyLocal(iso){ if(!iso)return ""; const d=new Date(iso); if(isNaN(d))return ""; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+/* "2026-08-10" is a calendar day someone wrote on a sheet, not an instant. new Date() reads a
+   bare date as UTC midnight, and every US timezone is behind UTC, so getDate() came back as the
+   day before -- the Deliveries calendar filed every requested and every completed delivery one
+   day early, all year. Take a bare date as written; only convert when there is a real time in
+   it (the "today" callers pass a full toISOString, and those must still land on the local day). */
+function dateKeyLocal(iso){
+  if(!iso)return "";
+  const s=String(iso).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d=new Date(s); if(isNaN(d))return "";
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
 // Build a map of day-key → {req:[arrivals], done:[arrivals], wd:[equip]} for the visible month.
 // Is this order/job "mine"? (ordered by my email, or on a job I've starred.)
 function wdOrderIsMine(o){
@@ -1777,7 +1816,7 @@ function renderCalendar(){
         const nn=wdNotesFor(first.docId); const t=nn.deliveryTime||""; const tk=nn.truck||"";
         const isPickup=!first.hasEquip && first.shipType!=="jobsite";
         const ic=first.hasEquip?"📦":(first.shipType==="jobsite"?"🚚":"🆙");
-        const jobKey="job|"+nm.toLowerCase();
+        const jobKey="job|"+lc(nm);
         const isOpen=calDayOpenJob===jobKey;
         const orderers=[...new Set(raw.map(cleanName).filter(Boolean))];
         const countTag=raw.length>1?`<span class="cal-jn-count">${raw.length} orders</span>`:"";
@@ -1882,9 +1921,9 @@ async function wdSaveTime(clear){
 // Find the synced WD_EQUIP entry that corresponds to a given order line item (same order #, same label).
 function wdEquipEntryFor(orderNumber, it){
   const num=String(orderNumber);
-  const lbl=(it.label||"").toLowerCase().trim();
-  return WD_EQUIP.find(e=>String(e.orderNumber)===num && (e.label||"").toLowerCase().trim()===lbl)
-      || WD_EQUIP.find(e=>String(e.orderNumber)===num && lbl && (e.notes||"").toLowerCase().includes(lbl));
+  const lbl=lc(it.label).trim();
+  return WD_EQUIP.find(e=>String(e.orderNumber)===num && lc(e.label).trim()===lbl)
+      || WD_EQUIP.find(e=>String(e.orderNumber)===num && lbl && lc(e.notes).includes(lbl));
 }
 // Render the arrival-link state for a single equipment/buyout item: linked → full arrival info + photo;
 // unlinked → a button that opens the same searchable picker used in the equipment list.
@@ -2069,7 +2108,7 @@ function renderDeliveries(){
   // Arrivals (requested / delivered) still shown below, filtered by search.
   let req=ARRIVALS.filter(r=>r.reqDeliv && !r.delivered);
   let done=ARRIVALS.filter(r=>r.delivered);
-  if(q){ const f=r=>[r.jobNumber,r.jobName,r.description,r.supplier].some(v=>(v||"").toLowerCase().includes(q)); req=req.filter(f); done=done.filter(f); }
+  if(q){ const f=r=>[r.jobNumber,r.jobName,r.description,r.supplier].some(v=>lc(v).includes(q)); req=req.filter(f); done=done.filter(f); }
   req.sort((a,b)=>a.reqDeliv<b.reqDeliv?-1:1);
   done.sort((a,b)=>(b.deliveredDate||"")<(a.deliveredDate||"")?-1:1);
   let html="";
@@ -2459,7 +2498,7 @@ async function sfSaveEdit(){
   if("silenced" in data) data.ignored=data.silenced;
   const newId = kind==="points" ? makeId(["sfp",data.name])
     : kind==="training" ? makeId(["sft",data.name,data.course,data.date])
-    : kind==="drug" ? makeId(["sfd",data.name.toLowerCase().replace(/\s+/g," ")])
+    : kind==="drug" ? makeId(["sfd",lc(data.name).replace(/\s+/g," ")])
     : makeId(["sds",data.record||data.product,data.product]);
   try{
     await setDoc(doc(db,sfColl(kind),newId),{...data,source:"admin-edit",updatedAt:serverTimestamp()},{merge:true});
@@ -2484,8 +2523,13 @@ async function sfDeleteEdit(fromModal){
 // Remove a person from the training list entirely — every course they hold, and their drug
 // card. Used when somebody leaves; otherwise their expired rows nag forever.
 async function sfDeletePerson(name){
-  const recs=SF_TRAINING.filter(r=>String(r.name||"").trim()===name);
-  const card=SF_DRUG.find(r=>String(r.name||"").trim().toLowerCase()===name.toLowerCase());
+  /* Both halves have to match the same way. Training was compared case-sensitively and the drug
+     card case-insensitively, so "Remove JOHN SMITH completely" could take John Smith's drug card
+     while leaving all his training rows -- and the count in the prompt described neither. The
+     uploads spell names inconsistently, so case-insensitive is the one that means what it says. */
+  const key=lc(name).trim();
+  const recs=SF_TRAINING.filter(r=>lc(r.name).trim()===key);
+  const card=SF_DRUG.find(r=>lc(r.name).trim()===key);
   const bits=[`${recs.length} training record${recs.length===1?"":"s"}`];
   if(card) bits.push("their drug card");
   if(!confirm(`Remove ${name} completely?\n\nThis deletes ${bits.join(" and ")}.\n\nThis can't be undone.`)) return;
@@ -2635,7 +2679,7 @@ function renderSfTraining(){
     if(SF_TRAIN_FILTER==="expired"  && !g.counts.expired) return false;
     if(SF_TRAIN_FILTER==="silenced" && !g.counts.silenced) return false;
     if(!q) return true;
-    return g.name.toLowerCase().includes(q)
+    return lc(g.name).includes(q)
       || g.recs.some(r=>[r.course,r.instructor,r.notes].some(v=>String(v||"").toLowerCase().includes(q)));
   });
   groups.sort((a,b)=>rank[a.worst]-rank[b.worst] || a.name.localeCompare(b.name));
@@ -3337,8 +3381,14 @@ Object.keys(SF_UPLOADS).forEach(kind=>{
 function dropHTML(kind){ const isPdf=kind==="pdf"; return `<div class="dropzone" id="dropzone"><div class="dz-ico">${isPdf?"🧰":"📄"}</div><h4>${isPdf?"Upload tool report":"Upload master sheet"}</h4><p>${isPdf?'Drop the <b>Webduct Tool Rental</b> PDF here, or pick it from your device.':'Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it.'} Re-importing is safe — duplicates merge.</p><label class="dz-btn">Choose file<input id="fileInput" type="file" accept="${isPdf?'.pdf':'.xlsx,.xlsm,.xls'}" hidden></label></div><div class="field" style="margin-top:16px"><div class="hint">${isPdf?'Reads every job and tool line. Job numbers, dates, days, and rates are pulled automatically.':'Loads every monthly tab into Arrivals, plus the Equipment Rentals tab into Rentals.'}</div></div>`; }
 function wireDrop(kind){ const dz=$("dropzone"),input=$("fileInput"); if(!dz)return; const go=f=>{ if(kind==="pdf")handlePdf(f); else handleExcel(f); }; input.addEventListener("change",()=>{if(input.files[0])go(input.files[0]);}); ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");})); ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");})); dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)go(f);}); }
 
-function parseArrivalSheet(ws,name){ if(/rental/i.test(name))return[]; const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true}); if(!rows.length)return[]; let hIdx=-1; for(let i=0;i<Math.min(rows.length,6);i++){const j=rows[i].map(c=>String(c).toLowerCase()).join("|"); if(j.includes("date received")||(j.includes("job")&&j.includes("description"))){hIdx=i;break;}} if(hIdx<0)hIdx=1; const H=rows[hIdx].map(c=>String(c).toLowerCase()); const col=(...k)=>{for(const x of k){const i=H.findIndex(h=>h.includes(x));if(i>=0)return i;}return -1;}; const cD=col("date received","received"),cP=col("p.o","po","p o"),cJ=col("job#","job #","job num"),cN=col("job name"),cDe=col("description"),cS=col("supplier"),cDl=col("delivery"),cR=col("requested"); const out=[]; for(let i=hIdx+1;i<rows.length;i++){const row=rows[i];const g=x=>x>=0?row[x]:"";const desc=String(g(cDe)||"").trim();const dk=fmtDateKey(g(cD));if(!desc&&!dk)continue;if(!desc&&!String(g(cJ)||"").trim())continue; out.push({dateReceived:dk,po:String(g(cP)||"").trim(),jobNumber:String(g(cJ)||"").trim(),jobName:String(g(cN)||"").trim(),description:desc,supplier:String(g(cS)||"").trim(),deliveryDate:fmtDateKey(g(cDl)),requestedBy:String(g(cR)||"").trim()});} return out; }
-function parseRentalSheet(ws){ const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true}); let hIdx=0; for(let i=0;i<Math.min(rows.length,4);i++){if(rows[i].map(c=>String(c).toLowerCase()).join("|").includes("rental")){hIdx=i;break;}} const out=[]; for(let i=hIdx+1;i<rows.length;i++){const r=rows[i];const rid=String(r[0]||"").trim(),jn=String(r[1]||"").trim(),eq=String(r[2]||"").trim();if(!rid&&!jn&&!eq)continue;const po=String(r[9]||"").trim();const jm=po.match(/(\d{2}-\d{4})/)||jn.match(/(\d{2}-\d{4})/); out.push({rentalId:rid,jobName:jn,equipment:eq,rate:String(r[3]||"").trim(),vendor:String(r[4]||"").trim(),dateRented:fmtDateKey(r[5]),status:/return/i.test(String(r[6]))?"Returned":(String(r[6]||"").trim()||"Renting"),dateReturned:fmtDateKey(r[7]),orderedBy:String(r[8]||"").trim(),po,jobNumber:jm?jm[1]:""});} return out; }
+function parseArrivalSheet(ws,name){ if(/rental/i.test(name))return[]; const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true}); if(!rows.length)return[]; let hIdx=-1; for(let i=0;i<Math.min(rows.length,6);i++){if(!Array.isArray(rows[i]))continue; const j=rows[i].map(c=>String(c).toLowerCase()).join("|"); if(j.includes("date received")||(j.includes("job")&&j.includes("description"))){hIdx=i;break;}} if(hIdx<0)hIdx=1;
+  /* The fallback assumes a header on the second row. A tab with only one row -- a leftover
+     "Notes" sheet, a tab someone cleared out -- has no rows[1], and reading .map off undefined
+     threw before any sheet was processed, so one stray tab killed the entire import rather
+     than being skipped. */
+  if(!Array.isArray(rows[hIdx])) return [];
+  const H=rows[hIdx].map(c=>String(c).toLowerCase()); const col=(...k)=>{for(const x of k){const i=H.findIndex(h=>h.includes(x));if(i>=0)return i;}return -1;}; const cD=col("date received","received"),cP=col("p.o","po","p o"),cJ=col("job#","job #","job num"),cN=col("job name"),cDe=col("description"),cS=col("supplier"),cDl=col("delivery"),cR=col("requested"); const out=[]; for(let i=hIdx+1;i<rows.length;i++){const row=rows[i];if(!row)continue;const g=x=>x>=0?row[x]:"";const desc=String(g(cDe)||"").trim();const dk=fmtDateKey(g(cD));if(!desc&&!dk)continue;if(!desc&&!String(g(cJ)||"").trim())continue; out.push({dateReceived:dk,po:String(g(cP)||"").trim(),jobNumber:String(g(cJ)||"").trim(),jobName:String(g(cN)||"").trim(),description:desc,supplier:String(g(cS)||"").trim(),deliveryDate:fmtDateKey(g(cDl)),requestedBy:String(g(cR)||"").trim()});} return out; }
+function parseRentalSheet(ws){ const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true}); let hIdx=0; for(let i=0;i<Math.min(rows.length,4);i++){if(Array.isArray(rows[i])&&rows[i].map(c=>String(c).toLowerCase()).join("|").includes("rental")){hIdx=i;break;}} const out=[]; for(let i=hIdx+1;i<rows.length;i++){const r=rows[i];if(!r)continue;const rid=String(r[0]||"").trim(),jn=String(r[1]||"").trim(),eq=String(r[2]||"").trim();if(!rid&&!jn&&!eq)continue;const po=String(r[9]||"").trim();const jm=po.match(/(\d{2}-\d{4})/)||jn.match(/(\d{2}-\d{4})/); out.push({rentalId:rid,jobName:jn,equipment:eq,rate:String(r[3]||"").trim(),vendor:String(r[4]||"").trim(),dateRented:fmtDateKey(r[5]),status:/return/i.test(String(r[6]))?"Returned":(String(r[6]||"").trim()||"Renting"),dateReturned:fmtDateKey(r[7]),orderedBy:String(r[8]||"").trim(),po,jobNumber:jm?jm[1]:""});} return out; }
 
 async function handleExcel(file){
   const body=$("importBody"); body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Reading file…</h4><p>${esc(file.name)}</p></div>`;

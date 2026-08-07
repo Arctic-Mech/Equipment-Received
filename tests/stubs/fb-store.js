@@ -13,6 +13,13 @@ export function serverTimestamp(){
   return { toMillis: () => ms, toDate: () => new Date(ms), seconds: Math.floor(ms / 1000), nanoseconds: 0 };
 }
 export async function getDoc(ref){
+  /* Lets a suite reproduce the read failing while the write succeeded -- which is what a phone
+     on one bar in a basement actually does, and the case where the app used to overwrite the
+     server's saved-jobs list with the empty array it had not finished loading into. */
+  if(typeof window!=="undefined" && window.__GET_FAIL){
+    const e=new Error("Failed to get document because the client is offline.");
+    e.code="unavailable"; throw e;
+  }
   const v=(seed()[ref.__coll]||{})[ref.__id];
   return { exists:()=>!!v, data:()=>v||{}, id:ref.__id, metadata:{fromCache:false} };
 }
