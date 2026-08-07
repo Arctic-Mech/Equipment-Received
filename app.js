@@ -39,6 +39,42 @@ try{
   fbReady=true;
 }catch(e){ console.error("FB",e); }
 
+/* ---------- when Firestore dies under us ----------
+   The SDK shuts its own client down if the IndexedDB persistence layer fails -- storage pressure
+   on the origin, a browser evicting data, two tabs disagreeing. After that EVERY call throws, and
+   what the user saw was "Save failed: failed-precondition" or "The client has already been
+   terminated": true, unactionable, and indistinguishable from "the app is broken".
+
+   A terminated client cannot be revived in place; the instance has to be recreated, which for a
+   page this size means a reload. So: recognise the state, say so in plain words, and put the fix
+   one tap away instead of leaving people stuck. */
+let fbDead=false;
+const DEAD_RE=/terminated|failed-precondition|INTERNAL ASSERTION|persistence/i;
+function fbIsDead(e){
+  if(!e) return false;
+  return e.code==="failed-precondition" || DEAD_RE.test(String(e.message||e.code||e));
+}
+function fbNoteError(e,where){
+  console.error("firestore", where||"", e);
+  if(fbDead || !fbIsDead(e)) return;
+  fbDead=true;
+  const bar=document.createElement("div");
+  bar.className="fb-dead";
+  bar.innerHTML=`<span>The connection to the database stopped. Nothing you saved is lost — it just can't reach the server until this page is reloaded.</span>`;
+  const btn=document.createElement("button");
+  btn.textContent="Reload now";
+  btn.addEventListener("click",()=>location.reload());
+  bar.appendChild(btn);
+  document.body.appendChild(bar);
+}
+// Plain-English wrapper for the message shown after a failed write.
+function fbSaveMsg(e){
+  if(fbIsDead(e)) return "the database connection dropped — reload the page and try again";
+  if(e&&e.code==="permission-denied") return "you don't have permission to change that";
+  if(e&&e.code==="unavailable") return "no connection right now — it will save when you're back online";
+  return (e&&(e.code||e.message))||String(e);
+}
+
 /* ---------- State ---------- */
 let ARRIVALS=[],RENTALS=[],TOOLS=[];
 let MY_JOBS=[];                     // solely Firebase-synced via people/{id} — never cached locally
@@ -269,7 +305,7 @@ const APP_VERSION="7.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":s==="cache"?"cache":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":s==="cache"?"Saved data":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
-  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",deliveredBy:v.deliveredBy||"",deliveredMarkedOn:v.deliveredMarkedOn||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; autoLinkJobs(); renderAll(); }, e=>{console.error(e); setSync("err"); showErr("feedList",e.code);});
+  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",deliveredBy:v.deliveredBy||"",deliveredMarkedOn:v.deliveredMarkedOn||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; autoLinkJobs(); renderAll(); }, e=>{fbNoteError(e,"arrivals"); setSync("err"); showErr("feedList",e.code);});
 
   /* ---- Connection badge ----
      This used to hang off the arrivals listener, which is why it could sit on "Saved data"
@@ -288,30 +324,30 @@ function startSync(){
      keeps it current, and one doc costs almost nothing to watch. */
   onSnapshot(doc(db,"config","lastImport"), {includeMetadataChanges:true},
     s=>setSync(s.metadata && s.metadata.fromCache ? "cache" : "live"),
-    e=>{ console.error("sync probe", e); setSync("err"); });
-  onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("rentList",e.code);});
-  onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{console.error(e); showErr("toolList",e.code);});
+    e=>{ fbNoteError(e,"sync probe"); setSync("err"); });
+  onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{fbNoteError(e,"rentList"); showErr("rentList",e.code);});
+  onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{fbNoteError(e,"toolList"); showErr("toolList",e.code);});
   onSnapshot(doc(db,"config","ptpPool"),d=>{ PTP_POOL=d.exists()?(d.data()||{}):{};
     if(SF_TAB==="ptp" && $("ptpForm") && $("ptpForm").innerHTML) renderPtp(); },
-    e=>console.error("ptpPool",e));
-  onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>console.error("pdfmeta",e));
-  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null,lastSeen:tsMs(v.lastSeen)});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>console.error("people",e));
-  onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>console.error("shares",e));
-  onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>console.error("webductEquip",e));
-  onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>console.error("webductOrders",e));
-  onSnapshot(doc(db,"config","lastSync"),snap=>{ if(snap.exists()){ WD_LAST_SYNC=snap.data(); wdRenderLastSync(); } }, e=>console.error("lastSync",e));
-  onSnapshot(doc(db,"config","lastImport"),snap=>{ if(snap.exists()){ LAST_IMPORT=snap.data(); renderAutoImport(); } }, e=>console.error("lastImport",e));
-  onSnapshot(doc(db,"config","lastToolImport"),snap=>{ if(snap.exists()){ LAST_TOOL_IMPORT=snap.data(); renderAutoImport(); } }, e=>console.error("lastToolImport",e));
-  onSnapshot(doc(db,"config","ghActions"),snap=>{ GH_CFG=snap.exists()?snap.data():null; ghRenderBtn(); }, e=>console.error("ghActions",e));
-  onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>console.error("webductOrderNotes",e));
+    e=>fbNoteError(e,"ptpPool"));
+  onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>fbNoteError(e,"pdfmeta"));
+  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null,lastSeen:tsMs(v.lastSeen)});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>fbNoteError(e,"people"));
+  onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>fbNoteError(e,"shares"));
+  onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>fbNoteError(e,"webductEquip"));
+  onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>fbNoteError(e,"webductOrders"));
+  onSnapshot(doc(db,"config","lastSync"),snap=>{ if(snap.exists()){ WD_LAST_SYNC=snap.data(); wdRenderLastSync(); } }, e=>fbNoteError(e,"lastSync"));
+  onSnapshot(doc(db,"config","lastImport"),snap=>{ if(snap.exists()){ LAST_IMPORT=snap.data(); renderAutoImport(); } }, e=>fbNoteError(e,"lastImport"));
+  onSnapshot(doc(db,"config","lastToolImport"),snap=>{ if(snap.exists()){ LAST_TOOL_IMPORT=snap.data(); renderAutoImport(); } }, e=>fbNoteError(e,"lastToolImport"));
+  onSnapshot(doc(db,"config","ghActions"),snap=>{ GH_CFG=snap.exists()?snap.data():null; ghRenderBtn(); }, e=>fbNoteError(e,"ghActions"));
+  onSnapshot(collection(db,"webductOrderNotes"),snap=>{ WD_NOTES={}; snap.forEach(d=>{ WD_NOTES[d.id]=d.data(); }); renderDeliveries(); }, e=>fbNoteError(e,"webductOrderNotes"));
 
   // ---- Safety collections. Read-only here; Admin uploads are what write them. ----
   onSnapshot(collection(db,"safetyPoints"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_POINTS=l; renderSafety(); }, e=>{ console.error("safetyPoints",e); SF_ERR.points=e; renderSafety(); });
   onSnapshot(collection(db,"safetyTraining"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_TRAINING=l; renderSafety(); }, e=>{ console.error("safetyTraining",e); SF_ERR.training=e; renderSafety(); });
   onSnapshot(collection(db,"safetySds"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_SDS=l; renderSafety(); }, e=>{ console.error("safetySds",e); SF_ERR.sds=e; renderSafety(); });
   onSnapshot(collection(db,"safetyDrugCards"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_DRUG=l; renderSafety(); }, e=>{ console.error("safetyDrugCards",e); SF_ERR.drug=e; renderSafety(); });
-  onSnapshot(doc(db,"config","safetyMeta"),d=>{ SF_META=d.exists()?d.data():{}; renderSafety(); }, e=>console.error("safetyMeta",e));
-  onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>console.error("webductEquipNotes",e));
+  onSnapshot(doc(db,"config","safetyMeta"),d=>{ SF_META=d.exists()?d.data():{}; renderSafety(); }, e=>fbNoteError(e,"safetyMeta"));
+  onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>fbNoteError(e,"webductEquipNotes"));
   wdWatchAdminKey();
 }
 let lastJobEdit=0;
@@ -1450,7 +1486,7 @@ async function saveDeliv(clear){
     else if(!delivered) payload={...payload,deliveredBy:"",deliveredMarkedOn:""};
   }
   try{ await setDoc(doc(db,"arrivals",delivTarget),{...payload,updatedAt:serverTimestamp()},{merge:true}); closeModal("delivModal"); toast(clear?"Delivery info cleared":"Delivery saved"); delivTarget=clear?null:delivTarget; }
-  catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  catch(e){ fbNoteError(e,"saveDeliv"); toast("Save failed: "+fbSaveMsg(e)); }
   finally{ btn.disabled=false; btn.textContent="Save"; }
 }
 onActivate($("delivSubmit"),()=>saveDeliv(false));
@@ -2213,7 +2249,7 @@ async function saveArrival(){
     }
     closeModal("logModal"); renderFeed(); renderJobs();
     toast(editing?"Arrival updated":"Arrival logged");
-  }catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  }catch(e){ fbNoteError(e,"write"); toast("Save failed: "+fbSaveMsg(e)); }
   finally{ btn.disabled=false; btn.textContent=editing?"Save changes":"Save arrival"; }
 }
 
@@ -2229,7 +2265,7 @@ async function saveRental(){
   if(!fbReady){toast("No Firebase connection");return;}
   const btn=$("rentSubmit"); btn.disabled=true; btn.textContent="Saving…";
   try{ if(editing&&editing.type==="rental"){ await setDoc(doc(db,"rentals",editing.id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); } else { const id=makeId([rec.rentalId,normJob(rec.jobNumber),rec.equipment.slice(0,60),rec.dateRented])+"-"+Date.now().toString(36); await setDoc(doc(db,"rentals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); } closeModal("rentalModal"); toast(editing?"Rental updated":"Rental logged"); }
-  catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  catch(e){ fbNoteError(e,"write"); toast("Save failed: "+fbSaveMsg(e)); }
   finally{ btn.disabled=false; btn.textContent=editing?"Save changes":"Save rental"; }
 }
 
@@ -2247,7 +2283,7 @@ async function saveTool(){
   if(!fbReady){toast("No Firebase connection");return;}
   const btn=$("toolSubmit"); btn.disabled=true; btn.textContent="Saving…";
   try{ if(editing&&editing.type==="tool"){ await setDoc(doc(db,"toolRentals",editing.id),{...rec,seq:editing.seq,updatedAt:serverTimestamp()},{merge:true}); } else { const id=makeId([normJob(rec.jobNumber),rec.toolType,rec.toolId,rec.rentalStarted])+"-"+Date.now().toString(36); await setDoc(doc(db,"toolRentals",id),{...rec,seq:Date.now(),createdAt:serverTimestamp(),source:"manual"}); } closeModal("toolModal"); toast(editing?"Tool rental updated":"Tool rental added"); }
-  catch(e){ console.error(e); toast("Save failed: "+(e.code||e.message)); }
+  catch(e){ fbNoteError(e,"write"); toast("Save failed: "+fbSaveMsg(e)); }
   finally{ btn.disabled=false; btn.textContent=editing?"Save changes":"Save tool rental"; }
 }
 
@@ -2660,7 +2696,8 @@ function renderSfSds(){
 /* ---------- Pre-Task Plans ----------
    Two templates behind one renderer; see ptp.js for the specs and the PDF. Everything here is
    wiring: pick a template, keep what was typed, hand it to the PDF writer. */
-let PTP_KIND=(()=>{ try{ return localStorage.getItem("ptp_kind")==="arch"?"arch":"standard"; }catch(e){ return "standard"; } })();
+// The Architectural template is gone; a phone that last had it selected lands on the survivor.
+let PTP_KIND=(()=>{ try{ const k=localStorage.getItem("ptp_kind"); return PTP_TEMPLATES[k]?k:"standard"; }catch(e){ return "standard"; } })();
 let PTP_DATA=null, ptpSaveTimer=null;
 /* The shared pool of extra questions and checklist items, in one Firestore document so that
    adding one on a phone in the field puts it on everyone else's form too. Shape:
@@ -2681,11 +2718,27 @@ function renderPtp(){
   const wrap=$("ptpForm"); if(!wrap) return;
   const t=ptpTpl();
   if(!PTP_DATA || PTP_DATA.tpl!==t.key) PTP_DATA=ptpLoad(t);
-  $("ptpPick").innerHTML=Object.values(PTP_TEMPLATES).map(x=>
+  // One template now, so the picker would be a row of one. Kept in the DOM and rendered only if
+  // a second is ever added back, rather than deleting the mechanism.
+  const kinds=Object.values(PTP_TEMPLATES);
+  $("ptpPick").style.display=kinds.length>1?"":"none";
+  $("ptpPick").innerHTML=kinds.length>1?kinds.map(x=>
     `<button type="button" class="ptp-tab ${x.key===t.key?"on":""}" data-ptpkind="${esc(x.key)}">
-       <b>${esc(x.label)}</b><i>${esc(x.blurb)}</i></button>`).join("");
+       <b>${esc(x.label)}</b><i>${esc(x.blurb)}</i></button>`).join(""):"";
   $("ptpMeta").textContent=`${t.label} · saved on this device`;
+  /* Someone else adding a checklist item pushes a snapshot here, which rebuilds this form. If that
+     lands mid-sentence the DOM is replaced and everything typed since the last debounce flush is
+     gone -- silently, because the model never saw it. So: collect first, then rebuild, then put
+     the caret back where it was. */
+  const act=document.activeElement;
+  const keep=(act&&wrap.contains(act)&&act.dataset&&act.dataset.ptp)
+    ? {path:act.dataset.ptp,start:act.selectionStart,end:act.selectionEnd} : null;
+  if(keep) ptpCollect(wrap,PTP_DATA);
   wrap.innerHTML=ptpFormHTML(t,PTP_DATA,PTP_POOL);
+  if(keep){
+    const el=wrap.querySelector(`[data-ptp="${CSS.escape(keep.path)}"]`);
+    if(el){ try{ el.focus(); if(keep.start!=null) el.setSelectionRange(keep.start,keep.end); }catch(e){} }
+  }
   renderPtpAtts();
   // lockDateInputs() runs once at boot; this form is built long after, so its date fields would
   // otherwise be the only ones in the app that accept typed-in text.
@@ -2693,6 +2746,16 @@ function renderPtp(){
 }
 
 /* ---- attachments ---- */
+/* Refuse to write if it would take the origin past ~70% of what the browser has granted.
+   Firestore needs headroom in the same pool; running it to the edge is what kills the client. */
+async function attRoomFor(bytes){
+  try{
+    if(!navigator.storage||!navigator.storage.estimate) return true;   // older engine: trust the caps above
+    const {quota=0,usage=0}=await navigator.storage.estimate();
+    if(!quota) return true;
+    return (usage+bytes) < quota*0.7;
+  }catch(e){ return true; }
+}
 const attSize=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 async function renderPtpAtts(){
   const box=$("ptpAtts"); if(!box) return;
@@ -2707,10 +2770,18 @@ async function renderPtpAtts(){
   const inp=$("ptpAttFile");
   if(inp) inp.addEventListener("change",async e=>{
     const files=[...(e.target.files||[])];
+    /* Attachments share one IndexedDB origin with Firestore's offline cache. Fill the origin and
+       Firestore's persistence fails, the SDK terminates its own client, and every save afterwards
+       dies with "failed-precondition" -- a bug in this tab taking out the whole app. So: a per-file
+       limit, a total budget, and a check against what the browser will actually grant. */
+    const PER_FILE=15*1048576, TOTAL=60*1048576;
+    let used=(await ptpAttList(ptpTpl())).reduce((n,a)=>n+(a.size||0),0);
     for(const f of files){
-      // A phone photo is a few MB and IndexedDB copes; a 200MB scan is a mistake, not a plan.
-      if(f.size>40*1048576){ toast(`${f.name} is too big (${attSize(f.size)}). 40 MB max.`); continue; }
-      try{ await ptpAttAdd(ptpTpl(),f); }catch(err){ console.error("ptp att",err); toast("Couldn't save "+f.name); }
+      if(f.size>PER_FILE){ toast(`${f.name} is too big (${attSize(f.size)}). ${attSize(PER_FILE)} max per file.`); continue; }
+      if(used+f.size>TOTAL){ toast(`No room for ${f.name} — ${attSize(TOTAL)} of attachments is the limit. Remove one first.`); continue; }
+      if(!await attRoomFor(f.size)){ toast(`This device is low on storage, so ${f.name} wasn't added.`); continue; }
+      try{ await ptpAttAdd(ptpTpl(),f); used+=f.size; }
+      catch(err){ console.error("ptp att",err); toast("Couldn't save "+f.name+" — this device may be out of storage"); }
     }
     e.target.value=""; renderPtpAtts();
   });
@@ -3286,7 +3357,7 @@ async function handleExcel(file){
     for(let i=0;i<rAll.length;i+=CHUNK){ const b=writeBatch(db); rAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"rentals",id),{...r,seq:base+aAll.length+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,rAll.length-i); upd(done,total); }
     body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${aAll.length.toLocaleString()}</b> arrivals and <b>${rAll.length}</b> rentals synced.</p><button class="submit" style="margin-top:20px" id="impClose">Done</button></div>`;
     $("impClose").addEventListener("click",()=>closeModal("importModal")); toast(total.toLocaleString()+" imported");
-  }catch(e){ console.error(e); body.innerHTML=stageErr("Import failed: "+(e.code||e.message)); }
+  }catch(e){ fbNoteError(e,"import"); body.innerHTML=stageErr("Import failed: "+fbSaveMsg(e)); }
 }
 
 async function handlePdf(file){
@@ -3307,7 +3378,7 @@ async function handlePdf(file){
     try{ const b64=abToB64(buf); if(b64.length<1040000){ await setDoc(doc(db,"pdfStore","data"),{data:b64}); await setDoc(doc(db,"pdfStore","meta"),{name:file.name,pages,pageMap,uploadedAt:serverTimestamp()}); } else { await setDoc(doc(db,"pdfStore","meta"),{name:file.name,pages,pageMap,uploadedAt:serverTimestamp(),tooBig:true}); } }catch(pe){ console.error("pdf store",pe); }
     body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${total}</b> tool lines across ${new Set(items.map(i=>i.jobNumber)).size} jobs. The report PDF is saved — tap “PDF” on any job to verify.</p><button class="submit teal" style="margin-top:20px" id="impClose">Done</button></div>`;
     $("impClose").addEventListener("click",()=>closeModal("importModal")); toast(total+" tool lines imported");
-  }catch(e){ console.error(e); body.innerHTML=stageErr("Import failed: "+(e.message||e)); }
+  }catch(e){ fbNoteError(e,"import"); body.innerHTML=stageErr("Import failed: "+fbSaveMsg(e)); }
 }
 function abToB64(buf){ let bin=""; const bytes=new Uint8Array(buf),chunk=0x8000; for(let i=0;i<bytes.length;i+=chunk){ bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk)); } return btoa(bin); }
 
@@ -3474,7 +3545,7 @@ function wdWatchAdminKey(){
       if(v && v.email && v.password){ WD_ADMIN_CREDS={email:v.email,password:v.password}; }
       else { WD_ADMIN_CREDS=null; WD_ADMIN_TOKEN=""; WD_ADMIN_TOKEN_TS=0; }
       wdUpdateLights();
-    }, e=>console.error("adminKey",e));
+    }, e=>fbNoteError(e,"adminKey"));
   }catch(e){ console.error(e); }
 }
 // Full endpoint catalog from the Webduct public API (Swagger). {group?, m, p, b?(has body), note?}

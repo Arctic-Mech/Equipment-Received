@@ -31,8 +31,7 @@ async function boot(){
 
 const page=await boot();
 chk(await page.locator("#safety-ptp").isVisible(), "the PTP pane did not open");
-chk(await page.locator(".ptp-tab").count()===2, "expected two template choices");
-console.log("templates:", (await page.locator(".ptp-tab b").allInnerTexts()).map(s=>s.trim()));
+
 
 /* ---- both templates match their Word source ---- */
 async function shape(){
@@ -50,32 +49,26 @@ async function shape(){
 const std=await shape();
 console.log("standard: questions",std.questions.length,"checks",std.checks.length);
 chk(std.questions.length===18, `standard should have 18 checklist questions, got ${std.questions.length}`);
-chk(std.checks.length===19, `standard should have 19 circle/check items, got ${std.checks.length}`);
+// 19 from the old standard form + Scissorslift/Boomlift, folded in from the architectural one.
+chk(std.checks.length===20, `standard should have 20 circle/check items, got ${std.checks.length}`);
 chk(std.questions[0]==="Have you personally walked your work area?", "first standard question wrong");
 chk(std.questions.includes("Does this task require disassembly of systems or equipment?"), "missing a standard question");
 chk(std.checks.some(c=>/SIPP/.test(c)) && std.checks.some(c=>/LOTO/.test(c)), "standard is missing SIPP/LOTO");
 chk(std.near.some(s=>/Phone/i.test(s)), "standard 'location of nearest' should include Phone");
-chk(!std.ident.some(s=>/date today/i.test(s)), "standard should not have the arch-only 'date today' field");
 
-await page.locator("[data-ptpkind='arch']").click(); await page.waitForTimeout(400);
-const arch=await shape();
-console.log("architectural: questions",arch.questions.length,"checks",arch.checks.length);
-chk(arch.questions.length===14, `architectural should have 14 questions, got ${arch.questions.length}`);
-chk(arch.checks.length===15, `architectural should have 15 circle/check items, got ${arch.checks.length}`);
-chk(arch.titles.some(t=>/architectural sheet metal/i.test(t)), "architectural title missing");
-chk(arch.checks.some(c=>/Scissorslift/i.test(c)), "architectural is missing Scissorslift/Boomlift");
-chk(!arch.checks.some(c=>/SIPP/.test(c)), "SIPP is a standard-only item and leaked into architectural");
-chk(arch.ident.some(s=>/date today/i.test(s)), "architectural is missing 'the date today is'");
-chk(!arch.near.some(s=>/Phone/i.test(s)), "architectural 'location of nearest' should not include Phone");
-// the two forms order their sections differently, exactly as the Word files do
-const archNearIdx=arch.secOrder.findIndex(s=>/location of nearest/i.test(s));
-const archCrewIdx=arch.secOrder.findIndex(s=>/print your name/i.test(s));
-console.log("arch section order:", arch.secOrder);
-chk(archNearIdx>-1 && archCrewIdx>-1 && archNearIdx<archCrewIdx,
-   "architectural puts 'location of nearest' before the crew names in the Word template");
+/* The Architectural template was folded into this one. Everything it had that the standard did
+   not must now be here, and nothing may have been lost in the merge. */
+chk(std.checks.some(c=>/Scissorslift\/Boomlift/i.test(c)), "Scissorslift/Boomlift did not carry over from the architectural form");
+chk(std.ident.some(s=>/date today/i.test(s)), "'THE DATE TODAY IS' did not carry over");
+chk(await page.locator(".ptp-tab").count()===0, "the template picker should be gone with only one template");
+// every architectural question already existed here; spot-check the ones unique to its list
+for(const q of ["Have employees been trained in the proper usage of PPE?",
+                "Has the work been coordinated with other crafts in the area?",
+                "Are shop drawings and as-builds on hand?"])
+  chk(std.questions.includes(q), `architectural question missing after the merge: ${q}`);
+chk(await page.locator("#ptpForm .ptp-row3").count()>=6+1, "the six changing-conditions rows did not carry over");
 
 /* ---- fill it in ---- */
-await page.locator("[data-ptpkind='standard']").click(); await page.waitForTimeout(400);
 await page.fill('[data-ptp="top.project"]',"Riverside Medical Center");
 await page.fill('[data-ptp="top.building"]',"B — East Wing");
 await page.fill('[data-ptp="top.level"]',"3");
@@ -121,12 +114,6 @@ chk(await p2.locator("#ptpForm .ptp-q").nth(0).locator(".yn.y.on").count()===1, 
 chk(await p2.locator("#ptpForm .ptp-q").nth(2).locator(".yn.a.on").count()===1, "the N/A answer did not survive a reload");
 chk(await p2.locator("#ptpForm .ptp-chk.on").count()===2, "the checkboxes did not survive a reload");
 console.log("reload: everything came back");
-// the two templates keep separate saved copies
-await p2.locator("[data-ptpkind='arch']").click(); await p2.waitForTimeout(400);
-chk(await p2.inputValue('[data-ptp="top.project"]')==="", "the architectural form is sharing the standard form's saved copy");
-await p2.locator("[data-ptpkind='standard']").click(); await p2.waitForTimeout(400);
-chk(await p2.inputValue('[data-ptp="top.project"]')==="Riverside Medical Center", "switching back lost the standard form");
-await p2.close();
 
 /* ---- the PDF ---- */
 const [dl]=await Promise.all([
@@ -137,7 +124,8 @@ const out=path.join(TESTS_DIR,"ptp-out.pdf");
 await dl.saveAs(out);
 const size=fs.statSync(out).size;
 console.log("PDF:",dl.suggestedFilename(),size,"bytes");
-chk(/^PTP_Standard_Riverside-Medical-Center_2026-08-10\.pdf$/.test(dl.suggestedFilename()),
+// No template token in the name any more -- there is only one form.
+chk(/^PTP_Riverside-Medical-Center_2026-08-10\.pdf$/.test(dl.suggestedFilename()),
     `PDF filename wrong: ${dl.suggestedFilename()}`);
 chk(size>4000, `PDF looks empty (${size} bytes)`);
 
@@ -198,50 +186,31 @@ chk(read.text.includes("Have you personally walked your work area?"), "an answer
 chk(read.text.includes("B \u2014 East Wing") || read.text.includes("East Wing"), "the Building value is missing from the PDF");
 chk(!/[\u2610\u2612\uFFFD]/.test(read.text), "an un-encodable glyph reached the PDF");
 chk(/Plan page 1 of \d/.test(read.text), "no page numbering in the PDF");
-// the architectural PDF must not carry standard-only content
-await page.locator("[data-ptpkind='arch']").click(); await page.waitForTimeout(400);
-await page.fill('[data-ptp="top.project"]',"Cedar High School"); await page.waitForTimeout(600);
-const [dl2]=await Promise.all([ page.waitForEvent("download",{timeout:30000}), page.locator("#ptpPdf").click() ]);
-const out2=path.join(TESTS_DIR,"ptp-arch.pdf"); await dl2.saveAs(out2);
-const b64b=fs.readFileSync(out2).toString("base64");
-const read2=await (await readerPage()).evaluate(async data=>{
-  const raw=atob(data), arr=new Uint8Array(raw.length);
-  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
-  const doc=await window.pdfjsLib.getDocument({data:arr}).promise;
-  const pages=[]; for(let i=1;i<=doc.numPages;i++){ const c=await (await doc.getPage(i)).getTextContent(); pages.push(c.items.map(t=>t.str).join(" ")); }
-  return {n:doc.numPages,text:pages.join("\n"),pages};
-},b64b);
-console.log("architectural PDF pages:",read2.n);
-/* The repeat-header guard used to fire even when the row that tripped the page break WAS the
-   header, drawing it once at the top of the new page and again as the ordinary row. It reproduced
-   on the plainest architectural export, and every substring assertion above still passed. */
-/* A table continuing onto the next page SHOULD repeat its header there -- that is the whole
-   point of opt.repeat. The bug was two identical bands stacked on the SAME page, so count per
-   page, not across the document. */
-const perPage=(r,re)=>r.pages.map(p=>(p.match(re)||[]).length);
-const seqPP=perPage(read2,/SEQUENCE OF CONSTRUCTION ACTIVITIES/g);
-const chgPP=perPage(read2,/CHANGING CONDITIONS/g);
-console.log("arch header bands per page — sequence:",seqPP,"changing:",chgPP);
+/* A table continuing onto the next page SHOULD repeat its header there. The bug was two identical
+   bands stacked on the SAME page, so count per page, not across the document. */
+const perPage=(r,re_)=>r.pages.map(p=>(p.match(re_)||[]).length);
+const seqPP=perPage(read,/SEQUENCE OF CONSTRUCTION ACTIVITIES/g);
+const chgPP=perPage(read,/CHANGING CONDITIONS/g);
+console.log("header bands per page — sequence:",seqPP,"changing:",chgPP);
 chk(Math.max(0,...seqPP)<=1, `the SEQUENCE header is stacked twice on one page: ${seqPP}`);
 chk(Math.max(0,...chgPP)<=1, `the CHANGING CONDITIONS header is stacked twice on one page: ${chgPP}`);
-const seqStdPP=perPage(read,/SEQUENCE OF CONSTRUCTION ACTIVITIES/g);
-chk(Math.max(0,...seqStdPP)<=1, `standard PDF stacks the SEQUENCE header: ${seqStdPP}`);
-// Titles come out in source order: the architectural form leads with its trade line.
-const iArch=read2.text.indexOf("ARCHITECTURAL SHEET METAL"), iChk=read2.text.indexOf("PRE-TASK PLAN CHECK LIST");
-console.log("title order — arch@",iArch,"checklist@",iChk);
-chk(iArch>-1 && iChk>-1 && iArch<iChk, "the architectural PDF prints its two title lines out of source order");
-// An unanswered question still offers Yes/No to circle by hand, like the paper form.
-chk(/Yes \/ No/.test(read2.text), "an unanswered question prints an empty cell instead of 'Yes / No'");
-// Dates are printed the way a person writes them, not the way <input type=date> stores them.
-chk(read.text.includes("Aug 10, 2026"), "the start date is printed as a raw YYYY-MM-DD");
-chk(!/\b2026-08-10\b/.test(read.text), "a raw YYYY-MM-DD date reached the PDF");
-chk(/architectural sheet metal/i.test(read2.text), "the architectural PDF is missing its trade line");
-chk(read2.text.includes("Cedar High School"), "the architectural PDF is missing the project");
-chk(!read2.text.includes("SIPP"), "a standard-only item leaked into the architectural PDF");
-await reader.close(); reader=null;
+
+/* ---- typing survives a pool update landing mid-sentence ----
+   Another phone adding a checklist item pushes a snapshot that rebuilds this form. That used to
+   discard everything typed since the last debounce flush. */
+await page.click('[data-ptp="nearest.eyewash"]');
+await page.keyboard.type("Level 2 by the stair",{delay:5});
+await page.evaluate(()=>{                       // a pool change arriving from someone else
+  const s=window.__SEED; s.config=s.config||{};
+  s.config.ptpPool={standard:{circle:["Pushed from another phone"]}};
+  window.__echoDoc && window.__echoDoc("config","ptpPool",s.config.ptpPool);
+});
+await page.waitForTimeout(700);
+const survived=await page.inputValue('[data-ptp="nearest.eyewash"]');
+console.log("mid-typing value after an external re-render:",JSON.stringify(survived));
+chk(survived==="Level 2 by the stair", `typing was discarded by a re-render: ${JSON.stringify(survived)}`);
 
 /* ---- adding to the shared pool ---- */
-await page.locator("[data-ptpkind='standard']").click(); await page.waitForTimeout(400);
 const qBefore=await page.locator("#ptpForm .ptp-q").count();
 const cBefore=await page.locator("#ptpForm .ptp-chk").count();
 await page.fill('[data-pooladd="questions"]',"Is the roof hatch access clear?");
@@ -296,7 +265,6 @@ chk(await p4.locator("#ptpAtts .ptp-att").count()===1, "the attachment did not s
 await p4.close();
 
 /* ---- removing a filled row asks first ---- */
-await page.locator("[data-ptpkind='standard']").click(); await page.waitForTimeout(400);
 let askedRow=false;
 page.once("dialog",d=>{ askedRow=true; console.log("row dialog:",JSON.stringify(d.message().split("\n")[0])); d.dismiss(); });
 await page.locator('[data-delrow="seq|0"]').click(); await page.waitForTimeout(400);
@@ -326,7 +294,6 @@ chk(flushed2.nearest && flushed2.nearest.phone==="Trailer radio", "pagehide did 
 console.log("debounce flush on hide + pagehide: ok");
 
 /* ---- clear all ---- */
-await page.locator("[data-ptpkind='standard']").click(); await page.waitForTimeout(400);
 page.once("dialog",d=>{ console.log("clear dialog:",JSON.stringify(d.message().split("\n")[0])); d.dismiss(); });
 await page.locator("#ptpClear").click(); await page.waitForTimeout(400);
 chk(await page.inputValue('[data-ptp="top.project"]')==="Riverside Medical Center", "cancelling Clear all still wiped the form");
@@ -337,9 +304,6 @@ chk(await page.locator("#ptpForm .ptp-q .yn.on").count()===0, "Clear all left th
 chk(await page.locator("#ptpForm .ptp-chk.on").count()===0, "Clear all left the checkboxes behind");
 const p3=await boot();
 chk(await p3.inputValue('[data-ptp="top.project"]')==="", "Clear all did not erase the saved copy on this device");
-// ...and it only cleared the one template
-await p3.locator("[data-ptpkind='arch']").click(); await p3.waitForTimeout(400);
-chk(await p3.inputValue('[data-ptp="top.project"]')==="Cedar High School", "clearing the standard form also wiped the architectural one");
 await p3.close();
 
 console.log("\n"+"=".repeat(58));

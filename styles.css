@@ -14,7 +14,13 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
-  body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:var(--surface);color:var(--ink);-webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
+  body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:var(--surface);color:var(--ink);-webkit-font-smoothing:antialiased;overscroll-behavior-y:none;
+       /* Half the screens echo something the user typed -- a search term, a job number, a
+          description off the sheet. One pasted 600-character string with no spaces in it used to
+          push the whole page sideways, and the fix has to be here rather than at each of the
+          dozen echo sites, because the next one added would forget. break-word (not anywhere)
+          leaves intrinsic sizing alone, so nothing else in the layout shifts. */
+       overflow-wrap:break-word}
   button{font-family:inherit;cursor:pointer;border:none;background:none;touch-action:manipulation}
   input,select,textarea,label,a,.tab,.acard-head,.folder-head,.tcard-head,.role-card,.act,.dropzone,.seg button{touch-action:manipulation}
   input,textarea,select{font-family:inherit;font-size:16px}
@@ -226,7 +232,10 @@
   .btn-add{background:var(--ink);color:#fff;border-radius:10px;padding:0 18px;font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.05em;text-transform:uppercase;box-shadow:var(--shadow)}
   .btn-add:active{background:var(--ink-soft)}
   .suggest{padding:2px 14px 0}
-  .suggest .s-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:7px}
+  /* The "no match — tap Save to add <what you typed>" row drops the search text straight in as
+     an anonymous flex item, and a flex item sizes to min-content, which break-word does not
+     shrink. `anywhere` does, so a long pasted job number wraps instead of widening the page. */
+  .suggest .s-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:7px;min-width:0;overflow-wrap:anywhere}
   .suggest .s-item .sj{font-family:'JetBrains Mono';font-weight:700;font-size:13px;color:var(--ink)}
   .suggest .s-item .sn{font-size:12px;color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin:0 8px}
   .suggest .s-item button{color:var(--hivis-dark);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:5px 8px}
@@ -567,6 +576,15 @@
   .ptp-att .sz{font-size:11.5px;color:var(--steel);font-family:'JetBrains Mono';flex:none}
   .ptp-attempty{font-size:12.5px;color:var(--steel);line-height:1.45}
   .ptp-add.as-label{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  /* Sits above everything, including modals: if the database is gone, whatever modal you are
+     looking at cannot save anyway, so this is the only thing worth reading on the screen. */
+  .fb-dead{position:fixed;left:0;right:0;bottom:0;z-index:300;display:flex;align-items:center;gap:12px;
+    flex-wrap:wrap;padding:14px 16px calc(14px + var(--safe-bottom));background:var(--hivis);color:#fff;
+    font-size:13.5px;line-height:1.4;box-shadow:0 -6px 24px rgba(0,0,0,.28)}
+  .fb-dead span{flex:1;min-width:180px}
+  .fb-dead button{flex:none;min-height:44px;padding:0 18px;border-radius:10px;background:#fff;color:var(--hivis-dark);
+    font-family:'Barlow Condensed';font-weight:700;font-size:15px;letter-spacing:.05em;text-transform:uppercase}
+
   .show-more{display:flex;flex-direction:column;align-items:center;gap:2px;width:calc(100% - 28px);
     margin:10px 14px 4px;min-height:52px;padding:10px;border:1.5px dashed var(--steel-light);border-radius:11px;
     background:var(--card);font-family:'Barlow Condensed';font-weight:700;font-size:15px;letter-spacing:.04em;

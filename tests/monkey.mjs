@@ -117,8 +117,30 @@ async function monkey(label,width,height,mobile,seedN,steps){
   await page.waitForTimeout(500);
   const stuck=await page.evaluate(()=>{
     const b=document.body;
+    /* "the page scrolls sideways" is useless without the element doing it, and the monkey's path
+       there is 400 steps long -- so name the offenders while the page still exists.
+
+       Compare scrollWidth against clientWidth rather than measuring bounding rects. The thing
+       that actually widened the page was a 600-character unbroken string of text, and a text
+       node has no rect: a rect-based sweep reported nothing at all while the page was 4,365px
+       too wide. Skip anything that clips (an <input> always reports its full content width and
+       is harmless) and report only leaf-most offenders, since every ancestor inherits the
+       overflow and would otherwise bury the one element that caused it. */
+    const over=[];
+    for(const n of document.querySelectorAll("body *")){
+      const cs=getComputedStyle(n);
+      if(cs.display==="none"||cs.visibility==="hidden") continue;
+      if(cs.overflowX!=="visible") continue;
+      if(n.scrollWidth<=n.clientWidth+1) continue;
+      if([...n.children].some(c=>c.scrollWidth>c.clientWidth+1)) continue;
+      over.push({ px:n.scrollWidth-n.clientWidth,
+                  tag:n.tagName.toLowerCase()+(n.id?"#"+n.id:"")+(n.className&&typeof n.className==="string"?"."+n.className.trim().split(/\s+/).join("."):""),
+                  text:(n.textContent||"").trim().slice(0,50) });
+    }
+    over.sort((a,b)=>b.px-a.px);
     return { scrollLocked: b.style.overflow==="hidden" && !document.querySelector(".modal-back.show, #mjShowPanel:not([style*='display: none']), #mjJobsPanel"),
-             sideways: document.documentElement.scrollWidth-window.innerWidth };
+             sideways: document.documentElement.scrollWidth-window.innerWidth,
+             over: over.slice(0,6) };
   });
   await ctx.close();
   return { errs, clicks, types, firstErrAt, stuck };
@@ -131,6 +153,7 @@ for(const [label,w,h,mob,seed] of [["phone",440,956,true,SEED_N],["laptop",1280,
   console.log(`    errors: ${r.errs.length}${r.firstErrAt>=0?` (first at step ${r.firstErrAt})`:""}`);
   r.errs.slice(0,8).forEach(e=>console.log("      "+e));
   console.log(`    sideways scroll: ${r.stuck.sideways}px`);
+  (r.stuck.over||[]).forEach(o=>console.log(`      +${o.px}px  ${o.tag}  ${JSON.stringify(o.text)}`));
   chk(r.errs.length===0, `${label}: monkey hit ${r.errs.length} error(s), first at step ${r.firstErrAt}: ${r.errs[0]||""}`);
   chk(r.stuck.sideways<=1, `${label}: page ended up scrolling sideways by ${r.stuck.sideways}px`);
 }

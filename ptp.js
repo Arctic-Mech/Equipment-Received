@@ -50,7 +50,7 @@ const STD_CIRCLE = [
   ["Barricades/Control Zones/Signage", "Hazard Communication", "Task Lighting Equipment"],
   ["Fall Protection PPE", "Dust Control", "Hearing PPE"],
   ["Electrical-Hot Work", "Scaffolds", "Respirator/Dust Mask"],
-  ["Welding, Soldering Hot Work", "", ""],
+  ["Welding, Soldering Hot Work", "Scissorslift/Boomlift", ""],
 ];
 const ARCH_CHECKLIST = [
   ["Have you personally walked your work area?", "Have employees been trained in the proper usage of PPE?"],
@@ -76,33 +76,25 @@ const CIRCLE_NOTE = "Circle/Check if any of the following apply to the task bein
 const CIRCLE_NOTE_PDF = "The following apply to the task being planned here:";
 const STOP = "If conditions change, the work must STOP and the Pre Task Plan must be updated.";
 
+/* One template. There used to be a separate Architectural Sheet Metal form; everything it had
+   that this did not -- Scissorslift/Boomlift, the "THE DATE TODAY IS" field, its six
+   changing-conditions rows -- was folded in here, and every one of its questions was already
+   present. Anything a crew still needs beyond this they can add to the shared pool. */
 export const PTP_TEMPLATES = {
   standard: {
     key: "standard",
-    label: "Standard PTP",
-    blurb: "The general Pre-Task Plan.",
+    label: "Pre-Task Plan",
+    blurb: "One form for every crew.",
     titles: ["Pre-Task Plan Check List"],
-    idLines: [["foreman", "Crew Foreman:"], ["contact", "Contact #"], ["ehs", "EHS Review (if applicable)"]],
+    idLines: [["foreman", "Crew Foreman:"], ["contact", "Contact #"], ["ehs", "EHS Review (if applicable)"],
+               ["today", "THE DATE TODAY IS:"]],
     checklist: STD_CHECKLIST,
     circle: STD_CIRCLE,
     crewHeading: "Print Crew Member’s Names Below",
     nearest: [["shower", "Shower:"], ["fireExt", "Fire Extinguisher:"], ["eyewash", "Eyewash:"], ["phone", "Phone:"]],
-    changingRows: 4,
+    changingRows: 6,
     // The two forms put "Location of nearest" in different places; the order is the paper order.
     order: ["top", "ident", "checklist", "circle", "attest", "crew", "task", "nearest", "changing"],
-  },
-  arch: {
-    key: "arch",
-    label: "Architectural PTP",
-    blurb: "Architectural Sheet Metal.",
-    titles: ["Architectural Sheet Metal", "Pre-Task Plan Check List"],
-    idLines: [["foreman", "Crew Foreman:"], ["contact", "Contact #"], ["ehs", "EHS Review (if applicable)"], ["today", "THE DATE TODAY IS:"]],
-    checklist: ARCH_CHECKLIST,
-    circle: ARCH_CIRCLE,
-    crewHeading: "Crew Members Print Your Name Below",
-    nearest: [["shower", "Emg. Shower:"], ["fireExt", "Fire Extinguisher:"], ["eyewash", "Eyewash:"]],
-    changingRows: 6,
-    order: ["top", "ident", "checklist", "circle", "nearest", "attest", "crew", "task", "changing"],
   },
 };
 
@@ -111,14 +103,20 @@ export const PTP_TEMPLATES = {
    to open the tab sees it too. `extra` is what a caller passes in from that Firestore document. */
 export function ptpQuestions(t, pool){
   const built = t.checklist.flat().filter(Boolean).map(text => ({ text, key: keyOf("q", text), custom: false }));
-  const extra = ((pool && pool[t.key] && pool[t.key].questions) || [])
+  // "arch" is the retired Architectural template. Anything added there is still somebody's
+  // checklist item, so it carries over rather than vanishing with the form it was added to.
+  const legacy = (t.key === "standard" && pool && pool.arch && pool.arch.questions) || [];
+  const extra = ([...((pool && pool[t.key] && pool[t.key].questions) || []), ...legacy])
     .map(text => String(text || "").trim()).filter(Boolean)
     .map(text => ({ text, key: keyOf("q", text), custom: true }));
   return dedupe([...built, ...extra]);
 }
 export function ptpCircleItems(t, pool){
   const built = t.circle.flat().filter(Boolean).map(text => ({ text, key: keyOf("c", text), custom: false }));
-  const extra = ((pool && pool[t.key] && pool[t.key].circle) || [])
+  // "arch" is the retired Architectural template. Anything added there is still somebody's
+  // checklist item, so it carries over rather than vanishing with the form it was added to.
+  const legacy = (t.key === "standard" && pool && pool.arch && pool.arch.circle) || [];
+  const extra = ([...((pool && pool[t.key] && pool[t.key].circle) || []), ...legacy])
     .map(text => String(text || "").trim()).filter(Boolean)
     .map(text => ({ text, key: keyOf("c", text), custom: true }));
   return dedupe([...built, ...extra]);
@@ -372,7 +370,7 @@ export function ptpPdf(jsPDF, t, d, logoDataUrl, pool) {
   /* --- masthead --- */
   if (logoDataUrl) { try { doc.addImage(logoDataUrl, "PNG", M, y, 96, 17); } catch (e) { /* logo is decoration */ } }
   // Source order, equal weight. Both title paragraphs are bold 18pt in the .docx -- neither is a
-  // subtitle of the other, and the architectural form leads with "Architectural Sheet Metal".
+  // subtitle of the other. Kept general because titles is a list, even though there is one now.
   setF(13, "bold");
   t.titles.forEach((line, i) => doc.text(line.toUpperCase(), PW - M, y + 13 + i * 15, { align: "right" }));
   y += 13 + (t.titles.length - 1) * 15 + 11;
@@ -481,7 +479,7 @@ export function ptpPdf(jsPDF, t, d, logoDataUrl, pool) {
 }
 
 export function ptpFileName(t, d) {
-  const bits = ["PTP", t.key === "arch" ? "Architectural" : "Standard",
+  const bits = ["PTP",
                 (d.top.project || "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, ""),
                 (d.top.startDate || new Date().toISOString().slice(0, 10))];
   return bits.filter(Boolean).join("_") + ".pdf";
