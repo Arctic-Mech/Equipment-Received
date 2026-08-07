@@ -19,6 +19,7 @@ fetch https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js       
 fetch https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js            pdf.min.js
 fetch https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js     pdf.worker.min.js
 fetch https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js            xlsx.full.min.js
+fetch https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js         pdf-lib.min.js
 
 echo
 echo "Done. Run the suites with:  ./tests/run.sh"

@@ -15,7 +15,20 @@
    which they are -- they come from a controlled company template. If a question is ever inserted
    in the middle, bump SCHEMA and old saves are dropped rather than silently shifted by one. */
 
-const SCHEMA = 1;
+/* Bumped to 2 when answer keys stopped being positional. They used to be q0..qN / c0..cM, which
+   silently shifted every answer by one the moment somebody added a question to the shared pool.
+   Keys are now derived from the item's own text, so the pool can grow, shrink or be reordered and
+   an answer stays attached to its question. Old saves are dropped rather than mis-read. */
+const SCHEMA = 2;
+
+// Small stable string hash. Only needs to be collision-resistant across a few dozen short
+// strings, and to produce the same key on every device -- not to be cryptographic.
+function keyOf(prefix, text){
+  const s = String(text == null ? "" : text).trim().toLowerCase().replace(/\s+/g, " ");
+  let h = 0x811c9dc5;
+  for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return prefix + h.toString(36);
+}
 
 // Column proportions and shading below are lifted from the .docx tblGrid/shd values so the PDF
 // lines up with the paper form: 75/25 header, 42/8/42/8 checklist, 33/25/42 circle-check.
@@ -60,6 +73,7 @@ const ATTEST = "The tasks for this PTP have been reviewed in the work area, as t
   + "and the workers on this crew have been through the required training.";
 const ASK = "Ask the following during evaluation of your work and check “Yes” or “No” as it applies to the task:";
 const CIRCLE_NOTE = "Circle/Check if any of the following apply to the task being planned here (attach additional information needed):";
+const CIRCLE_NOTE_PDF = "The following apply to the task being planned here:";
 const STOP = "If conditions change, the work must STOP and the Pre Task Plan must be updated.";
 
 export const PTP_TEMPLATES = {
@@ -91,6 +105,29 @@ export const PTP_TEMPLATES = {
     order: ["top", "ident", "checklist", "circle", "nearest", "attest", "crew", "task", "changing"],
   },
 };
+
+/* The shared pool. Built-ins come from the Word templates and cannot be removed -- they are the
+   company form. Anything added in the app is appended and lives in Firestore so the next person
+   to open the tab sees it too. `extra` is what a caller passes in from that Firestore document. */
+export function ptpQuestions(t, pool){
+  const built = t.checklist.flat().filter(Boolean).map(text => ({ text, key: keyOf("q", text), custom: false }));
+  const extra = ((pool && pool[t.key] && pool[t.key].questions) || [])
+    .map(text => String(text || "").trim()).filter(Boolean)
+    .map(text => ({ text, key: keyOf("q", text), custom: true }));
+  return dedupe([...built, ...extra]);
+}
+export function ptpCircleItems(t, pool){
+  const built = t.circle.flat().filter(Boolean).map(text => ({ text, key: keyOf("c", text), custom: false }));
+  const extra = ((pool && pool[t.key] && pool[t.key].circle) || [])
+    .map(text => String(text || "").trim()).filter(Boolean)
+    .map(text => ({ text, key: keyOf("c", text), custom: true }));
+  return dedupe([...built, ...extra]);
+}
+// Someone will eventually re-add an item that already exists; keep the built-in, drop the copy.
+function dedupe(list){
+  const seen = new Set();
+  return list.filter(i => (seen.has(i.key) ? false : (seen.add(i.key), true)));
+}
 
 const TOP_LEFT = [["project", "PROJECT:"], ["building", "Building:"], ["level", "Level:"], ["columns", "Column Lines:"]];
 const SEQ_HEADS = ["SEQUENCE OF CONSTRUCTION ACTIVITIES",
@@ -137,19 +174,27 @@ export function ptpWipe(t) { try { localStorage.removeItem(keyFor(t)); } catch (
 /* ---------- the on-screen form ----------
    Inputs carry data-ptp="path" and are read back generically, so adding a field to a template
    spec never needs a matching change in the collector. */
+/* Adding here writes to Firestore, not to this device: the point is that the next foreman to
+   open the tab has the same list. Hence the wording on the button. */
+const addRow = (which, ph) => `<div class="ptp-addpool">
+    <input class="ptp-in" type="text" data-pooladd="${esc(which)}" placeholder="${esc(ph)}" autocomplete="off">
+    <button type="button" class="ptp-add" data-poolgo="${esc(which)}">Add for everyone</button>
+  </div>`;
+
 const inp = (path, val, ph, type) =>
   `<input class="ptp-in" type="${type || "text"}" data-ptp="${esc(path)}" value="${esc(val)}" placeholder="${esc(ph || "")}" autocomplete="off">`;
 const area = (path, val, ph) =>
   `<textarea class="ptp-ta" data-ptp="${esc(path)}" rows="2" placeholder="${esc(ph || "")}">${esc(val)}</textarea>`;
 
-function yesNo(i, cur) {
+function yesNo(key, cur) {
   return `<span class="ptp-yn" role="group">
-    <button type="button" class="yn y ${cur === "yes" ? "on" : ""}" data-yn="${i}|yes">Yes</button>
-    <button type="button" class="yn n ${cur === "no" ? "on" : ""}" data-yn="${i}|no">No</button>
+    <button type="button" class="yn y ${cur === "yes" ? "on" : ""}" data-yn="${esc(key)}|yes">Yes</button>
+    <button type="button" class="yn n ${cur === "no" ? "on" : ""}" data-yn="${esc(key)}|no">No</button>
+    <button type="button" class="yn a ${cur === "na" ? "on" : ""}" data-yn="${esc(key)}|na">N/A</button>
   </span>`;
 }
 
-export function ptpFormHTML(t, d) {
+export function ptpFormHTML(t, d, pool) {
   const S = {};
   S.top = `<div class="ptp-sec"><div class="ptp-grid2">
       <div class="ptp-col">${TOP_LEFT.map(([k, l]) =>
@@ -164,19 +209,23 @@ export function ptpFormHTML(t, d) {
     <div class="ptp-idents">${t.idLines.map(([k, l]) =>
       `<label class="ptp-f"><span>${esc(l)}</span>${inp("ident." + k, d.ident[k], "", k === "today" ? "date" : "text")}</label>`).join("")}</div></div>`;
 
-  let qi = 0;
-  const qRows = t.checklist.map(pair => pair.map(q => { const i = qi++; return { q, i }; }));
+  const qs = ptpQuestions(t, pool);
   S.checklist = `<div class="ptp-sec"><p class="ptp-note">${esc(ASK)}</p>
-    <div class="ptp-qs">${qRows.flat().map(({ q, i }) =>
-      `<div class="ptp-q"><span class="qt">${esc(q)}</span>${yesNo(i, d.answers["q" + i] || "")}</div>`).join("")}</div></div>`;
+    <div class="ptp-qs">${qs.map(q =>
+      `<div class="ptp-q"><span class="qt">${esc(q.text)}${q.custom ? ` <i class="ptp-own">added</i>` : ""}</span>
+         ${yesNo(q.key, d.answers[q.key] || "")}
+         ${q.custom ? `<button type="button" class="ptp-rm" data-poolrm="questions|${esc(q.text)}" title="Remove this question for everyone">✕</button>` : ""}
+       </div>`).join("")}</div>
+    ${addRow("questions", "Add a question everyone will see")}</div>`;
 
-  let ci = 0;
-  const items = [];
-  t.circle.forEach(row => row.forEach(x => { if (x) items.push({ x, i: ci++ }); else ci++; }));
+  const items = ptpCircleItems(t, pool);
   S.circle = `<div class="ptp-sec"><p class="ptp-note">${esc(CIRCLE_NOTE)}</p>
-    <div class="ptp-checks">${items.map(({ x, i }) =>
-      `<button type="button" class="ptp-chk ${d.checks["c" + i] ? "on" : ""}" data-chk="${i}">
-         <span class="bx">${d.checks["c" + i] ? "✓" : ""}</span><span>${esc(x)}</span></button>`).join("")}</div></div>`;
+    <div class="ptp-checks">${items.map(i =>
+      `<button type="button" class="ptp-chk ${d.checks[i.key] ? "on" : ""}" data-chk="${esc(i.key)}">
+         <span class="bx">${d.checks[i.key] ? "✓" : ""}</span><span>${esc(i.text)}</span>
+         ${i.custom ? `<i class="ptp-own">added</i>` : ""}</button>`).join("")}</div>
+    ${addRow("circle", "Add an item everyone will see")}
+    <p class="ptp-hint">Only the ones you tick are printed on the PDF.</p></div>`;
 
   S.attest = `<div class="ptp-sec"><p class="ptp-attest">${esc(ATTEST)}</p></div>`;
 
@@ -248,7 +297,7 @@ function pdate(v){
 
 function mkDoc(jsPDF) { return new jsPDF({ unit: "pt", format: "letter", compress: true }); }
 
-export function ptpPdf(jsPDF, t, d, logoDataUrl) {
+export function ptpPdf(jsPDF, t, d, logoDataUrl, pool) {
   const doc = mkDoc(jsPDF);
   let y = M;
   const bottom = PH - M;
@@ -343,27 +392,39 @@ export function ptpPdf(jsPDF, t, d, logoDataUrl) {
                     ruleRow(t.idLines.slice(0, 2).map(([k, l]) => [l, v(k)]));
                     ruleRow(t.idLines.slice(2).map(([k, l]) => [l, v(k)])); gap(2); };
   S.checklist = () => {
+    // N/A means "this does not apply to this task", so the row is left off the printed form
+    // entirely rather than printed with a blank or an "N/A" that reads like an oversight.
+    const shown = ptpQuestions(t, pool).filter(q => d.answers[q.key] !== "na");
+    if(!shown.length) return;
     para(ASK, 8.5, "bold", 3);
     const c = [CW * 0.42, CW * 0.08, CW * 0.42, CW * 0.08];
-    let i = 0;
-    table(c, t.checklist.map(pair => {
-      const a = i++, b = i++;
+    const cell = q => {
+      const a = d.answers[q.key];
       // Unanswered prints "Yes / No" like the paper form, so a half-finished plan can still be
-      // taken out and circled by hand rather than coming out with two blank columns.
-      return { cells: [{ t: pair[0] }, { t: ans(d, a), center: true, bold: !!d.answers["q" + a], dim: !d.answers["q" + a] },
-                       { t: pair[1] }, { t: ans(d, b), center: true, bold: !!d.answers["q" + b], dim: !d.answers["q" + b] }] };
-    }), { minH: 15 });
+      // taken out and circled by hand rather than coming out with a blank column.
+      return [{ t: q.text }, { t: a === "yes" ? "YES" : a === "no" ? "NO" : "Yes / No",
+                               center: true, bold: !!a, dim: !a }];
+    };
+    // Re-pair after the N/A rows are dropped, so the two columns stay full instead of gappy.
+    const rows = [];
+    for(let i = 0; i < shown.length; i += 2)
+      rows.push({ cells: [...cell(shown[i]), ...(shown[i + 1] ? cell(shown[i + 1]) : [{ t: "" }, { t: "" }])] });
+    table(c, rows, { minH: 15 });
     gap();
   };
   S.circle = () => {
-    para(CIRCLE_NOTE, 8.5, "bold", 3);
-    const c = [CW * 0.33, CW * 0.25, CW * 0.42];
-    let i = 0;
-    table(c, t.circle.map(row => ({
-      // ASCII markers, not the ballot-box glyphs: jsPDF's built-in Helvetica is WinAnsi-encoded,
-      // and a character outside that set mangles the whole cell rather than just that character.
-      cells: row.map(x => { const k = i++; return { t: x ? (d.checks["c" + k] ? "[X]  " : "[  ]  ") + x : "", bold: true }; }),
-    })), { minH: 15 });
+    // Only what was ticked. The paper form lists every possibility because it has to be printed
+    // before anyone knows the task; a filled-in copy should say what applies, not what might.
+    const on = ptpCircleItems(t, pool).filter(i => d.checks[i.key]);
+    para(CIRCLE_NOTE_PDF, 8.5, "bold", 3);
+    if(!on.length){ para("None of the listed items apply to this task.", 9, "italic", 4); gap(); return; }
+    const c = [CW / 3, CW / 3, CW / 3];
+    const rows = [];
+    // ASCII markers, not the ballot-box glyphs: jsPDF's built-in Helvetica is WinAnsi-encoded,
+    // and a character outside that set mangles the whole cell rather than just that character.
+    for(let i = 0; i < on.length; i += 3)
+      rows.push({ cells: [0, 1, 2].map(k => ({ t: on[i + k] ? "[X]  " + on[i + k].text : "", bold: true })) });
+    table(c, rows, { minH: 15 });
     gap();
   };
   S.attest = () => { para(ATTEST, 8.5, "italic", 4); };
@@ -412,15 +473,102 @@ export function ptpPdf(jsPDF, t, d, logoDataUrl) {
   for (let p = 1; p <= n; p++) {
     doc.setPage(p); setF(7.5, "normal"); doc.setTextColor(110);
     doc.text(`${t.label}${d.top.project ? " — " + d.top.project : ""}`, M, PH - 20);
-    doc.text(`Page ${p} of ${n}`, PW - M, PH - 20, { align: "right" });
+    // "Plan page", not "Page": attachments are merged in after this is stamped, so a bare
+    // "Page 1 of 2" would contradict a file that ends up longer.
+    doc.text(`Plan page ${p} of ${n}`, PW - M, PH - 20, { align: "right" });
   }
   return doc;
 }
-const ans = (d, i) => d.answers["q" + i] === "yes" ? "YES" : d.answers["q" + i] === "no" ? "NO" : "Yes / No";
 
 export function ptpFileName(t, d) {
   const bits = ["PTP", t.key === "arch" ? "Architectural" : "Standard",
                 (d.top.project || "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, ""),
                 (d.top.startDate || new Date().toISOString().slice(0, 10))];
   return bits.filter(Boolean).join("_") + ".pdf";
+}
+
+/* ---------- attachments ----------
+   Drawings, SDS sheets, a photo of the permit -- whatever has to travel with the plan. They live
+   in IndexedDB, not Firestore and not localStorage: a single drawing is routinely several MB,
+   which is past a Firestore document and past the whole localStorage budget. That also means they
+   survive a reload, which is what "everything saves for the next run" has to mean for a file. */
+const ATT_DB = "erPtp", ATT_STORE = "files";
+function attDb(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(ATT_DB, 1);
+    r.onupgradeneeded = () => { if(!r.result.objectStoreNames.contains(ATT_STORE)) r.result.createObjectStore(ATT_STORE); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+const attKey = (t, id) => `${t.key}|${id}`;
+
+export async function ptpAttList(t){
+  try{
+    const db = await attDb();
+    return await new Promise(res => {
+      const tx = db.transaction(ATT_STORE, "readonly").objectStore(ATT_STORE).getAll();
+      tx.onsuccess = () => res((tx.result || []).filter(a => a && a.tpl === t.key)
+        .sort((a, b) => (a.added || 0) - (b.added || 0)));
+      tx.onerror = () => res([]);
+    });
+  }catch(e){ return []; }        // private browsing has no IndexedDB; the form still works
+}
+export async function ptpAttAdd(t, file){
+  const buf = await file.arrayBuffer();
+  const rec = { id: "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                tpl: t.key, name: file.name || "attachment", type: file.type || "",
+                size: buf.byteLength, added: Date.now(), bytes: new Uint8Array(buf) };
+  const db = await attDb();
+  await new Promise((res, rej) => {
+    const tx = db.transaction(ATT_STORE, "readwrite");
+    tx.objectStore(ATT_STORE).put(rec, attKey(t, rec.id));
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+  return rec;
+}
+export async function ptpAttDel(t, id){
+  try{
+    const db = await attDb();
+    await new Promise(res => {
+      const tx = db.transaction(ATT_STORE, "readwrite");
+      tx.objectStore(ATT_STORE).delete(attKey(t, id)); tx.oncomplete = res; tx.onerror = res;
+    });
+  }catch(e){ /* nothing to delete */ }
+}
+export async function ptpAttClear(t){
+  const all = await ptpAttList(t);
+  for(const a of all) await ptpAttDel(t, a.id);
+}
+
+/* Merge the generated plan with whatever was attached, into one file.
+   pdf-lib rather than rasterising through pdf.js: copied PDF pages stay vector and searchable,
+   which for a drawing is the whole point. An attachment that cannot be read is reported and
+   skipped -- one bad file must not cost the foreman the plan itself. */
+export async function ptpMerge(PDFLib, planBytes, atts){
+  const out = await PDFLib.PDFDocument.create();
+  const plan = await PDFLib.PDFDocument.load(planBytes);
+  (await out.copyPages(plan, plan.getPageIndices())).forEach(p => out.addPage(p));
+  const skipped = [];
+  for(const a of atts){
+    try{
+      const bytes = a.bytes instanceof Uint8Array ? a.bytes : new Uint8Array(a.bytes);
+      if(/pdf/i.test(a.type) || /\.pdf$/i.test(a.name)){
+        const src = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+        (await out.copyPages(src, src.getPageIndices())).forEach(p => out.addPage(p));
+      } else if(/png/i.test(a.type) || /\.png$/i.test(a.name)){
+        placeImage(out, await out.embedPng(bytes));
+      } else if(/jpe?g/i.test(a.type) || /\.jpe?g$/i.test(a.name)){
+        placeImage(out, await out.embedJpg(bytes));
+      } else skipped.push(a.name);
+    }catch(e){ skipped.push(a.name); }
+  }
+  return { bytes: await out.save(), skipped };
+}
+// One image per page, scaled to fit inside a Letter page with a margin, never blown up past 1:1.
+function placeImage(doc, img){
+  const PW = 612, PH = 792, M = 36;
+  const s = Math.min((PW - M * 2) / img.width, (PH - M * 2) / img.height, 1);
+  const w = img.width * s, h = img.height * s;
+  doc.addPage([PW, PH]).drawImage(img, { x: (PW - w) / 2, y: (PH - h) / 2, width: w, height: h });
 }

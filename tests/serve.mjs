@@ -52,6 +52,8 @@ export async function startServer(){
    connection resets, which once showed up as ~12 seconds of idle and looked like a slow app. */
 export async function routeCdn(ctx){
   const local = u =>
+    // pdf-lib first: "pdf-lib.min.js" would otherwise be tested against the pdf.js patterns below
+    u.includes("pdf-lib")    ? "pdf-lib.min.js" :
     u.includes("jspdf")      ? "jspdf.umd.min.js" :
     u.includes("pdf.worker") ? "pdf.worker.min.js" :
     u.includes("pdf.min.js") ? "pdf.min.js" :

@@ -3,7 +3,42 @@
    rather than copied, so this can't pass against a stale duplicate. */
 import { chromium } from "playwright";
 import fs from "node:fs"; import path from "node:path";
-import { startServer, routeCdn, CHROMIUM, TESTS_DIR } from "./serve.mjs";
+import { startServer, routeCdn, CHROMIUM, TESTS_DIR, REPO_DIR } from "./serve.mjs";
+
+/* ---------- 1. the formatter, exercised directly out of format.js ---------- */
+const src = fs.readFileSync(path.join(REPO_DIR,"format.js"),"utf8");
+const start = src.indexOf("function lastSeenText");
+if(start<0) throw new Error("lastSeenText not found in format.js");
+const end = src.indexOf("\nfunction money", start);
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const lastSeenText = new Function("MON", src.slice(start,end)+"; return lastSeenText;")(MON);
+
+const NOW = Date.UTC(2026,7,5,12,0,0);
+const MIN=60000, HR=3600000, DAY=86400000;
+const cases = [
+  [0,            "Never opened it"],
+  [NOW+5*MIN,    "Just now"],          // a phone clock running ahead of the server
+  [NOW-30000,    "Just now"],
+  [NOW-4*MIN,    "Just now"],
+  [NOW-20*MIN,   "20 min ago"],
+  [NOW-HR,       "1 hour ago"],
+  [NOW-5*HR,     "5 hours ago"],
+  [NOW-26*HR,    "Yesterday"],
+  [NOW-3*DAY,    "3 days ago"],
+  [NOW-9*DAY,    "Last week"],
+  [NOW-30*DAY,   "4 weeks ago"],
+];
+const fails=[]; const chk=(c,m)=>{ if(!c) fails.push(m); };
+for(const [ms,want] of cases){
+  const got = lastSeenText(ms, NOW);
+  chk(got===want, `lastSeenText(${ms}) => ${JSON.stringify(got)}, expected ${JSON.stringify(want)}`);
+}
+console.log(`formatter: ${cases.length} cases checked`);
+// far past falls back to an absolute date
+const far = lastSeenText(Date.UTC(2025,2,14,9,0,0), NOW);
+console.log("90+ days ago =>", JSON.stringify(far));
+chk(/^Mar 1[34], 2025$/.test(far), `old date should read as an absolute date, got ${JSON.stringify(far)}`);
+
 
 const { server, port: PORT } = await startServer();
 
@@ -42,7 +77,7 @@ async function boot(seenAt){
 }
 
 // --- a fresh visit is recorded
-const {page,errs} = await boot(0);
+let {page,errs} = await boot(0);
 const seenWrites = await page.evaluate(()=>(window.__WRITES||[])
   .filter(w=>w.coll==="people" && w.data && "lastSeen" in w.data).length);
 console.log("lastSeen writes on a fresh open:", seenWrites);
@@ -64,7 +99,13 @@ console.log("lastSeen writes when seen 20 minutes ago:", after);
 chk(after>=1, "a visit past the throttle window was not recorded");
 await p2.close(); await p3.close();
 
-// --- Manage People shows it
+/* --- Manage People shows it ---
+   On a fresh page the app records THIS visit, which correctly overwrites Jaren's seeded
+   "2 hours ago". Boot inside the throttle window so nothing is written and the seeded times are
+   what the list renders. */
+await page.close();
+const { page: page4 } = await boot(Date.now()-60000);
+page = page4;
 await page.locator("#btnAdminOpen").click(); await page.waitForTimeout(400);
 if(await page.locator("#adminPin, .pin-input").count()){
   await page.locator(".pin-input").first().fill("1234").catch(()=>{});

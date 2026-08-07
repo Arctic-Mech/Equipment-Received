@@ -53,16 +53,7 @@ const BUDGET_MS = { boot: 6000, tab: 1800 };
 const fails=[]; const chk=(c,m)=>{ if(!c) fails.push(m); };
 const browser=await chromium.launch({executablePath:CHROMIUM,args:["--no-sandbox"]});
 const ctx=await browser.newContext({viewport:{width:440,height:956},isMobile:true,hasTouch:true});
-/* Serve the CDN libraries locally. Left unrouted they hang until the connection resets, which
-   showed up as ~12 seconds of pure idle and made a harness artifact look like a 14-second boot. */
-await ctx.route(/cdnjs\.cloudflare\.com|cdn\.sheetjs\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/, route=>{
-  const u=route.request().url();
-  const local = u.includes("jspdf") ? "jspdf.umd.min.js"
-              : u.includes("pdf.worker") ? "pdfworker.min.js"
-              : u.includes("pdf.min.js") ? "pdfjs.min.js" : null;
-  if(!local) return route.fulfill({status:200,contentType:"text/javascript",body:""});
-  route.fulfill({status:200,contentType:"text/javascript",body:fs.readFileSync(path.join(TESTS_DIR,local))});
-});
+await routeCdn(ctx);
 const page=await ctx.newPage();
 const errs=[];
 page.on("pageerror",e=>errs.push("pageerror: "+e.message));

@@ -95,22 +95,31 @@ await page.fill('[data-ptp="seq.0.1"]',"Overhead work, dropped tools");
 await page.fill('[data-ptp="seq.0.2"]',"Tool lanyards, hard hats, barricade below");
 await page.fill('[data-ptp="nearest.shower"]',"Level 1 mech room");
 await page.fill('[data-ptp="nearest.fireExt"]',"Column C6");
-await page.locator('[data-yn="0|yes"]').click(); await page.waitForTimeout(220);
-await page.locator('[data-yn="1|no"]').click();  await page.waitForTimeout(220);
-await page.locator('[data-chk="0"]').click();    await page.waitForTimeout(220);
-await page.locator('[data-chk="4"]').click();    await page.waitForTimeout(220);
+const q = n => page.locator("#ptpForm .ptp-q").nth(n);
+const chkBox = n => page.locator("#ptpForm .ptp-chk").nth(n);
+await q(0).locator(".yn.y").click(); await page.waitForTimeout(220);
+await q(1).locator(".yn.n").click(); await page.waitForTimeout(220);
+// Remember which question this actually is: the flattened order is not the row order, and
+// hard-coding the text here once asserted against a question that was never marked N/A.
+const naText=(await q(2).locator(".qt").innerText()).trim();
+await q(2).locator(".yn.a").click(); await page.waitForTimeout(220);   // N/A -- must not be exported
+console.log("marked N/A:", JSON.stringify(naText));
+await chkBox(0).click(); await page.waitForTimeout(220);
+await chkBox(4).click(); await page.waitForTimeout(220);
 await page.waitForTimeout(600);
-chk(await page.locator('[data-yn="0|yes"].on').count()===1, "Yes did not stick");
-chk(await page.locator('[data-yn="1|no"].on').count()===1, "No did not stick");
-chk(await page.locator('[data-chk="0"].on').count()===1, "the checkbox did not stick");
+chk(await q(0).locator(".yn.y.on").count()===1, "Yes did not stick");
+chk(await q(1).locator(".yn.n.on").count()===1, "No did not stick");
+chk(await q(2).locator(".yn.a.on").count()===1, "N/A did not stick");
+chk(await chkBox(0).locator(".bx").innerText()!=="", "the checkbox did not stick");
 
 /* ---- it survives a reload ---- */
 const p2=await boot();
 chk(await p2.inputValue('[data-ptp="top.project"]')==="Riverside Medical Center", "project did not survive a reload");
 chk(await p2.inputValue('[data-ptp="ident.foreman"]')==="Jaren Eells", "foreman did not survive a reload");
 chk(await p2.inputValue('[data-ptp="seq.0.1"]')==="Overhead work, dropped tools", "the sequence row did not survive a reload");
-chk(await p2.locator('[data-yn="0|yes"].on').count()===1, "the Yes answer did not survive a reload");
-chk(await p2.locator('[data-chk="4"].on').count()===1, "the checkbox did not survive a reload");
+chk(await p2.locator("#ptpForm .ptp-q").nth(0).locator(".yn.y.on").count()===1, "the Yes answer did not survive a reload");
+chk(await p2.locator("#ptpForm .ptp-q").nth(2).locator(".yn.a.on").count()===1, "the N/A answer did not survive a reload");
+chk(await p2.locator("#ptpForm .ptp-chk.on").count()===2, "the checkboxes did not survive a reload");
 console.log("reload: everything came back");
 // the two templates keep separate saved copies
 await p2.locator("[data-ptpkind='arch']").click(); await p2.waitForTimeout(400);
@@ -133,11 +142,29 @@ chk(/^PTP_Standard_Riverside-Medical-Center_2026-08-10\.pdf$/.test(dl.suggestedF
 chk(size>4000, `PDF looks empty (${size} bytes)`);
 
 // Read the PDF back with pdf.js and check the typed values are really in it.
-const reader=await ctx.newPage();
+let reader=await ctx.newPage();
+/* Re-opens itself if it has been closed. The reader used to be a single page closed partway
+   through the file, so any assertion added below that point died on a closed target. */
+async function readerPage(){
+  if(!reader || reader.isClosed()){
+    reader=await ctx.newPage();
+    reader.on("pageerror",e=>errs.push("reader: "+e.message));
+    await reader.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"});
+  }
+  return reader;
+}
+const reader2=async b64=>(await readerPage()).evaluate(async data=>{
+  const raw=atob(data), arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  const doc=await window.pdfjsLib.getDocument({data:arr}).promise;
+  const pages=[]; for(let i=1;i<=doc.numPages;i++){ const c=await (await doc.getPage(i)).getTextContent();
+    pages.push(c.items.map(t=>t.str).join(" ")); }
+  return {n:doc.numPages,text:pages.join("\n"),pages};
+},b64);
 reader.on("pageerror",e=>errs.push("reader: "+e.message));
 await reader.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"});
 const b64=fs.readFileSync(out).toString("base64");
-const read=await reader.evaluate(async data=>{
+const read=await (await readerPage()).evaluate(async data=>{
   const raw=atob(data), arr=new Uint8Array(raw.length);
   for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
   const doc=await window.pdfjsLib.getDocument({data:arr}).promise;
@@ -146,7 +173,7 @@ const read=await reader.evaluate(async data=>{
     const c=await (await doc.getPage(i)).getTextContent();
     pages.push(c.items.map(t=>t.str).join(" "));
   }
-  return {n:doc.numPages, text:pages.join("\n")};
+  return {n:doc.numPages, text:pages.join("\n"), pages};
 },b64);
 console.log("PDF pages:",read.n,"| characters of text:",read.text.length);
 chk(read.n>=1, "the PDF has no pages");
@@ -159,35 +186,46 @@ chk(missing.length===0, `the PDF is missing typed content: ${JSON.stringify(miss
 chk(/YES/.test(read.text)&&/NO/.test(read.text), "Yes/No answers are not in the PDF");
 // jsPDF's built-in fonts are WinAnsi; a glyph outside that set silently mangles the whole cell,
 // so assert on the real label text and on the tick marker actually used.
-chk(read.text.includes("SIPP") && read.text.includes("Fall Protection PPE"), "the circle/check list is not in the PDF");
+// Only the ticked items print. SIPP and Hand/Arm PPE were ticked; the rest must be absent.
+chk(read.text.includes("SIPP"), "a ticked circle item is missing from the PDF");
 chk(read.text.includes("[X]"), "no ticked box in the PDF even though two items were checked");
+chk(!read.text.includes("Flush/Discharge"), "an unticked circle item was printed anyway");
+chk(!read.text.includes("Hearing PPE"), "an unticked circle item was printed anyway");
+// an N/A answer drops its whole question off the printed form
+chk(!read.text.includes(naText.slice(0,40)), `a question answered N/A was still printed: ${naText}`);
+// ...while its neighbours, which were answered normally, are still there
+chk(read.text.includes("Have you personally walked your work area?"), "an answered question went missing from the PDF");
 chk(read.text.includes("B \u2014 East Wing") || read.text.includes("East Wing"), "the Building value is missing from the PDF");
 chk(!/[\u2610\u2612\uFFFD]/.test(read.text), "an un-encodable glyph reached the PDF");
-chk(/Page 1 of \d/.test(read.text), "no page numbering in the PDF");
+chk(/Plan page 1 of \d/.test(read.text), "no page numbering in the PDF");
 // the architectural PDF must not carry standard-only content
 await page.locator("[data-ptpkind='arch']").click(); await page.waitForTimeout(400);
 await page.fill('[data-ptp="top.project"]',"Cedar High School"); await page.waitForTimeout(600);
 const [dl2]=await Promise.all([ page.waitForEvent("download",{timeout:30000}), page.locator("#ptpPdf").click() ]);
 const out2=path.join(TESTS_DIR,"ptp-arch.pdf"); await dl2.saveAs(out2);
 const b64b=fs.readFileSync(out2).toString("base64");
-const read2=await reader.evaluate(async data=>{
+const read2=await (await readerPage()).evaluate(async data=>{
   const raw=atob(data), arr=new Uint8Array(raw.length);
   for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
   const doc=await window.pdfjsLib.getDocument({data:arr}).promise;
-  let s=""; for(let i=1;i<=doc.numPages;i++){ const c=await (await doc.getPage(i)).getTextContent(); s+=c.items.map(t=>t.str).join(" ")+"\n"; }
-  return {n:doc.numPages,text:s};
+  const pages=[]; for(let i=1;i<=doc.numPages;i++){ const c=await (await doc.getPage(i)).getTextContent(); pages.push(c.items.map(t=>t.str).join(" ")); }
+  return {n:doc.numPages,text:pages.join("\n"),pages};
 },b64b);
 console.log("architectural PDF pages:",read2.n);
 /* The repeat-header guard used to fire even when the row that tripped the page break WAS the
    header, drawing it once at the top of the new page and again as the ordinary row. It reproduced
    on the plainest architectural export, and every substring assertion above still passed. */
-const seqCount=(read2.text.match(/SEQUENCE OF CONSTRUCTION ACTIVITIES/g)||[]).length;
-const chgCount=(read2.text.match(/CHANGING CONDITIONS/g)||[]).length;
-console.log("arch header bands — sequence:",seqCount,"changing:",chgCount);
-chk(seqCount===1, `the SEQUENCE header is drawn ${seqCount} times in the architectural PDF`);
-chk(chgCount===1, `the CHANGING CONDITIONS header is drawn ${chgCount} times`);
-const seqStd=(read.text.match(/SEQUENCE OF CONSTRUCTION ACTIVITIES/g)||[]).length;
-chk(seqStd===1, `the SEQUENCE header is drawn ${seqStd} times in the standard PDF`);
+/* A table continuing onto the next page SHOULD repeat its header there -- that is the whole
+   point of opt.repeat. The bug was two identical bands stacked on the SAME page, so count per
+   page, not across the document. */
+const perPage=(r,re)=>r.pages.map(p=>(p.match(re)||[]).length);
+const seqPP=perPage(read2,/SEQUENCE OF CONSTRUCTION ACTIVITIES/g);
+const chgPP=perPage(read2,/CHANGING CONDITIONS/g);
+console.log("arch header bands per page — sequence:",seqPP,"changing:",chgPP);
+chk(Math.max(0,...seqPP)<=1, `the SEQUENCE header is stacked twice on one page: ${seqPP}`);
+chk(Math.max(0,...chgPP)<=1, `the CHANGING CONDITIONS header is stacked twice on one page: ${chgPP}`);
+const seqStdPP=perPage(read,/SEQUENCE OF CONSTRUCTION ACTIVITIES/g);
+chk(Math.max(0,...seqStdPP)<=1, `standard PDF stacks the SEQUENCE header: ${seqStdPP}`);
 // Titles come out in source order: the architectural form leads with its trade line.
 const iArch=read2.text.indexOf("ARCHITECTURAL SHEET METAL"), iChk=read2.text.indexOf("PRE-TASK PLAN CHECK LIST");
 console.log("title order — arch@",iArch,"checklist@",iChk);
@@ -200,7 +238,62 @@ chk(!/\b2026-08-10\b/.test(read.text), "a raw YYYY-MM-DD date reached the PDF");
 chk(/architectural sheet metal/i.test(read2.text), "the architectural PDF is missing its trade line");
 chk(read2.text.includes("Cedar High School"), "the architectural PDF is missing the project");
 chk(!read2.text.includes("SIPP"), "a standard-only item leaked into the architectural PDF");
-await reader.close();
+await reader.close(); reader=null;
+
+/* ---- adding to the shared pool ---- */
+await page.locator("[data-ptpkind='standard']").click(); await page.waitForTimeout(400);
+const qBefore=await page.locator("#ptpForm .ptp-q").count();
+const cBefore=await page.locator("#ptpForm .ptp-chk").count();
+await page.fill('[data-pooladd="questions"]',"Is the roof hatch access clear?");
+await page.locator('[data-poolgo="questions"]').click(); await page.waitForTimeout(600);
+await page.fill('[data-pooladd="circle"]',"Roof anchor points inspected");
+await page.locator('[data-poolgo="circle"]').click(); await page.waitForTimeout(600);
+chk(await page.locator("#ptpForm .ptp-q").count()===qBefore+1, "the added question did not appear");
+chk(await page.locator("#ptpForm .ptp-chk").count()===cBefore+1, "the added checklist item did not appear");
+// it goes to Firestore, not this device -- that is what makes it everyone's list
+const poolWrites=await page.evaluate(()=>(window.__WRITES||[])
+  .filter(w=>w.coll==="config"&&w.id==="ptpPool").length);
+console.log("pool writes to Firestore:",poolWrites);
+chk(poolWrites>=2, "adding to the pool did not write to Firestore");
+// added items are marked as such and are removable; built-ins are not
+chk(await page.locator("#ptpForm .ptp-q .ptp-own").count()===1, "the added question is not marked as added");
+chk(await page.locator("#ptpForm .ptp-q [data-poolrm]").count()===1, "only the added question should be removable");
+// answering the new one and ticking the new item must reach the PDF
+await page.locator("#ptpForm .ptp-q").nth(qBefore).locator(".yn.y").click(); await page.waitForTimeout(250);
+await page.locator("#ptpForm .ptp-chk").nth(cBefore).click(); await page.waitForTimeout(400);
+const [dl3]=await Promise.all([ page.waitForEvent("download",{timeout:30000}), page.locator("#ptpPdf").click() ]);
+const out3=path.join(TESTS_DIR,"ptp-pool.pdf"); await dl3.saveAs(out3);
+const read3=await reader2(fs.readFileSync(out3).toString("base64"));
+chk(read3.text.includes("Is the roof hatch access clear?"), "an added question is missing from the PDF");
+chk(read3.text.includes("Roof anchor points inspected"), "an added checklist item is missing from the PDF");
+console.log("added items reach the PDF: ok");
+
+/* ---- attachments are merged into one file ---- */
+const planPages=read3.n;
+const mini=await page.evaluate(async()=>{
+  // a tiny two-page PDF made with the jsPDF already on the page, used as a stand-in for a drawing
+  const {jsPDF}=window.jspdf; const d=new jsPDF({unit:"pt",format:"letter"});
+  d.text("ATTACHED DRAWING ONE",60,80); d.addPage(); d.text("ATTACHED DRAWING TWO",60,80);
+  const b=new Uint8Array(d.output("arraybuffer")); return Array.from(b);
+});
+// If pdf-lib never arrives the export silently falls back to plan-only, which once let this
+// whole block pass while merging nothing.
+chk(await page.evaluate(()=>!!window.PDFLib), "pdf-lib did not load, so the merge was never exercised");
+await page.setInputFiles("#ptpAttFile",{name:"drawing.pdf",mimeType:"application/pdf",buffer:Buffer.from(mini)});
+await page.waitForTimeout(800);
+chk(await page.locator("#ptpAtts .ptp-att").count()===1, "the attached file is not listed");
+const [dl4]=await Promise.all([ page.waitForEvent("download",{timeout:40000}), page.locator("#ptpPdf").click() ]);
+const out4=path.join(TESTS_DIR,"ptp-merged.pdf"); await dl4.saveAs(out4);
+const read4=await reader2(fs.readFileSync(out4).toString("base64"));
+console.log(`merged: plan ${planPages} pages + 2 attached = ${read4.n}`);
+chk(read4.n===planPages+2, `expected ${planPages+2} pages in the merged PDF, got ${read4.n}`);
+chk(read4.text.includes("ATTACHED DRAWING ONE")&&read4.text.includes("ATTACHED DRAWING TWO"),
+    "the attachment's pages are not in the merged PDF");
+chk(read4.text.includes("Riverside Medical Center"), "the plan itself is missing from the merged PDF");
+// the attachment survives a reload -- it is part of "everything saves"
+const p4=await boot();
+chk(await p4.locator("#ptpAtts .ptp-att").count()===1, "the attachment did not survive a reload");
+await p4.close();
 
 /* ---- removing a filled row asks first ---- */
 await page.locator("[data-ptpkind='standard']").click(); await page.waitForTimeout(400);
@@ -240,8 +333,8 @@ chk(await page.inputValue('[data-ptp="top.project"]')==="Riverside Medical Cente
 page.once("dialog",d=>d.accept());
 await page.locator("#ptpClear").click(); await page.waitForTimeout(500);
 chk(await page.inputValue('[data-ptp="top.project"]')==="", "Clear all did not empty the form");
-chk(await page.locator('[data-yn="0|yes"].on').count()===0, "Clear all left the Yes/No answers behind");
-chk(await page.locator('[data-chk="0"].on').count()===0, "Clear all left the checkboxes behind");
+chk(await page.locator("#ptpForm .ptp-q .yn.on").count()===0, "Clear all left the Yes/No answers behind");
+chk(await page.locator("#ptpForm .ptp-chk.on").count()===0, "Clear all left the checkboxes behind");
 const p3=await boot();
 chk(await p3.inputValue('[data-ptp="top.project"]')==="", "Clear all did not erase the saved copy on this device");
 // ...and it only cleared the one template
