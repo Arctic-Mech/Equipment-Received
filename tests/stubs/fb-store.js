@@ -26,7 +26,14 @@ export async function getDoc(ref){
 /* Live doc listeners, so a write echoes back the way Firestore's does. Without this a feature
    that renders from its own snapshot (the shared PTP pool) looks broken in tests while working
    in production -- the write was recorded but nothing ever told the UI about it. */
-const docWatchers = [];
+const docWatchers = [], collWatchers = [];
+/* Collections deliberately answer from CACHE only — reproducing the situation where arrivals
+   never reports a server snapshot, which used to strand the badge. */
+function emitColl(coll, cb){
+  const rows = seed()[coll] || {};
+  const docs = Object.entries(rows).map(([id,data])=>({ id, data:()=>data }));
+  try{ cb({ forEach:f=>docs.forEach(f), metadata:{fromCache:true}, size:docs.length }); }catch(e){}
+}
 // Lets a suite push a document change the way another device would.
 if(typeof window!=="undefined") window.__echoDoc=(coll,id,data)=>echo(coll,id,data);
 function echo(coll, id, data){
@@ -35,6 +42,8 @@ function echo(coll, id, data){
   c[id] = { ...(c[id] || {}), ...data };            // {merge:true} is what the app always uses
   docWatchers.filter(w => w.coll === coll && w.id === id)
     .forEach(w => { try{ w.cb({ exists:()=>true, data:()=>c[id], id, metadata:{fromCache:false} }); }catch(e){} });
+  // ...and everyone listening to the collection that document lives in
+  collWatchers.filter(w => w.coll === coll).forEach(w => emitColl(coll, w.cb));
 }
 
 /* Lets a suite reproduce a Firestore client the SDK has terminated. Both wordings are real:
@@ -86,11 +95,11 @@ export function onSnapshot(ref, a, b, c){
         emit(false);
       }
     } else {                                        // collection
-      const rows=seed()[ref.__coll]||{};
-      const docs=Object.entries(rows).map(([id,data])=>({id,data:()=>data}));
-      // Collections deliberately answer from CACHE only — reproducing the situation where
-      // arrivals never reports a server snapshot, which used to strand the badge.
-      cb({ forEach:f=>docs.forEach(f), metadata:{fromCache:true}, size:docs.length });
+      // A collection listener re-fires whenever a document inside it changes, which is how one
+      // device hears what another device just wrote. Emitting once and never again made anything
+      // driven by that -- cleared alerts arriving from another phone -- untestable.
+      collWatchers.push({ coll: ref.__coll, cb });
+      emitColl(ref.__coll, cb);
     }
   },0);
   return ()=>{};

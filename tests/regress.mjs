@@ -137,9 +137,17 @@ const BASE={people:PERSON,rentals:{},toolRentals:{},shares:{},webductOrders:{},
   const emptied=writes.filter(w=>w.coll==="people" && w.data && Array.isArray(w.data.savedJobs) && w.data.savedJobs.length===0);
   console.log(`writes that would empty savedJobs: ${emptied.length}`);
   chk(emptied.length===0, `a sign-in wrote savedJobs:[] to the server, deleting every saved job (${emptied.length} write(s))`);
-  // the person still has to be told, rather than silently carrying on with an empty list
-  const said=await page.evaluate(()=>document.body.innerText);
-  chk(/saved jobs/i.test(said), "a failed load of the saved-job list said nothing to the user");
+  /* The invariant is that nobody is left silently holding an empty list. Two outcomes satisfy it,
+     and which one happens depends on how much of the connection is actually down: the direct read
+     of people/{id} can fail while the collection listener still delivers the record, and then the
+     jobs really did load and a warning would be a lie. Only if neither path produced anything does
+     the person have to be told. */
+  await page.locator("nav.tabs .tab[data-view='jobs']").click();
+  await page.waitForTimeout(500);
+  const loaded=await page.evaluate(()=>!!document.querySelector('[data-mjpick], .job-card, #jobsList .jcard'));
+  const said=/saved jobs/i.test(await page.evaluate(()=>document.body.innerText));
+  console.log(`after a failed read — saved jobs recovered: ${loaded}, warned instead: ${said}`);
+  chk(loaded||said, "a failed load left the saved-job list empty and said nothing about it");
   EXPECT_OFFLINE=false;
   await ctx.close();
 }
