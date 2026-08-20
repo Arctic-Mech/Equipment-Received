@@ -254,7 +254,59 @@ function saveUser(){ try{localStorage.setItem("er_user",JSON.stringify(USER));}c
 function nameNorm(first,last){ return (String(first||"")+" "+String(last||"")).toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim(); }
 function personId(first,last){ const s=nameNorm(first,last).replace(/ /g,"-"); return "p-"+(s||Math.random().toString(36).slice(2)); }
 function loadSeen(){ try{const s=JSON.parse(localStorage.getItem("er_seen")||"null"); return (s&&Array.isArray(s.ids))?{init:!!s.init,ids:new Set(s.ids)}:{init:false,ids:new Set()};}catch(e){return{init:false,ids:new Set()};} }
-function saveSeen(){ try{localStorage.setItem("er_seen",JSON.stringify({init:SEEN.init,ids:[...SEEN.ids]}));}catch(e){} }
+
+/* Clearing an alert has to stick on every device that person signs in on -- clearing it on the
+   phone at the gate and then seeing the same red badge on the laptop at the trailer is the whole
+   complaint. So the acknowledged set lives on people/{id} as well as on the device.
+
+   Merging is a union, never a replace, and that is what makes this safe without any coordination:
+   clearing is monotone. Nothing ever moves an id back to unread, so two devices that each cleared
+   different things both end up with everything cleared, in either order, with no last-writer-wins
+   race to lose. localStorage stays as the offline copy so the badge is right before the server
+   answers, and so it still works signed in with no signal. */
+function saveSeen(){ try{localStorage.setItem("er_seen",JSON.stringify({init:SEEN.init,ids:[...SEEN.ids]}));}catch(e){} syncSeen(); }
+
+/* The set is pruned to arrivals that still exist on jobs this person still has saved. Without
+   that it only ever grows: at five years of data it was the largest thing the app stored, and a
+   Firestore document stops accepting writes at 1 MB, which would have broken clearing outright
+   rather than slowing it down. Pruning needs both lists actually loaded -- pruning against an
+   empty MY_JOBS would forget everything and light up every old arrival as new. */
+function prunedSeen(){
+  if(!userRecordLoaded || !ARRIVALS.length) return [...SEEN.ids];
+  const live=new Set(myJobItemIds());
+  return [...SEEN.ids].filter(id=>live.has(id));
+}
+/* Debounced, because auto-linking a person to ten jobs calls markSeenForJob ten times in a row and
+   ten identical whole-set writes help nobody. The device copy is written synchronously either way,
+   so nothing is at risk in the gap -- only how fast the other devices hear about it. */
+let seenWriteAt=0, seenTimer=null;
+function syncSeen(){
+  if(!USER||!fbReady||!userRecordLoaded) return;
+  clearTimeout(seenTimer);
+  seenTimer=setTimeout(seenFlush,400);
+}
+function seenFlush(){
+  clearTimeout(seenTimer); seenTimer=null;
+  if(!USER||!fbReady||!userRecordLoaded) return;
+  seenWriteAt=Date.now();
+  const ids=prunedSeen(); SEEN.ids=new Set(ids);
+  try{ setDoc(doc(db,"people",USER.id),{seenInit:SEEN.init,seenIds:ids,updatedAt:serverTimestamp()},{merge:true}); }
+  catch(e){ fbNoteError(e,"seen"); }
+}
+// Clearing an alert and immediately locking the phone must not lose the part that travels.
+addEventListener("pagehide",()=>{ if(seenTimer) seenFlush(); });
+document.addEventListener("visibilitychange",()=>{ if(document.hidden && seenTimer) seenFlush(); });
+/* Called from the people listener. Union in whatever another device has cleared. */
+function mergeSeenFrom(me){
+  if(!me) return false;
+  const ids=Array.isArray(me.seenIds)?me.seenIds:null;
+  if(!ids && !me.seenInit) return false;
+  let changed=false;
+  if(me.seenInit && !SEEN.init){ SEEN.init=true; changed=true; }
+  for(const id of (ids||[])) if(!SEEN.ids.has(id)){ SEEN.ids.add(id); changed=true; }
+  if(changed) try{localStorage.setItem("er_seen",JSON.stringify({init:SEEN.init,ids:[...SEEN.ids]}));}catch(e){}
+  return changed;
+}
 
 /* ---------- Name matching + auto-link ---------- */
 function nameMatches(rb,first,last){
@@ -292,17 +344,21 @@ function autoLinkOrderedJobs(){
 function myJobItemIds(){ const ids=[]; const set=new Set(MY_JOBS); ARRIVALS.forEach(r=>{if(set.has(normJob(r.jobNumber)))ids.push("a:"+r.id);}); return ids; }
 function newItemIds(){ if(!SEEN.init)return []; return myJobItemIds().filter(id=>!SEEN.ids.has(id)); }
 function markSeenForJob(job){ ARRIVALS.forEach(r=>{if(normJob(r.jobNumber)===job)SEEN.ids.add("a:"+r.id);}); SEEN.init=true; saveSeen(); }
-function clearJobNotif(job){ if(!confirm(`Clear the new-arrival alert for job ${job}?`))return; markSeenForJob(job); updateNotif(); renderJobs(); }
+function clearJobNotif(job){ if(!confirm(`Clear the new-arrival alert for job ${job}?\n\nThis clears it on your phone and your computer.`))return; markSeenForJob(job); updateNotif(); renderJobs(); }
 function clearOneNotif(id){ if(!confirm("Clear this new-arrival alert?"))return; SEEN.ids.add("a:"+id); SEEN.init=true; saveSeen(); updateNotif(); renderJobs(); }
 function updateNotif(){
-  if(!SEEN.init && ARRIVALS.length){ SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); }
+  /* The baseline -- "everything that exists right now counts as already seen" -- can only be taken
+     once this person's saved jobs have actually loaded. Taken before that, myJobItemIds() is empty
+     and init still flips to true, so every arrival in the app's whole history then reads as new.
+     That is what a second device used to show on its first open. */
+  if(!SEEN.init && ARRIVALS.length && userRecordLoaded){ SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); }
   const news=new Set(newItemIds());
   const badge=$("jobsNotif"); if(badge){ badge.textContent=news.size>99?"99+":news.size; badge.classList.toggle("show",news.size>0); }
   const banner=$("notifBanner");
   if(banner){ if(news.size>0){ banner.classList.add("show"); $("notifTxt").textContent=`${news.size} new ${news.size===1?"arrival":"arrivals"} on your jobs. Open a job to clear it.`; } else banner.classList.remove("show"); }
   return news;
 }
-function clearNotif(){ if(!confirm("Clear all new-arrival alerts on My Jobs?"))return; SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); updateNotif(); renderJobs(); toast("All cleared"); }
+function clearNotif(){ if(!confirm("Clear all new-arrival alerts on My Jobs?\n\nThis clears them on your phone and your computer."))return; SEEN.ids=new Set(myJobItemIds()); SEEN.init=true; saveSeen(); updateNotif(); renderJobs(); toast("All cleared"); }
 
 /* ---------- Sync ---------- */
 const APP_VERSION="7.5";
@@ -338,7 +394,12 @@ function startSync(){
     if(SF_TAB==="ptp" && $("ptpForm") && $("ptpForm").innerHTML) renderPtp(); },
     e=>fbNoteError(e,"ptpPool"));
   onSnapshot(doc(db,"pdfStore","meta"),d=>{ PDF_META=d.exists()?d.data():null; pdfRender.doc=null; renderTools(); renderJobs(); }, e=>fbNoteError(e,"pdfmeta"));
-  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null,lastSeen:tsMs(v.lastSeen)});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>fbNoteError(e,"people"));
+  /* This mapping is a whitelist, so a field not named here does not exist as far as the rest of
+     the app is concerned -- which is why cleared alerts arriving from another device did nothing
+     until seenIds was added to it. It is carried for the signed-in person only: every other
+     person's acknowledged list is none of this device's business, and at a few hundred people it
+     would be the largest thing held in memory for no reason. */
+  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const mine=USER&&d.id===USER.id; l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null,seenInit:mine?!!v.seenInit:false,seenIds:mine&&Array.isArray(v.seenIds)?v.seenIds:null,lastSeen:tsMs(v.lastSeen)});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>fbNoteError(e,"people"));
   onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>fbNoteError(e,"shares"));
   onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>fbNoteError(e,"webductEquip"));
   onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>fbNoteError(e,"webductOrders"));
@@ -361,6 +422,12 @@ let lastJobEdit=0;
 function onPeople(){
   if(!USER)return; const me=PEOPLE.find(p=>p.id===USER.id); if(!me)return;
   if(me.email && me.email!==USER.email){ USER.email=me.email; saveUser(); }
+  /* Ahead of the edit guard below on purpose. That guard exists because savedJobs is REPLACED by
+     whatever the server last saw, so a fresh local edit has to be protected until it round-trips.
+     The seen set is unioned instead of replaced, so it has nothing to clobber -- and holding it
+     back would mean a clear made on another device sat unapplied for the guard's window. */
+  let seenChanged=mergeSeenFrom(me);
+  if(seenChanged && Date.now()-seenWriteAt > 1800){ updateNotif(); renderJobs(); }
   if(Date.now()-lastJobEdit < 1800) return;   // don't clobber a fresh local edit before it round-trips
   let changed=false;
   const sj=Array.isArray(me.savedJobs)?me.savedJobs:[]; if(JSON.stringify(sj)!==JSON.stringify(MY_JOBS)){ MY_JOBS=sj.slice(); changed=true; }
@@ -1132,6 +1199,12 @@ async function signInAs(first,last,email,token){
   lastSeenWrite=Date.now(); try{ localStorage.setItem("er_seen_at",String(lastSeenWrite)); }catch(e){}
   if(token){ WD_TOKEN=token; sessionStorage.setItem("wd_token",token); if(typeof wdRenderToken==="function")wdRenderToken(); }
   MY_JOBS=[]; REMOVED_JOBS=new Set(); JOB_ORDER=[]; MJ_SEL=""; userRecordLoaded=false;
+  /* The acknowledged set is per PERSON, not per device. On a shared phone in the shop, whoever
+     signs in next would otherwise inherit the last person's cleared alerts -- and now that the set
+     is written back to the server, would push them onto that person's other devices too. Start
+     empty and let the merge below restore what this person actually cleared. */
+  SEEN={init:false,ids:new Set()}; clearTimeout(seenTimer); seenTimer=null;
+  try{ localStorage.removeItem("er_seen"); }catch(e){}
   if(fbReady){
     try{
       /* The email box is optional, and merge:true still overwrites a field that is present in the
@@ -1146,6 +1219,9 @@ async function signInAs(first,last,email,token){
         MY_JOBS=Array.isArray(me.savedJobs)?me.savedJobs.slice():[];
         REMOVED_JOBS=new Set(Array.isArray(me.removedJobs)?me.removedJobs:[]);
         JOB_ORDER=Array.isArray(me.jobOrder)?me.jobOrder.slice():[];
+        // Alerts this person has already cleared elsewhere. Signing in on a new phone should not
+        // reopen every alert they dealt with on the old one.
+        mergeSeenFrom(me);
       }
       userRecordLoaded=true;
     }catch(e){console.error(e);}
