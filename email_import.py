@@ -717,35 +717,52 @@ def _connect(dry_run):
     return firestore.Client(project=sa_info["project_id"], credentials=creds)
 
 
+class MarkerUnreadable(RuntimeError):
+    """The import marker could not be read, so we can't tell if this email is new.
+
+    Raised (not swallowed) so the run FAILS and the workflow opens its once-a-day issue.
+    See _already_done for why a read failure must never fall through to a write.
+    """
+
+
 def _already_done(db, marker, email_ms, force):
     """
-    True if this exact email was already imported (so repeat polls are cheap).
+    True if this exact email was already imported (so repeat polls are cheap); False if not.
 
-    If the marker can't be READ, this returns True — it skips rather than importing.
-    That direction matters. It used to assume "not imported yet" and carry on, which turned a
-    Firestore quota problem into a much worse one: the read fails with 429, the importer
-    decides it must import, writes 800+ documents, that fails with 429 too, the marker is
-    never updated, and the next poll does it all again. A read failure now costs one skipped
-    cycle instead, and the next poll retries. Since this polls all morning, a cycle is cheap;
-    re-writing the whole sheet on a guess is not.
+    If the marker can't be READ, this RAISES rather than returning — but it still never writes.
+    Two things had to be true at once and used to be in tension:
 
-    Skipping forever if reads stay broken is not a real risk: writes go through the same
-    connection, so an import could not have succeeded either.
+      1. A read failure must not fall through to a write. It used to assume "not imported yet"
+         and carry on, which turned a Firestore quota problem into a much worse one: the read
+         fails with 429, the importer decides it must import, writes 800+ documents, that fails
+         too, the marker is never updated, and the next poll does it all again. So a read
+         failure aborts THIS import and writes nothing; the next poll retries cleanly.
+
+      2. But "wrote nothing" must not look like "nothing new." On 2026-08-25 a bad google-api-core
+         release made every marker read fail for ~1.5h. The importer skipped safely each time and
+         exited 0 — so the job went green, no issue opened, and the sheet simply didn't appear
+         until someone noticed by hand. Raising turns that same safe skip into a visible failure,
+         and the workflow's failure step opens one deduped issue for the day. Nothing to write is
+         still lost, but now it is not silent.
+
+    Skipping is still safe either way: writes go through the same connection, so an import could
+    not have succeeded when reads are failing.
     """
     if db is None or force:
         return False
     try:
         prev = db.collection("config").document(marker).get()
-        if prev.exists:
-            prev_ms = prev.to_dict().get("emailDateMs")
-            if prev_ms and int(prev_ms) == email_ms:
-                return True
-        return False
     except Exception as e:
         print(f"      !! couldn't read {marker}: {e}")
-        print(f"      !! SKIPPING this import rather than risk re-writing everything blind.")
-        print(f"      !! Nothing was written. The next poll will try again.")
-        return True
+        print(f"      !! Not writing anything (a read failure must never trigger a blind rewrite).")
+        print(f"      !! Flagging this run as failed so it's noticed; the next poll will retry.")
+        raise MarkerUnreadable(
+            f"couldn't read {marker} ({e}); skipped writing and flagged for a retry") from e
+    if prev.exists:
+        prev_ms = prev.to_dict().get("emailDateMs")
+        if prev_ms and int(prev_ms) == email_ms:
+            return True
+    return False
 
 
 def _write_docs(db, coll, docs, base_offset=0):

@@ -62,7 +62,22 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install openpyxl pdfplumber google-cloud-firestore
+        # The Google libraries are pinned on purpose. On 2026-08-25 an UNPINNED install pulled
+        # google-api-core 2.35.0, freshly released, which sent the default database id as the
+        # literal "(default)". Firestore rejected every read with
+        #   400 Invalid database id (default)
+        # so the importer read no marker and safely skipped rather than overwrite blind -- the
+        # sheet arrived at 6am but nothing was written for ~1.5h, until PyPI yanked 2.35.0 and a
+        # later poll fell back to 2.34.0 on its own. The workflow reported "success" the whole
+        # time, so nobody was told; it just had to be noticed.
+        #
+        # Comparing that morning's runs, api-core was the ONLY thing that differed between a
+        # failing run and a working one (2.35.0 vs 2.34.0) -- firestore 2.29.0 was fine with
+        # 2.34.0. So these two are pinned to the exact pair that worked. Bump them deliberately
+        # (watch a run go green) rather than leaving the import at the mercy of whatever the
+        # newest release is on a given morning. openpyxl/pdfplumber are left unpinned: a bad
+        # parse there fails loudly and is caught, it does not silently skip.
+        run: pip install openpyxl pdfplumber "google-cloud-firestore==2.29.0" "google-api-core==2.34.0"
 
       - name: Import arrivals, rentals & tools from email
         env:
