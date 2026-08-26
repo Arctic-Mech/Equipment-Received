@@ -110,6 +110,10 @@ let SF_MEDGAS=[];
 // because the whole point of this feature is that someone wants lead time to book the renewal, and
 // how much lead time is a business call, not ours. Default is a comfortable two months.
 let MEDGAS_SETTINGS={warnDays:60};
+// The popup must wait for this: the cert list and the settings arrive on separate snapshots, and
+// if certs land first the watcher list is still the built-in default — firing then would page the
+// default person even when Admin has since handed the job to someone else.
+let medgasSettingsLoaded=false;
 let SF_META={};                     // {points:{count,updatedAt,by}, training:{...}, sds:{...}}
 let SF_TAB="points";                // which sub-pill is showing
 let SF_TRAIN_FILTER="all";
@@ -425,7 +429,7 @@ function startSync(){
   // Med gas certs (typed in, not uploaded) and the lead-time setting that drives Pete's morning
   // alert. maybeMedGasAlert runs on every med gas change so his popup reflects the live list.
   onSnapshot(collection(db,"medGasCerts"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_MEDGAS=l; renderSafety(); maybeMedGasAlert(); }, e=>{ console.error("medGasCerts",e); SF_ERR.medgas=e; renderSafety(); });
-  onSnapshot(doc(db,"config","medGasSettings"),d=>{ const v=d.exists()?d.data():{}; MEDGAS_SETTINGS={warnDays:Number(v.warnDays)>0?Number(v.warnDays):60}; renderSafety(); }, e=>fbNoteError(e,"medGasSettings"));
+  onSnapshot(doc(db,"config","medGasSettings"),d=>{ const v=d.exists()?d.data():{}; MEDGAS_SETTINGS={ warnDays:Number(v.warnDays)>0?Number(v.warnDays):60, watchers:Array.isArray(v.watchers)?v.watchers:undefined }; medgasSettingsLoaded=true; renderSafety(); maybeMedGasAlert(); }, e=>{ medgasSettingsLoaded=true; fbNoteError(e,"medGasSettings"); });
   onSnapshot(doc(db,"config","safetyMeta"),d=>{ SF_META=d.exists()?d.data():{}; renderSafety(); }, e=>fbNoteError(e,"safetyMeta"));
   onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>fbNoteError(e,"webductEquipNotes"));
   wdWatchAdminKey();
@@ -2455,7 +2459,29 @@ function sfExpiryState(iso,rec,soonDays){
   return Math.round((d-n)/86400000)<=horizon ? "soon" : "ok";
 }
 function medgasWarnDays(){ const n=Number(MEDGAS_SETTINGS&&MEDGAS_SETTINGS.warnDays); return n>0?n:60; }
-function medgasState(r){ return sfExpiryState(r.expires,r,medgasWarnDays()); }
+// "Scheduled" means a re-cert appointment is booked, so the expiry warning stops — but only until
+// the booked day arrives. Once it's in the past, the appointment has come and gone: either the cert
+// was renewed (in which case the renewed date moves the expiry out and this is moot) or it wasn't,
+// and letting a stale date suppress the warning forever would defeat the whole point of the alert.
+// So a past re-cert date stops counting; the warning comes back. A legacy silence with no date at
+// all (there's no way to set that any more, but old docs may have it) still suppresses.
+const MG_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+function medgasScheduled(r){
+  if(!r) return false;
+  const rc=String(r.recert||"");
+  if(MG_DATE_RE.test(rc)) return rc>=todayIso();      // booked — active only while still upcoming
+  return sfSilenced(r);                               // legacy dateless silence
+}
+// Self-contained on purpose: it must NOT fall through to sfExpiryState's silence check, or the
+// silenced flag we set when booking would keep suppressing a cert whose re-cert date has passed.
+function medgasState(r){
+  if(medgasScheduled(r)) return "silenced";
+  if(!r.expires) return "none";
+  const today=todayIso();
+  if(String(r.expires)<today) return "expired";
+  const d=new Date(r.expires+"T00:00:00"), n=new Date(today+"T00:00:00");
+  return Math.round((d-n)/86400000)<=medgasWarnDays() ? "soon" : "ok";
+}
 // A med gas cert always expires six months after it was renewed. Adding months can overflow a
 // short month (renew on Aug 31 -> Feb has no 31st), so clamp to the last valid day rather than
 // letting the date roll into March.
@@ -2534,7 +2560,8 @@ const SF_FIELDS={
     // Auto-filled from the renewed date and locked: a med gas cert is always good for six months,
     // so this is never typed by hand. sfOpenEdit keeps it in step as the renewed date changes.
     {k:"expires", l:"Cert expires (6 months later — set automatically)", t:"date", readonly:true, autoFrom:"renewed"},
-    {k:"silenced",l:"Silence the expiry warning for this cert", t:"check"},
+    // A booked re-cert date stops the expiry warning (same as the quick "Schedule re-cert" button).
+    {k:"recert",  l:"Re-cert scheduled for (optional — stops the warning)", t:"date"},
   ],
   sds:[
     {k:"product",  l:"Chemical / product name", t:"text", req:true},
@@ -2550,11 +2577,25 @@ const SF_PIN_FIELD={k:"pinned",l:"Keep this row through future uploads",t:"check
 const SF_KIND_LABEL={points:"points entry",training:"training record",drug:"drug card",sds:"SDS sheet",medgas:"med gas cert"};
 let SF_EDIT={kind:null,id:null};
 
-function sfAdminActs(kind,id,rec){
-  if(!adminUnlocked) return "";
+// `can` overrides the admin gate — med gas passes it so the assigned watcher (Pete) can edit
+// certs without unlocking Admin. Defaults to the admin lock for every other section.
+function sfAdminActs(kind,id,rec,can){
+  if(!(can===undefined?adminUnlocked:can)) return "";
+  // Med gas gets its own pair of actions: booking a re-cert captures the DATE it's scheduled for
+  // (which stops the expiry warning), and Undo clears it. Training/drug keep the plain silence toggle.
+  if(kind==="medgas"){
+    const sched=medgasScheduled(rec);
+    const when=MG_DATE_RE.test(String(rec&&rec.recert||""))?" "+shortDate(rec.recert):"";
+    return `<div class="sf-acts">
+      <button class="mini-btn silence" data-mgrecert="${esc(id)}">📅 ${sched?`Re-cert${when} — change`:"Schedule re-cert"}</button>
+      ${sched?`<button class="mini-btn unsilence" data-mgunschedule="${esc(id)}">↩ Undo</button>`:""}
+      <button class="mini-btn edit" data-sfedit="medgas:${esc(id)}" title="Edit">✎ Edit</button>
+      <button class="mini-btn del" data-sfdel="medgas:${esc(id)}" title="Delete">🗑 Delete</button>
+    </div>`;
+  }
   // Silencing is the light-touch alternative to editing dates or deleting somebody: the row
   // stays exactly as imported, it just stops being counted as expired.
-  const canSilence=(kind==="training"||kind==="drug"||kind==="medgas");
+  const canSilence=(kind==="training"||kind==="drug");
   const on=canSilence&&sfSilenced(rec);
   return `<div class="sf-acts">
     ${canSilence?`<button class="mini-btn ${on?"unsilence":"silence"}" data-sfsilence="${kind}:${esc(id)}:${on?0:1}">${on?"🔔 Unsilence":"🔕 Silence warning"}</button>`:""}
@@ -2568,13 +2609,16 @@ async function sfSetSilenced(kind,id,on){
   try{
     // source stays whatever it was; silencing alone shouldn't make a row look hand-authored.
     await setDoc(doc(db,sfColl(kind),id),{silenced:on,ignored:on,updatedAt:serverTimestamp()},{merge:true});
-    toast(on?"Warning silenced":"Warning back on");
+    toast(kind==="medgas" ? (on?"Marked re-cert scheduled":"Back to warning") : (on?"Warning silenced":"Warning back on"));
   }catch(e){ console.error(e); toast("Couldn't save: "+(e.code||e.message)); }
 }
-function sfAddBtn(kind){
-  if(!adminUnlocked) return "";
+function sfAddBtn(kind,can){
+  if(!(can===undefined?adminUnlocked:can)) return "";
   return `<button class="sf-add" data-sfadd="${kind}">+ Add ${esc(SF_KIND_LABEL[kind])}</button>`;
 }
+// Who may add/edit med gas certs: an unlocked admin, OR the assigned watcher, who is expected to
+// keep this list up to date and shouldn't have to know the Admin PIN to do it.
+function medgasCanEdit(){ return adminUnlocked || medgasWatcher(); }
 function sfRecord(kind,id){
   const src={points:SF_POINTS,training:SF_TRAINING,drug:SF_DRUG,sds:SF_SDS,medgas:SF_MEDGAS}[kind]||[];
   return src.find(x=>x.id===id)||null;
@@ -2623,9 +2667,13 @@ async function sfSaveEdit(){
   // Same id scheme as the importers, so a hand-added row and the imported one for the same
   // person/course collapse together instead of both showing.
   if("silenced" in data) data.ignored=data.silenced;
-  // Expiry is derived, never trusted from the (read-only) field — recompute it here so it is
-  // always exactly six months past the renewed date even if the input was tampered with.
-  if(kind==="medgas") data.expires=addMonthsIso(data.renewed,6);
+  if(kind==="medgas"){
+    // Expiry is derived, never trusted from the (read-only) field — recompute it so it is always
+    // exactly six months past the renewed date even if the input was tampered with.
+    data.expires=addMonthsIso(data.renewed,6);
+    // A booked re-cert date is what stops the warning; keep the legacy silenced flag in step.
+    data.silenced=data.ignored=MG_DATE_RE.test(String(data.recert||""));
+  }
   const newId = kind==="points" ? makeId(["sfp",data.name])
     : kind==="training" ? makeId(["sft",data.name,data.course,data.date])
     : kind==="drug" ? makeId(["sfd",lc(data.name).replace(/\s+/g," ")])
@@ -2696,38 +2744,136 @@ function renderSafety(){
 
 function renderSfMedgas(){
   const list=$("sfMedgasList"), meta=$("sfMedgasMeta"); if(!list) return;
-  const warn=medgasWarnDays();
+  const warn=medgasWarnDays(), canEdit=medgasCanEdit();
   if(meta) meta.textContent=SF_MEDGAS.length
     ? `${SF_MEDGAS.length} cert${SF_MEDGAS.length===1?"":"s"} · warning ${warn} day${warn===1?"":"s"} before a cert expires`
     : "Nothing added yet.";
-  // Admin-only lead-time control: how far ahead the warnings (and Pete's morning alert) begin.
+  /* Settings row: the auto-saving lead-time control (anyone who can edit) plus the admin-only
+     list of who gets the first-login alert. Don't rebuild it while the number field is focused —
+     that would drop what's being typed and move the caret. */
   const setRow=$("sfMedgasSettings");
-  if(setRow) setRow.innerHTML = adminUnlocked
-    ? `<label class="mg-set">Warn <input id="mgWarnDays" type="number" min="1" max="365" value="${warn}"> days before a cert expires
-        <button class="mini-btn" id="mgWarnSave">Save</button></label>`
-    : "";
+  const typing=document.activeElement && document.activeElement.id==="mgWarnDays";
+  if(setRow && !typing) setRow.innerHTML=medgasSettingsHTML(canEdit,warn);
   if(SF_ERR.medgas){ list.innerHTML=sfErrBox("med gas certs","medGasCerts",SF_ERR.medgas); return; }
-  if(!SF_MEDGAS.length){ list.innerHTML=sfAddBtn("medgas")+sfEmpty("🫧","No med gas certs yet",adminUnlocked?"Add one with the button above — the expiry date fills in automatically, six months out.":"An admin can add certifications from here."); return; }
+  if(!SF_MEDGAS.length){ list.innerHTML=sfAddBtn("medgas",canEdit)+sfEmpty("🫧","No med gas certs yet",canEdit?"Add one with the button above — the expiry date fills in automatically, six months out.":"An admin can add certifications from here."); return; }
   const q=sfQuery("sfMedgasSearch");
   let rows=SF_MEDGAS.filter(r=>!q || String(r.name||"").toLowerCase().includes(q));
   const rank={expired:0,soon:1,ok:2,none:3,silenced:4};
   rows.sort((a,b)=>(rank[medgasState(a)]-rank[medgasState(b)])
     || String(a.expires||"").localeCompare(String(b.expires||""))
     || String(a.name||"").localeCompare(String(b.name||"")));
-  if(!rows.length){ list.innerHTML=sfAddBtn("medgas")+sfEmpty("🔍","No match",`Nobody matches “${q}”.`); return; }
-  list.innerHTML=sfAddBtn("medgas")+`<div class="sf-list">`+rows.map(r=>{
+  if(!rows.length){ list.innerHTML=sfAddBtn("medgas",canEdit)+sfEmpty("🔍","No match",`Nobody matches “${q}”.`); return; }
+  list.innerHTML=sfAddBtn("medgas",canEdit)+`<div class="sf-list">`+rows.map(r=>{
     const badge=medgasBadge(r);
     const open=SF_MEDGAS_OPEN.has(r.id);
     return `<div class="sf-grp${open?" open":""}">
-      <button class="sf-lrow${adminUnlocked?"":" static"}" ${adminUnlocked?`data-sfmedgas="${esc(r.id)}"`:""}>
-        ${adminUnlocked?`<span class="sf-chev">›</span>`:""}
+      <button class="sf-lrow${canEdit?"":" static"}" ${canEdit?`data-sfmedgas="${esc(r.id)}"`:""}>
+        ${canEdit?`<span class="sf-chev">›</span>`:""}
         <span class="sf-lname">${esc(r.name||"—")}</span>
         ${r.renewed?`<span class="sf-ltested">renewed ${esc(longDate(r.renewed))}</span>`:""}
         ${badge}
       </button>
-      ${open?`<div class="sf-body"><div class="sf-crs">${sfAdminActs("medgas",r.id,r)}</div></div>`:""}
+      ${open?`<div class="sf-body"><div class="sf-crs">${sfAdminActs("medgas",r.id,r,canEdit)}</div></div>`:""}
     </div>`;
   }).join("")+`</div>`;
+}
+// A stable key for a watcher entry, so removing one works whether it was stored by id or by name.
+function medgasWatcherKey(w){ return w.id ? "id:"+w.id : "name:"+normName(w.name); }
+function medgasSettingsHTML(canEdit,warn){
+  if(!canEdit) return "";
+  const lead=`<label class="mg-set">Warn <input id="mgWarnDays" type="number" min="1" max="365" value="${warn}"> days before a cert expires <span class="mg-set-note" id="mgWarnNote"></span></label>`;
+  // Managing WHO gets the alert is admin-only; a watcher can edit certs and the lead time, but not
+  // decide who else gets paged.
+  if(!adminUnlocked) return lead;
+  const watchers=medgasWatchers();
+  const have=new Set(watchers.map(medgasWatcherKey));
+  const chips=watchers.length
+    ? watchers.map(w=>`<span class="mg-wchip">${esc(w.name||"—")}<button type="button" data-mgunwatch="${esc(medgasWatcherKey(w))}" title="Remove" aria-label="Remove ${esc(w.name||"")}">×</button></span>`).join("")
+    : `<span class="mg-wnone">No one — nobody gets the first-login popup.</span>`;
+  const opts=[...PEOPLE]
+    .filter(p=>!have.has("id:"+p.id) && !have.has("name:"+normName((p.first||"")+" "+(p.last||""))))
+    .sort((a,b)=>normName(a.first+" "+a.last).localeCompare(normName(b.first+" "+b.last)))
+    .map(p=>`<option value="${esc(p.id)}">${esc((p.first+" "+p.last).trim()||p.email||p.id)}</option>`).join("");
+  const adder=`<select id="mgWatchAdd" class="mg-wadd"><option value="">+ Add someone to alert…</option>${opts}</select>`;
+  return `${lead}
+    <div class="mg-watchers">
+      <div class="mg-wlabel">First-login med gas alert goes to:</div>
+      <div class="mg-wchips">${chips}</div>
+      ${adder}
+    </div>`;
+}
+// Add/remove a first-login watcher (admin only). Writes the full effective list, so removing the
+// built-in default (Pete) materializes an explicit list rather than silently reverting next load.
+function medgasSetWatchers(list){
+  if(!adminUnlocked || !fbReady){ toast("No connection"); return; }
+  MEDGAS_SETTINGS={...MEDGAS_SETTINGS,watchers:list};   // optimistic so the chips update at once
+  renderSfMedgas();
+  setDoc(doc(db,"config","medGasSettings"),{watchers:list,updatedAt:serverTimestamp()},{merge:true})
+    .catch(err=>toast("Couldn't save: "+(err.code||err.message)));
+}
+function medgasAddWatcher(personId){
+  const p=PEOPLE.find(x=>x.id===personId); if(!p) return;
+  const cur=medgasWatchers().slice();
+  const key="id:"+p.id, nkey="name:"+normName((p.first||"")+" "+(p.last||""));
+  if(cur.some(w=>{const k=medgasWatcherKey(w); return k===key||k===nkey;})) return;  // already on
+  cur.push({id:p.id,name:(p.first+" "+p.last).trim()});
+  medgasSetWatchers(cur);
+  toast(`${p.first} will get the med gas alert`);
+}
+function medgasRemoveWatcher(key){
+  medgasSetWatchers(medgasWatchers().filter(w=>medgasWatcherKey(w)!==key));
+}
+/* Auto-save the lead time. Debounced so a few keystrokes are one write, and OPTIMISTIC: the local
+   MEDGAS_SETTINGS is updated the instant it changes and the badges re-render, so "expiring soon"
+   moves the moment you adjust the number rather than after the server round-trips. The Firestore
+   write then lands and echoes back to the same value, so other devices catch up too. */
+let mgWarnTimer=null;
+function medgasWarnInput(el){
+  const n=Math.max(1,Math.min(365,parseInt(el.value||"",10)||0));
+  MEDGAS_SETTINGS={...MEDGAS_SETTINGS,warnDays:n};   // live, before the write — alerts re-adjust now
+  renderSfMedgas();                                  // (the focused input is preserved by the guard)
+  const note=$("mgWarnNote"); if(note) note.textContent="saving…";
+  clearTimeout(mgWarnTimer);
+  mgWarnTimer=setTimeout(()=>{
+    if(!fbReady){ if($("mgWarnNote")) $("mgWarnNote").textContent="offline — will save when back"; return; }
+    setDoc(doc(db,"config","medGasSettings"),{warnDays:n,updatedAt:serverTimestamp()},{merge:true})
+      .then(()=>{ const nn=$("mgWarnNote"); if(nn){ nn.textContent="saved ✓"; setTimeout(()=>{ if($("mgWarnNote"))$("mgWarnNote").textContent=""; },1500); } })
+      .catch(err=>{ const nn=$("mgWarnNote"); if(nn) nn.textContent="couldn't save: "+(err.code||err.message); });
+  },500);
+}
+// Flush a pending save when the field loses focus, so tabbing away never drops the last change.
+function medgasWarnFlush(){
+  if(!mgWarnTimer) return;
+  clearTimeout(mgWarnTimer); mgWarnTimer=null;
+  const el=$("mgWarnDays"); if(!el||!fbReady) return;
+  const n=Math.max(1,Math.min(365,parseInt(el.value||"",10)||0));
+  setDoc(doc(db,"config","medGasSettings"),{warnDays:n,updatedAt:serverTimestamp()},{merge:true}).catch(()=>{});
+}
+
+/* ---------- Med gas: book a re-cert (captures the date it's scheduled for) ----------
+   Booking a date is what stops the expiry warning; the older silenced flag is kept in step so
+   certs marked handled before this existed still read as scheduled. */
+let mgRecertId=null;
+function openMedgasRecert(id){
+  const rec=sfRecord("medgas",id); if(!rec) return;
+  mgRecertId=id;
+  if($("mgRecertName")) $("mgRecertName").textContent=rec.name||"this cert";
+  if($("mgRecertDate")) $("mgRecertDate").value = MG_DATE_RE.test(String(rec.recert||"")) ? rec.recert : todayIso();
+  openModal("medGasRecertModal");
+}
+function saveMedgasRecert(){
+  const id=mgRecertId; if(!id) return;
+  const d=($("mgRecertDate")||{}).value||"";
+  if(!MG_DATE_RE.test(d)){ toast("Pick a date for the re-cert"); return; }
+  if(!fbReady){ toast("No connection"); return; }
+  setDoc(doc(db,"medGasCerts",id),{recert:d,silenced:true,ignored:true,updatedAt:serverTimestamp()},{merge:true})
+    .then(()=>{ closeModal("medGasRecertModal"); toast("Re-cert scheduled for "+shortDate(d)); })
+    .catch(e=>toast("Couldn't save: "+(e.code||e.message)));
+}
+function clearMedgasRecert(id){
+  if(!fbReady){ toast("No connection"); return; }
+  setDoc(doc(db,"medGasCerts",id),{recert:"",silenced:false,ignored:false,updatedAt:serverTimestamp()},{merge:true})
+    .then(()=>toast("Re-cert cleared — warning back on")).catch(e=>toast("Couldn't save: "+(e.code||e.message)));
 }
 /* ---------- Med gas: the morning alert ----------
    One person is meant to keep an eye on med gas certs and book renewals in time. Rather than
@@ -2735,11 +2881,23 @@ function renderSfMedgas(){
    open the site each day, wherever they are in it, with anyone expired or expiring soon called
    out. Everyone else just reads the Safety tab.
 
-   Keyed by normalized name so it survives a re-typed sign-in. Add names here to include more
-   people; this is the only line that decides who gets the popup. */
-const MEDGAS_ALERT_NAMES = ["pete messner"];
+   WHO gets the popup is managed from Admin (Safety → Med Gas), stored on config/medGasSettings as
+   watchers: [{id, name}]. Until anyone is added there, it falls back to this built-in default so
+   the feature works out of the box. An empty configured list means "nobody" — distinct from the
+   unconfigured default. */
+const MEDGAS_ALERT_NAMES = ["Pete Messner"];   // display names; matched case-insensitively via normName
+// Normalize a full "First Last" string the same way nameNorm normalizes its two parts, so a
+// watcher stored by display name still matches the signed-in person.
+function normName(s){ return String(s==null?"":s).toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim(); }
+function medgasWatchers(){
+  const w=MEDGAS_SETTINGS&&MEDGAS_SETTINGS.watchers;
+  if(Array.isArray(w)) return w;                                   // configured (even if empty)
+  return MEDGAS_ALERT_NAMES.map(n=>({id:"",name:n}));              // default before anyone sets it
+}
 function medgasWatcher(){
-  return !!USER && MEDGAS_ALERT_NAMES.includes(nameNorm(USER.first, USER.last));
+  if(!USER) return false;
+  const myNorm=nameNorm(USER.first,USER.last), myId=USER.id;
+  return medgasWatchers().some(w => (w.id && w.id===myId) || normName(w.name)===myNorm);
 }
 // Expired or within the warning window, and not silenced — the certs worth acting on.
 function medgasAtRisk(){
@@ -2747,7 +2905,7 @@ function medgasAtRisk(){
 }
 let medgasAlertedThisSession=false;
 function maybeMedGasAlert(){
-  if(medgasAlertedThisSession || !medgasWatcher() || !SF_MEDGAS.length) return;
+  if(medgasAlertedThisSession || !medgasSettingsLoaded || !medgasWatcher() || !SF_MEDGAS.length) return;
   // Once per calendar day per device. Stored as a plain date so it naturally resets at midnight.
   const today=todayIso();
   let last=""; try{ last=localStorage.getItem("medgas_alert_day")||""; }catch(e){}
@@ -2777,7 +2935,10 @@ function openMedGasAlert(){
 // Same shape as sfBadge but keyed to the configurable med gas horizon.
 function medgasBadge(r){
   const st=medgasState(r);
-  if(st==="silenced") return `<span class="sf-badge none" title="Silenced in Admin — not counted as expired">Silenced</span>`;
+  if(st==="silenced"){
+    const when=MG_DATE_RE.test(String(r.recert||""))?` ${esc(shortDate(r.recert))}`:"";
+    return `<span class="sf-badge ok" title="Re-cert booked — not counted as expiring">Re-cert scheduled${when}</span>`;
+  }
   if(st==="expired") return `<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`;
   if(st==="soon")    return `<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`;
   if(st==="ok")      return `<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`;
@@ -3231,13 +3392,19 @@ document.addEventListener("click",e=>{
   if(sr){ const i=sr.dataset.sfsds; SF_SDS_OPEN.has(i)?SF_SDS_OPEN.delete(i):SF_SDS_OPEN.add(i); renderSfSds(); return; }
   const mg=e.target.closest("[data-sfmedgas]");
   if(mg){ const i=mg.dataset.sfmedgas; SF_MEDGAS_OPEN.has(i)?SF_MEDGAS_OPEN.delete(i):SF_MEDGAS_OPEN.add(i); renderSfMedgas(); return; }
-  if(e.target.closest("#mgWarnSave")){
-    const n=Math.max(1,Math.min(365,parseInt(($("mgWarnDays")||{}).value||"60",10)||60));
-    if(!fbReady){ toast("No connection"); return; }
-    setDoc(doc(db,"config","medGasSettings"),{warnDays:n,updatedAt:serverTimestamp()},{merge:true})
-      .then(()=>toast(`Warning set to ${n} days before expiry`)).catch(err=>toast("Couldn't save: "+(err.code||err.message)));
-    return;
-  }
+  const unw=e.target.closest("[data-mgunwatch]");
+  if(unw){ e.stopPropagation(); medgasRemoveWatcher(unw.dataset.mgunwatch); return; }
+  const rc=e.target.closest("[data-mgrecert]");
+  if(rc){ e.stopPropagation(); openMedgasRecert(rc.dataset.mgrecert); return; }
+  const uns=e.target.closest("[data-mgunschedule]");
+  if(uns){ e.stopPropagation(); clearMedgasRecert(uns.dataset.mgunschedule); return; }
+  if(e.target.closest("#mgRecertSave")){ e.stopPropagation(); saveMedgasRecert(); return; }
+});
+// The lead-time field auto-saves as it changes; blur/Enter flushes any pending write immediately.
+document.addEventListener("input",e=>{ if(e.target && e.target.id==="mgWarnDays") medgasWarnInput(e.target); });
+document.addEventListener("change",e=>{
+  if(e.target && e.target.id==="mgWarnDays"){ medgasWarnFlush(); return; }
+  if(e.target && e.target.id==="mgWatchAdd" && e.target.value){ medgasAddWatcher(e.target.value); e.target.value=""; return; }
 });
 document.querySelectorAll("[data-drugfilter]").forEach(b=>b.addEventListener("click",()=>{
   SF_DRUG_FILTER=b.dataset.drugfilter; renderSfDrug();
