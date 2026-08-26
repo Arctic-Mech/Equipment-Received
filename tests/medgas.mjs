@@ -154,20 +154,40 @@ const gotoMedgas=async page=>{ await page.locator("nav.tabs .tab[data-view='safe
   chk(/Schedule re-cert/.test(await btn.innerText()), `med gas action should offer to schedule a re-cert, got "${await btn.innerText()}"`);
   await btn.click(); await page.waitForTimeout(200);
   chk(await page.locator("#medGasRecertModal.show").count()===1, "the re-cert date modal didn't open");
-  await page.fill("#mgRecertDate","2025-09-15");
+  const FUT=shift(400);                                   // clearly in the future
+  const FUTSHORT=(d=>{const [y,m,da]=d.split("-");return `${+m}/${+da}/${y.slice(2)}`;})(FUT);
+  await page.fill("#mgRecertDate",FUT);
   await page.locator("#mgRecertSave").click(); await page.waitForTimeout(300);
   const w=(await page.evaluate(()=>window.__WRITES||[])).filter(x=>x.coll==="medGasCerts"&&x.id).pop();
   console.log("re-cert write:", w && JSON.stringify({recert:w.data.recert,silenced:w.data.silenced}));
-  chk(!!w && w.data.recert==="2025-09-15", `the booked date wasn't saved: ${w&&w.data.recert}`);
+  chk(!!w && w.data.recert===FUT, `the booked date wasn't saved: ${w&&w.data.recert}`);
   chk(!!w && w.data.silenced===true, "scheduling a re-cert didn't stop the warning");
   await page.waitForTimeout(150);
-  chk(/Re-cert scheduled 9\/15\/25/.test(await anna.locator(".sf-badge").innerText()),
-      `a scheduled cert should badge the booked date, got "${await anna.locator(".sf-badge").innerText()}"`);
+  chk((await anna.locator(".sf-badge").innerText()).includes("Re-cert scheduled "+FUTSHORT),
+      `a scheduled cert should badge the booked date ${FUTSHORT}, got "${await anna.locator(".sf-badge").innerText()}"`);
   // Undo clears it
   await anna.locator("[data-mgunschedule]").click(); await page.waitForTimeout(300);
   const w2=(await page.evaluate(()=>window.__WRITES||[])).filter(x=>x.coll==="medGasCerts"&&x.id).pop();
   chk(!!w2 && !w2.data.recert && w2.data.silenced===false, "Undo didn't clear the scheduled re-cert");
   console.log("Re-cert scheduling with a date + undo: ok");
+  await ctx.close();
+}
+
+/* ---- 3f. a booked re-cert suppresses the warning only until its date passes ---- */
+{
+  const seed=seedBase({medGasCerts:{
+    // expired cert, re-cert booked for the FUTURE -> suppressed
+    fut:{name:"Future Booked", renewed:"2025-01-01", expires:"2025-07-01", recert:shift(30), silenced:true, ignored:true},
+    // expired cert, re-cert date already PASSED with nothing entered since -> must warn again
+    past:{name:"Stale Booking", renewed:"2025-01-01", expires:"2025-07-01", recert:shift(-30), silenced:true, ignored:true},
+  }});
+  const { ctx, page } = await open(seed);   // plain worker view is enough to read badges
+  await gotoMedgas(page);
+  const badge=name=>page.locator('#sfMedgasList .sf-grp',{hasText:name}).locator(".sf-badge").innerText();
+  const fb=await badge("Future Booked"), pb=await badge("Stale Booking");
+  console.log("future re-cert badge:", JSON.stringify(fb), "| past re-cert badge:", JSON.stringify(pb));
+  chk(/Re-cert scheduled/.test(fb), "an upcoming re-cert should still suppress the warning");
+  chk(/Expired/.test(pb), "a re-cert date that has passed must let the warning come back");
   await ctx.close();
 }
 

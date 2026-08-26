@@ -2459,13 +2459,28 @@ function sfExpiryState(iso,rec,soonDays){
   return Math.round((d-n)/86400000)<=horizon ? "soon" : "ok";
 }
 function medgasWarnDays(){ const n=Number(MEDGAS_SETTINGS&&MEDGAS_SETTINGS.warnDays); return n>0?n:60; }
-// "Scheduled" means a re-cert appointment is booked, so the expiry warning stops. The booked date
-// is what drives it now; the older silenced flag still counts, so pre-date certs keep working.
+// "Scheduled" means a re-cert appointment is booked, so the expiry warning stops — but only until
+// the booked day arrives. Once it's in the past, the appointment has come and gone: either the cert
+// was renewed (in which case the renewed date moves the expiry out and this is moot) or it wasn't,
+// and letting a stale date suppress the warning forever would defeat the whole point of the alert.
+// So a past re-cert date stops counting; the warning comes back. A legacy silence with no date at
+// all (there's no way to set that any more, but old docs may have it) still suppresses.
 const MG_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
-function medgasScheduled(r){ return !!(r && (MG_DATE_RE.test(String(r.recert||"")) || sfSilenced(r))); }
+function medgasScheduled(r){
+  if(!r) return false;
+  const rc=String(r.recert||"");
+  if(MG_DATE_RE.test(rc)) return rc>=todayIso();      // booked — active only while still upcoming
+  return sfSilenced(r);                               // legacy dateless silence
+}
+// Self-contained on purpose: it must NOT fall through to sfExpiryState's silence check, or the
+// silenced flag we set when booking would keep suppressing a cert whose re-cert date has passed.
 function medgasState(r){
   if(medgasScheduled(r)) return "silenced";
-  return sfExpiryState(r.expires,r,medgasWarnDays());
+  if(!r.expires) return "none";
+  const today=todayIso();
+  if(String(r.expires)<today) return "expired";
+  const d=new Date(r.expires+"T00:00:00"), n=new Date(today+"T00:00:00");
+  return Math.round((d-n)/86400000)<=medgasWarnDays() ? "soon" : "ok";
 }
 // A med gas cert always expires six months after it was renewed. Adding months can overflow a
 // short month (renew on Aug 31 -> Feb has no 31st), so clamp to the last valid day rather than
