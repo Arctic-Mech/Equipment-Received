@@ -102,22 +102,117 @@ const gotoMedgas=async page=>{ await page.locator("nav.tabs .tab[data-view='safe
   await ctx.close();
 }
 
-/* ---- 3. the warning lead time is configurable and moves the "soon" line ---- */
+/* ---- 3. the lead time auto-saves (no Save button) and re-adjusts the alerts live ---- */
 {
   const { ctx, page } = await open(seedBase(), {admin:true});
   await gotoMedgas(page);
-  // Cara expires in ~150 days: "ok" at 60 days, "soon" once the window opens past that.
+  chk(await page.locator("#mgWarnSave").count()===0, "the warn-days Save button should be gone (auto-save)");
   const caraBadge=()=>page.locator('#sfMedgasList .sf-grp',{hasText:"Cara Lin"}).locator(".sf-badge").innerText();
   chk(/Valid to/.test(await caraBadge()), "Cara should read Valid-to under a 60-day window");
+  // Type the new window; no click. Badges re-adjust immediately (optimistic), the write follows.
   await page.fill("#mgWarnDays","200");
-  await page.locator("#mgWarnSave").click();
+  await page.waitForTimeout(150);
+  chk(/Expires/.test(await caraBadge()), "widening the window didn't re-adjust Cara's badge live");
+  await page.locator("#mgWarnDays").blur();               // flush the debounced save
   await page.waitForTimeout(400);
   const cfg=(await page.evaluate(()=>window.__WRITES||[])).filter(w=>w.coll==="config"&&w.id==="medGasSettings").pop();
-  chk(!!cfg && Number(cfg.data.warnDays)===200, `warn-days save wrong: ${cfg&&cfg.data.warnDays}`);
-  await page.waitForTimeout(200);
-  chk(/Expires/.test(await caraBadge()), "widening the window to 200 days didn't move Cara into 'expiring'");
-  console.log("warn-days 60 -> 200 flips Cara to expiring: ok");
+  chk(!!cfg && Number(cfg.data.warnDays)===200, `auto-save wrote the wrong warn-days: ${cfg&&cfg.data.warnDays}`);
+  console.log("warn-days auto-saves and re-adjusts live: ok");
   await ctx.close();
+}
+
+/* ---- 3b. the watcher (Pete) can edit certs and the lead time WITHOUT unlocking Admin ---- */
+{
+  const seed=seedBase();
+  seed.people["p-pete-messner"]={first:"Pete",last:"Messner",email:"pete@arctic.biz",
+    nameNorm:"pete messner",savedJobs:[],jobOrder:[],removedJobs:[]};
+  // Pete, not admin, and already alerted today so the popup doesn't sit over the pane.
+  const { ctx, page } = await open(seed, {user:{first:"Pete",last:"Messner",email:"pete@arctic.biz",id:"p-pete-messner"}, dayFlag:TODAY});
+  await gotoMedgas(page);
+  chk(await page.locator("#sfMedgasList .sf-add").count()===1, "the watcher couldn't see the Add button without admin");
+  chk(await page.locator("#mgWarnDays").count()===1, "the watcher couldn't see the lead-time control");
+  chk(await page.locator('#sfMedgasList [data-sfmedgas]').count()===3, "the watcher's rows weren't editable");
+  // ...but managing WHO gets alerted stays admin-only
+  chk(await page.locator("#mgWatchAdd").count()===0, "a non-admin watcher was allowed to manage the alert list");
+  // and he can actually add a cert
+  await page.locator('[data-sfadd="medgas"]').click(); await page.waitForTimeout(200);
+  await page.fill("#sfF_name","New Tech"); await page.fill("#sfF_renewed","2026-03-15"); await page.waitForTimeout(80);
+  await page.locator("#sfEditSave").click(); await page.waitForTimeout(300);
+  const w=(await page.evaluate(()=>window.__WRITES||[])).filter(x=>x.coll==="medGasCerts").pop();
+  chk(!!w && w.data.name==="New Tech" && w.data.expires==="2026-09-15", "the watcher's cert didn't save with the auto expiry");
+  console.log("watcher edits certs + lead time without admin; can't manage the list: ok");
+  await ctx.close();
+}
+
+/* ---- 3c. scheduling a re-cert captures the date it's booked for ---- */
+{
+  const { ctx, page } = await open(seedBase(), {admin:true});
+  await gotoMedgas(page);
+  const anna=page.locator('#sfMedgasList .sf-grp',{hasText:"Anna Fields"});
+  await anna.locator("[data-sfmedgas]").click(); await page.waitForTimeout(150);
+  const btn=anna.locator("[data-mgrecert]");
+  chk(/Schedule re-cert/.test(await btn.innerText()), `med gas action should offer to schedule a re-cert, got "${await btn.innerText()}"`);
+  await btn.click(); await page.waitForTimeout(200);
+  chk(await page.locator("#medGasRecertModal.show").count()===1, "the re-cert date modal didn't open");
+  await page.fill("#mgRecertDate","2025-09-15");
+  await page.locator("#mgRecertSave").click(); await page.waitForTimeout(300);
+  const w=(await page.evaluate(()=>window.__WRITES||[])).filter(x=>x.coll==="medGasCerts"&&x.id).pop();
+  console.log("re-cert write:", w && JSON.stringify({recert:w.data.recert,silenced:w.data.silenced}));
+  chk(!!w && w.data.recert==="2025-09-15", `the booked date wasn't saved: ${w&&w.data.recert}`);
+  chk(!!w && w.data.silenced===true, "scheduling a re-cert didn't stop the warning");
+  await page.waitForTimeout(150);
+  chk(/Re-cert scheduled 9\/15\/25/.test(await anna.locator(".sf-badge").innerText()),
+      `a scheduled cert should badge the booked date, got "${await anna.locator(".sf-badge").innerText()}"`);
+  // Undo clears it
+  await anna.locator("[data-mgunschedule]").click(); await page.waitForTimeout(300);
+  const w2=(await page.evaluate(()=>window.__WRITES||[])).filter(x=>x.coll==="medGasCerts"&&x.id).pop();
+  chk(!!w2 && !w2.data.recert && w2.data.silenced===false, "Undo didn't clear the scheduled re-cert");
+  console.log("Re-cert scheduling with a date + undo: ok");
+  await ctx.close();
+}
+
+/* ---- 3d. admin manages who gets the first-login alert ---- */
+{
+  const seed=seedBase();
+  seed.people["p-dana-fox"]={first:"Dana",last:"Fox",email:"dana@arctic.biz",
+    nameNorm:"dana fox",savedJobs:[],jobOrder:[],removedJobs:[]};
+  const { ctx, page } = await open(seed, {admin:true});
+  await gotoMedgas(page);
+  // default shows the built-in watcher as a chip
+  chk(/Pete Messner|pete messner/i.test(await page.locator("#sfMedgasSettings .mg-wchips").innerText()),
+      "the default watcher chip wasn't shown");
+  // add Dana
+  await page.selectOption("#mgWatchAdd","p-dana-fox"); await page.waitForTimeout(300);
+  const cfg=(await page.evaluate(()=>window.__WRITES||[])).filter(w=>w.coll==="config"&&w.id==="medGasSettings"&&Array.isArray(w.data.watchers)).pop();
+  const wl=cfg?cfg.data.watchers:[];
+  console.log("watchers after adding Dana:", JSON.stringify(wl.map(x=>x.name)));
+  chk(wl.some(x=>x.id==="p-dana-fox"), "adding a watcher didn't write them to the list");
+  chk(wl.some(x=>/pete/i.test(x.name)), "adding a watcher dropped the existing one");
+  // remove Pete via his chip
+  const peteChip=page.locator("#sfMedgasSettings .mg-wchip",{hasText:"Pete"});
+  await peteChip.locator("button").click(); await page.waitForTimeout(300);
+  const cfg2=(await page.evaluate(()=>window.__WRITES||[])).filter(w=>w.coll==="config"&&w.id==="medGasSettings"&&Array.isArray(w.data.watchers)).pop();
+  chk(!cfg2.data.watchers.some(x=>/pete/i.test(x.name)), "removing Pete's chip didn't take him off the list");
+  console.log("admin adds/removes watchers: ok");
+  await ctx.close();
+}
+
+/* ---- 3e. the configured list actually governs the popup ---- */
+{
+  // Dana is configured as the sole watcher -> Dana gets it, Pete no longer does
+  const seed=seedBase();
+  for(const p of [["p-dana-fox","Dana","Fox"],["p-pete-messner","Pete","Messner"]])
+    seed.people[p[0]]={first:p[1],last:p[2],email:p[1].toLowerCase()+"@arctic.biz",nameNorm:`${p[1].toLowerCase()} ${p[2].toLowerCase()}`,savedJobs:[],jobOrder:[],removedJobs:[]};
+  seed.config.medGasSettings={warnDays:60,watchers:[{id:"p-dana-fox",name:"Dana Fox"}]};
+  const dana=await open(seed,{user:{first:"Dana",last:"Fox",email:"dana@arctic.biz",id:"p-dana-fox"}});
+  await dana.page.waitForTimeout(600);
+  chk(await dana.page.locator("#medGasAlertModal.show").count()===1, "the configured watcher (Dana) didn't get the popup");
+  await dana.ctx.close();
+  const pete=await open(seed,{user:{first:"Pete",last:"Messner",email:"pete@arctic.biz",id:"p-pete-messner"}});
+  await pete.page.waitForTimeout(600);
+  chk(await pete.page.locator("#medGasAlertModal.show").count()===0, "Pete still got the popup after being removed from the list");
+  console.log("configured watcher list governs the popup: ok");
+  await pete.ctx.close();
 }
 
 /* ---- 4. Pete gets the morning popup; nobody else does ---- */
