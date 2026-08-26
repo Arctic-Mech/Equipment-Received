@@ -66,7 +66,7 @@ chk(tabsVisible.some(t => /safety/i.test(t)), "no Safety tab");
 await page.locator("nav.tabs .tab[data-view='safety']").click();
 await page.waitForTimeout(250);
 chk(await page.locator("#view-safety").isVisible(), "Safety view did not open");
-chk(await page.locator(".sub-pill").count() === 5, "expected 5 Safety sub-pills (Points/Training/SDS/Drug Cards/PTP)");
+chk(await page.locator(".sub-pill").count() === 6, "expected 6 Safety sub-pills (Points/Training/SDS/Drug Cards/Med Gas/PTP)");
 
 // 3. Safety data rendered.
 const ptsRows = await page.locator("#sfPointsList .sf-grp").count();

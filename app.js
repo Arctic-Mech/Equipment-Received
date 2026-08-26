@@ -103,6 +103,13 @@ let SF_POINTS=[];                   // {id, name, shirt, start, awards:{label:pt
 let SF_TRAINING=[];                 // {id, name, course, instructor, date, expires, notes}
 let SF_SDS=[];                      // {id, record, product, use, vendor, issueDate, dept, pages}
 let SF_DRUG=[];                     // {id, name, tested, expires} — same workbook as the training log
+// Med gas certs are the one safety list with no spreadsheet behind it — everything is typed in
+// from the website. {id, name, renewed, expires} where expires is always renewed + 6 months.
+let SF_MEDGAS=[];
+// How many days before a med gas cert expires we start warning. Configurable (config/medGasSettings)
+// because the whole point of this feature is that someone wants lead time to book the renewal, and
+// how much lead time is a business call, not ours. Default is a comfortable two months.
+let MEDGAS_SETTINGS={warnDays:60};
 let SF_META={};                     // {points:{count,updatedAt,by}, training:{...}, sds:{...}}
 let SF_TAB="points";                // which sub-pill is showing
 let SF_TRAIN_FILTER="all";
@@ -111,6 +118,7 @@ const SF_TRAIN_OPEN=new Set();      // which people are expanded on the training
 const SF_SDS_OPEN=new Set();
 const SF_PTS_OPEN=new Set();        // which points entries are expanded
 const SF_DRUG_OPEN=new Set();       // drug rows only expand for admins, to reach edit/delete        // which chemicals are expanded
+const SF_MEDGAS_OPEN=new Set();     // med gas rows expand for admins, to reach edit/delete
 // A rejected read leaves the pane empty, which reads as "nothing uploaded". Remember WHY so
 // the pane can say so instead — a missing Firestore rule is the usual cause.
 const SF_ERR={};
@@ -414,6 +422,10 @@ function startSync(){
   onSnapshot(collection(db,"safetyTraining"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_TRAINING=l; renderSafety(); }, e=>{ console.error("safetyTraining",e); SF_ERR.training=e; renderSafety(); });
   onSnapshot(collection(db,"safetySds"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_SDS=l; renderSafety(); }, e=>{ console.error("safetySds",e); SF_ERR.sds=e; renderSafety(); });
   onSnapshot(collection(db,"safetyDrugCards"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_DRUG=l; renderSafety(); }, e=>{ console.error("safetyDrugCards",e); SF_ERR.drug=e; renderSafety(); });
+  // Med gas certs (typed in, not uploaded) and the lead-time setting that drives Pete's morning
+  // alert. maybeMedGasAlert runs on every med gas change so his popup reflects the live list.
+  onSnapshot(collection(db,"medGasCerts"),snap=>{ const l=[]; snap.forEach(d=>l.push({id:d.id,...d.data()})); SF_MEDGAS=l; renderSafety(); maybeMedGasAlert(); }, e=>{ console.error("medGasCerts",e); SF_ERR.medgas=e; renderSafety(); });
+  onSnapshot(doc(db,"config","medGasSettings"),d=>{ const v=d.exists()?d.data():{}; MEDGAS_SETTINGS={warnDays:Number(v.warnDays)>0?Number(v.warnDays):60}; renderSafety(); }, e=>fbNoteError(e,"medGasSettings"));
   onSnapshot(doc(db,"config","safetyMeta"),d=>{ SF_META=d.exists()?d.data():{}; renderSafety(); }, e=>fbNoteError(e,"safetyMeta"));
   onSnapshot(collection(db,"webductEquipNotes"),snap=>{ WD_EQNOTES={}; snap.forEach(d=>{ WD_EQNOTES[d.id]=d.data(); }); renderDeliveries(); renderFeed(); if(typeof renderJobs==="function")renderJobs(); }, e=>fbNoteError(e,"webductEquipNotes"));
   wdWatchAdminKey();
@@ -1228,6 +1240,8 @@ async function signInAs(first,last,email,token){
   }
   const added=autoLinkJobs(); syncUserJobs();
   closeName(); renderWho(); renderAll();
+  // A watcher who signs in after the page loaded still gets their morning med gas alert.
+  maybeMedGasAlert();
   if($("view-jobs").classList.contains("active")) setView("jobs");
   /* Both warnings above used to be raised here and then immediately overwritten by the cheerful
      "Signed in" that always followed -- so a person whose saved jobs had failed to load was told
@@ -2429,13 +2443,30 @@ const SF_SOON_DAYS=90;   // "expiring soon" horizon
 // left, a certification that was renewed off-system, a row the report gets wrong. Ignored rows
 // keep their dates but stop counting as expired or due anywhere.
 const sfSilenced=r=>!!(r&&(r.silenced||r.ignored));
-function sfExpiryState(iso,rec){
+// `soonDays` is how far ahead "expiring soon" reaches; it defaults to the training/drug horizon
+// but med gas passes its own configurable lead time.
+function sfExpiryState(iso,rec,soonDays){
   if(sfSilenced(rec)) return "silenced";
   if(!iso) return "none";
   const today=todayIso();
   if(iso<today) return "expired";
   const d=new Date(iso+"T00:00:00"), n=new Date(today+"T00:00:00");
-  return Math.round((d-n)/86400000)<=SF_SOON_DAYS ? "soon" : "ok";
+  const horizon=soonDays==null?SF_SOON_DAYS:soonDays;
+  return Math.round((d-n)/86400000)<=horizon ? "soon" : "ok";
+}
+function medgasWarnDays(){ const n=Number(MEDGAS_SETTINGS&&MEDGAS_SETTINGS.warnDays); return n>0?n:60; }
+function medgasState(r){ return sfExpiryState(r.expires,r,medgasWarnDays()); }
+// A med gas cert always expires six months after it was renewed. Adding months can overflow a
+// short month (renew on Aug 31 -> Feb has no 31st), so clamp to the last valid day rather than
+// letting the date roll into March.
+function addMonthsIso(iso,months){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso==null?"":iso).trim());
+  if(!m) return "";
+  let y=+m[1], mo=+m[2]-1, d=+m[3];
+  mo+=months; y+=Math.floor(mo/12); mo=((mo%12)+12)%12;
+  const lastDay=new Date(y,mo+1,0).getDate();
+  if(d>lastDay) d=lastDay;
+  return `${y}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 function sfBadge(r){
   const st=sfExpiryState(r.expires,r);
@@ -2497,6 +2528,14 @@ const SF_FIELDS={
     {k:"expires",l:"Expiration date", t:"date"},
     {k:"silenced",l:"Silence the expiry warning for this card", t:"check"},
   ],
+  medgas:[
+    {k:"name",    l:"Name", t:"text", req:true},
+    {k:"renewed", l:"Cert renewed date", t:"date", req:true},
+    // Auto-filled from the renewed date and locked: a med gas cert is always good for six months,
+    // so this is never typed by hand. sfOpenEdit keeps it in step as the renewed date changes.
+    {k:"expires", l:"Cert expires (6 months later — set automatically)", t:"date", readonly:true, autoFrom:"renewed"},
+    {k:"silenced",l:"Silence the expiry warning for this cert", t:"check"},
+  ],
   sds:[
     {k:"product",  l:"Chemical / product name", t:"text", req:true},
     {k:"use",      l:"Product use", t:"text"},
@@ -2508,14 +2547,14 @@ const SF_FIELDS={
   ],
 };
 const SF_PIN_FIELD={k:"pinned",l:"Keep this row through future uploads",t:"check",hint:"Pinned rows are skipped by imports without asking."};
-const SF_KIND_LABEL={points:"points entry",training:"training record",drug:"drug card",sds:"SDS sheet"};
+const SF_KIND_LABEL={points:"points entry",training:"training record",drug:"drug card",sds:"SDS sheet",medgas:"med gas cert"};
 let SF_EDIT={kind:null,id:null};
 
 function sfAdminActs(kind,id,rec){
   if(!adminUnlocked) return "";
   // Silencing is the light-touch alternative to editing dates or deleting somebody: the row
   // stays exactly as imported, it just stops being counted as expired.
-  const canSilence=(kind==="training"||kind==="drug");
+  const canSilence=(kind==="training"||kind==="drug"||kind==="medgas");
   const on=canSilence&&sfSilenced(rec);
   return `<div class="sf-acts">
     ${canSilence?`<button class="mini-btn ${on?"unsilence":"silence"}" data-sfsilence="${kind}:${esc(id)}:${on?0:1}">${on?"🔔 Unsilence":"🔕 Silence warning"}</button>`:""}
@@ -2537,22 +2576,34 @@ function sfAddBtn(kind){
   return `<button class="sf-add" data-sfadd="${kind}">+ Add ${esc(SF_KIND_LABEL[kind])}</button>`;
 }
 function sfRecord(kind,id){
-  const src={points:SF_POINTS,training:SF_TRAINING,drug:SF_DRUG,sds:SF_SDS}[kind]||[];
+  const src={points:SF_POINTS,training:SF_TRAINING,drug:SF_DRUG,sds:SF_SDS,medgas:SF_MEDGAS}[kind]||[];
   return src.find(x=>x.id===id)||null;
 }
-function sfColl(kind){ return SF_UPLOADS[kind].coll; }
+// Med gas has no upload behind it, so it isn't in SF_UPLOADS — its collection is named here.
+function sfColl(kind){ return kind==="medgas" ? "medGasCerts" : SF_UPLOADS[kind].coll; }
 
 function sfOpenEdit(kind,id){
   SF_EDIT={kind,id:id||null};
   const rec=id?sfRecord(kind,id):{};
   $("sfEditTitle").textContent=(id?"Edit ":"Add ")+SF_KIND_LABEL[kind];
-  $("sfEditFields").innerHTML=SF_FIELDS[kind].concat([SF_PIN_FIELD]).map(f=>{
+  // Med gas hides the "pin through uploads" toggle — there are no uploads to protect it from.
+  const fields=kind==="medgas"?SF_FIELDS[kind]:SF_FIELDS[kind].concat([SF_PIN_FIELD]);
+  $("sfEditFields").innerHTML=fields.map(f=>{
     const v=rec&&rec[f.k]!=null?rec[f.k]:"";
     if(f.t==="check") return `<label class="sf-check"><input type="checkbox" id="sfF_${f.k}" ${v?"checked":""}><span>${esc(f.l)}</span></label>`;
     return `<div class="field"><label>${esc(f.l)}${f.req?" *":""}</label>
-      <input id="sfF_${f.k}" type="${f.t}" value="${esc(String(v))}" autocomplete="off">
+      <input id="sfF_${f.k}" type="${f.t}" value="${esc(String(v))}"${f.readonly?" readonly":""} autocomplete="off">
       ${f.hint?`<div class="hint">${esc(f.hint)}</div>`:""}</div>`;
   }).join("");
+  // Keep the auto-filled expiry in step with the renewed date as it's typed, so the person sees
+  // the real six-months-out date before they save rather than a blank box.
+  const auto=fields.find(f=>f.autoFrom);
+  if(auto){
+    const src=$("sfF_"+auto.autoFrom), out=$("sfF_"+auto.k);
+    const sync=()=>{ if(out) out.value=addMonthsIso(src?src.value:"",6); };
+    if(src) src.addEventListener("input",sync);
+    if(!rec||!rec[auto.k]) sync();   // fill it on a brand-new cert
+  }
   $("sfEditDelete").style.display=id?"block":"none";
   $("sfEditHint").innerHTML="Saved by hand, this row is protected: an upload that would change or remove it asks you first. Tick <b>Keep this row through future uploads</b> to skip the question and never let an import touch it.";
   openModal("sfEditModal");
@@ -2572,9 +2623,13 @@ async function sfSaveEdit(){
   // Same id scheme as the importers, so a hand-added row and the imported one for the same
   // person/course collapse together instead of both showing.
   if("silenced" in data) data.ignored=data.silenced;
+  // Expiry is derived, never trusted from the (read-only) field — recompute it here so it is
+  // always exactly six months past the renewed date even if the input was tampered with.
+  if(kind==="medgas") data.expires=addMonthsIso(data.renewed,6);
   const newId = kind==="points" ? makeId(["sfp",data.name])
     : kind==="training" ? makeId(["sft",data.name,data.course,data.date])
     : kind==="drug" ? makeId(["sfd",lc(data.name).replace(/\s+/g," ")])
+    : kind==="medgas" ? makeId(["mgc",lc(data.name).replace(/\s+/g," ")])
     : makeId(["sds",data.record||data.product,data.product]);
   try{
     await setDoc(doc(db,sfColl(kind),newId),{...data,source:"admin-edit",updatedAt:serverTimestamp()},{merge:true});
@@ -2636,7 +2691,97 @@ if($("sfEditDelete")) $("sfEditDelete").addEventListener("click",()=>sfDeleteEdi
 
 function renderSafety(){
   if(!document.getElementById("view-safety")) return;
-  renderSfPoints(); renderSfTraining(); renderSfSds(); renderSfDrug();
+  renderSfPoints(); renderSfTraining(); renderSfSds(); renderSfDrug(); renderSfMedgas();
+}
+
+function renderSfMedgas(){
+  const list=$("sfMedgasList"), meta=$("sfMedgasMeta"); if(!list) return;
+  const warn=medgasWarnDays();
+  if(meta) meta.textContent=SF_MEDGAS.length
+    ? `${SF_MEDGAS.length} cert${SF_MEDGAS.length===1?"":"s"} · warning ${warn} day${warn===1?"":"s"} before a cert expires`
+    : "Nothing added yet.";
+  // Admin-only lead-time control: how far ahead the warnings (and Pete's morning alert) begin.
+  const setRow=$("sfMedgasSettings");
+  if(setRow) setRow.innerHTML = adminUnlocked
+    ? `<label class="mg-set">Warn <input id="mgWarnDays" type="number" min="1" max="365" value="${warn}"> days before a cert expires
+        <button class="mini-btn" id="mgWarnSave">Save</button></label>`
+    : "";
+  if(SF_ERR.medgas){ list.innerHTML=sfErrBox("med gas certs","medGasCerts",SF_ERR.medgas); return; }
+  if(!SF_MEDGAS.length){ list.innerHTML=sfAddBtn("medgas")+sfEmpty("🫧","No med gas certs yet",adminUnlocked?"Add one with the button above — the expiry date fills in automatically, six months out.":"An admin can add certifications from here."); return; }
+  const q=sfQuery("sfMedgasSearch");
+  let rows=SF_MEDGAS.filter(r=>!q || String(r.name||"").toLowerCase().includes(q));
+  const rank={expired:0,soon:1,ok:2,none:3,silenced:4};
+  rows.sort((a,b)=>(rank[medgasState(a)]-rank[medgasState(b)])
+    || String(a.expires||"").localeCompare(String(b.expires||""))
+    || String(a.name||"").localeCompare(String(b.name||"")));
+  if(!rows.length){ list.innerHTML=sfAddBtn("medgas")+sfEmpty("🔍","No match",`Nobody matches “${q}”.`); return; }
+  list.innerHTML=sfAddBtn("medgas")+`<div class="sf-list">`+rows.map(r=>{
+    const badge=medgasBadge(r);
+    const open=SF_MEDGAS_OPEN.has(r.id);
+    return `<div class="sf-grp${open?" open":""}">
+      <button class="sf-lrow${adminUnlocked?"":" static"}" ${adminUnlocked?`data-sfmedgas="${esc(r.id)}"`:""}>
+        ${adminUnlocked?`<span class="sf-chev">›</span>`:""}
+        <span class="sf-lname">${esc(r.name||"—")}</span>
+        ${r.renewed?`<span class="sf-ltested">renewed ${esc(longDate(r.renewed))}</span>`:""}
+        ${badge}
+      </button>
+      ${open?`<div class="sf-body"><div class="sf-crs">${sfAdminActs("medgas",r.id,r)}</div></div>`:""}
+    </div>`;
+  }).join("")+`</div>`;
+}
+/* ---------- Med gas: the morning alert ----------
+   One person is meant to keep an eye on med gas certs and book renewals in time. Rather than
+   count on them opening the Safety tab, the app shows them the whole list the first time they
+   open the site each day, wherever they are in it, with anyone expired or expiring soon called
+   out. Everyone else just reads the Safety tab.
+
+   Keyed by normalized name so it survives a re-typed sign-in. Add names here to include more
+   people; this is the only line that decides who gets the popup. */
+const MEDGAS_ALERT_NAMES = ["pete messner"];
+function medgasWatcher(){
+  return !!USER && MEDGAS_ALERT_NAMES.includes(nameNorm(USER.first, USER.last));
+}
+// Expired or within the warning window, and not silenced — the certs worth acting on.
+function medgasAtRisk(){
+  return SF_MEDGAS.filter(r=>{ const s=medgasState(r); return s==="expired"||s==="soon"; });
+}
+let medgasAlertedThisSession=false;
+function maybeMedGasAlert(){
+  if(medgasAlertedThisSession || !medgasWatcher() || !SF_MEDGAS.length) return;
+  // Once per calendar day per device. Stored as a plain date so it naturally resets at midnight.
+  const today=todayIso();
+  let last=""; try{ last=localStorage.getItem("medgas_alert_day")||""; }catch(e){}
+  if(last===today) { medgasAlertedThisSession=true; return; }
+  medgasAlertedThisSession=true;
+  try{ localStorage.setItem("medgas_alert_day",today); }catch(e){}
+  openMedGasAlert();
+}
+function openMedGasAlert(){
+  const body=$("medGasAlertBody"); if(!body) return;
+  const warn=medgasWarnDays();
+  const rank={expired:0,soon:1,ok:2,none:3,silenced:4};
+  const rows=[...SF_MEDGAS].sort((a,b)=>(rank[medgasState(a)]-rank[medgasState(b)])
+    || String(a.expires||"").localeCompare(String(b.expires||"")));
+  const risk=medgasAtRisk().length;
+  const head = risk
+    ? `<div class="mg-alert-head bad">⚠ ${risk} cert${risk===1?"":"s"} need${risk===1?"s":""} a renewal booked${` (expired or within ${warn} days)`}</div>`
+    : `<div class="mg-alert-head ok">✓ All med gas certs are current — nothing to book right now.</div>`;
+  const listHtml = rows.map(r=>`<div class="mg-arow ${medgasState(r)}">
+      <span class="mg-aname">${esc(r.name||"—")}</span>
+      ${medgasBadge(r)}
+    </div>`).join("");
+  body.innerHTML = head + `<div class="mg-alist">${listHtml}</div>`;
+  openModal("medGasAlertModal");
+}
+
+// Same shape as sfBadge but keyed to the configurable med gas horizon.
+function medgasBadge(r){
+  const st=medgasState(r);
+  if(st==="silenced") return `<span class="sf-badge none" title="Silenced in Admin — not counted as expired">Silenced</span>`;
+  if(st==="expired") return `<span class="sf-badge bad">Expired ${esc(longDate(r.expires))}</span>`;
+  if(st==="soon")    return `<span class="sf-badge warn">Expires ${esc(longDate(r.expires))}</span>`;
+  if(st==="ok")      return `<span class="sf-badge ok">Valid to ${esc(longDate(r.expires))}</span>`;
+  return `<span class="sf-badge none">No expiry</span>`;
 }
 
 function renderSfDrug(){
@@ -3084,15 +3229,25 @@ document.addEventListener("click",e=>{
   if(dr){ const i=dr.dataset.sfdrug; SF_DRUG_OPEN.has(i)?SF_DRUG_OPEN.delete(i):SF_DRUG_OPEN.add(i); renderSfDrug(); return; }
   const sr=e.target.closest("[data-sfsds]");
   if(sr){ const i=sr.dataset.sfsds; SF_SDS_OPEN.has(i)?SF_SDS_OPEN.delete(i):SF_SDS_OPEN.add(i); renderSfSds(); return; }
+  const mg=e.target.closest("[data-sfmedgas]");
+  if(mg){ const i=mg.dataset.sfmedgas; SF_MEDGAS_OPEN.has(i)?SF_MEDGAS_OPEN.delete(i):SF_MEDGAS_OPEN.add(i); renderSfMedgas(); return; }
+  if(e.target.closest("#mgWarnSave")){
+    const n=Math.max(1,Math.min(365,parseInt(($("mgWarnDays")||{}).value||"60",10)||60));
+    if(!fbReady){ toast("No connection"); return; }
+    setDoc(doc(db,"config","medGasSettings"),{warnDays:n,updatedAt:serverTimestamp()},{merge:true})
+      .then(()=>toast(`Warning set to ${n} days before expiry`)).catch(err=>toast("Couldn't save: "+(err.code||err.message)));
+    return;
+  }
 });
 document.querySelectorAll("[data-drugfilter]").forEach(b=>b.addEventListener("click",()=>{
   SF_DRUG_FILTER=b.dataset.drugfilter; renderSfDrug();
 }));
-["sfPointsSearch","sfTrainSearch","sfSdsSearch","sfDrugSearch"].forEach(id=>{
+["sfPointsSearch","sfTrainSearch","sfSdsSearch","sfDrugSearch","sfMedgasSearch"].forEach(id=>{
   const el=$(id); if(el) el.addEventListener("input",()=>{
     if(id==="sfPointsSearch")renderSfPoints();
     else if(id==="sfTrainSearch")renderSfTraining();
     else if(id==="sfDrugSearch")renderSfDrug();
+    else if(id==="sfMedgasSearch")renderSfMedgas();
     else renderSfSds();
   });
 });
