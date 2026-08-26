@@ -232,6 +232,7 @@
       <button class="sub-pill" data-safety="training">Training</button>
       <button class="sub-pill" data-safety="sds">SDS</button>
       <button class="sub-pill" data-safety="drug">Drug Cards</button>
+      <button class="sub-pill" data-safety="medgas">Med Gas</button>
       <button class="sub-pill" data-safety="ptp">PTP</button>
     </div>
 
@@ -277,6 +278,15 @@
       </div>
       <div class="ptp-sec" id="ptpAtts"></div>
       <form id="ptpForm" autocomplete="off"></form>
+    </div>
+
+    <div class="safety-pane" id="safety-medgas">
+      <div class="sf-head">
+        <div class="sf-title"><h2>Med Gas Certifications</h2><div class="sf-meta" id="sfMedgasMeta">—</div></div>
+        <input class="sf-search" id="sfMedgasSearch" type="search" placeholder="Search a name…" autocomplete="off">
+      </div>
+      <div class="mg-settings" id="sfMedgasSettings"></div>
+      <div id="sfMedgasList"></div>
     </div>
 
     <div class="safety-pane" id="safety-drug">
@@ -489,6 +499,15 @@
     <button class="submit" id="sfEditSave">Save</button>
     <button class="submit danger" id="sfEditDelete" style="display:none;margin-top:10px">Delete</button>
     <div class="hint" id="sfEditHint" style="margin-top:10px"></div>
+  </div>
+</div></div>
+
+<!-- MED GAS MORNING ALERT — shown once a day to the assigned watcher, on any page -->
+<div class="modal-back" id="medGasAlertModal"><div class="modal"><div class="modal-grip"></div>
+  <div class="modal-head"><h3>🫧 Med Gas Certifications</h3><button class="x" data-close="medGasAlertModal">✕</button></div>
+  <div class="modal-body">
+    <div id="medGasAlertBody"></div>
+    <button class="submit" data-close="medGasAlertModal" style="margin-top:12px">Got it</button>
   </div>
 </div></div>
 

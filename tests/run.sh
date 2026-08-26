@@ -8,7 +8,7 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
-ALL=(ui badge_tut myjobs delivered mobile_myjobs lastseen ptp deadclient regress notif baddata growth monkey)
+ALL=(ui badge_tut myjobs delivered mobile_myjobs lastseen ptp deadclient regress notif medgas baddata growth monkey)
 SUITES=("${@:-}"); [ -z "${SUITES[0]:-}" ] && SUITES=("${ALL[@]}")
 
 echo "==> lint + the format.js <-> email_import.py contract"
