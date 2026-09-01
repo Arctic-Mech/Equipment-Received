@@ -785,6 +785,46 @@ def _write_docs(db, coll, docs, base_offset=0):
     return written
 
 
+# Sources an import is allowed to delete. Rows logged by hand on the website carry source="manual"
+# and are never touched; anything without a known import source is left alone too, so nothing the
+# importer didn't write can be removed by it.
+IMPORT_SOURCES = {"email-auto", "import"}
+
+
+def _stale_import_ids(existing, keep_ids):
+    """Given (doc_id, source) pairs and the ids the new file covers, the import-origin ids to drop."""
+    keep = set(keep_ids)
+    return [i for (i, src) in existing if i not in keep and src in IMPORT_SOURCES]
+
+
+def _delete_missing(db, coll, keep_ids):
+    """Replace semantics: an import row that fell out of the newer file is deleted.
+
+    Only rows this importer wrote (source in IMPORT_SOURCES) are eligible — hand-logged rows and
+    anything untagged survive. Reads the collection once (only reached when we're actually writing,
+    i.e. a genuinely new email), diffs, and batch-deletes the rest.
+    """
+    # An import with no rows for a category never wipes it (a wrong/partial file must not delete
+    # everything). A category is only replaced when the file actually carried data for it.
+    keep = set(keep_ids)
+    if not keep:
+        return 0
+    existing = [(s.id, (s.to_dict() or {}).get("source")) for s in db.collection(coll).stream()]
+    stale = _stale_import_ids(existing, keep)
+    batch = db.batch()
+    n = 0
+    for doc_id in stale:
+        batch.delete(db.collection(coll).document(doc_id))
+        n += 1
+        if n >= 400:
+            batch.commit()
+            batch = db.batch()
+            n = 0
+    if n:
+        batch.commit()
+    return len(stale)
+
+
 def import_master_excel(db, atts, dry_run, force, soft_missing):
     """Arrivals + rentals from the Equipment Received & Rentals master workbook."""
     fname_match = os.environ.get("FILENAME_MUST_CONTAIN", "Equipment Received").strip()
@@ -866,7 +906,11 @@ def import_master_excel(db, atts, dry_run, force, soft_missing):
 
     na = _write_docs(db, "arrivals", a_docs)
     nr = _write_docs(db, "rentals", r_docs, base_offset=len(a_docs))
-    print(f"  Wrote {na} arrivals | {nr} rentals")
+    # Replace, don't just add: rows that dropped off the sheet are removed (hand-logged rows kept).
+    da = _delete_missing(db, "arrivals", a_docs.keys())
+    dr = _delete_missing(db, "rentals", r_docs.keys())
+    print(f"  Wrote {na} arrivals | {nr} rentals"
+          + (f" | removed {da} stale arrival(s), {dr} stale rental(s)" if (da or dr) else ""))
     try:
         db.collection("config").document("lastImport").set({
             "at": int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000),
@@ -917,7 +961,9 @@ def import_tool_pdf(db, atts, dry_run, force, soft_missing):
         return True
 
     nt = _write_docs(db, "toolRentals", t_docs)
-    print(f"  Wrote {nt} tool lines")
+    # A tool no longer on the report has been returned/closed — drop the import-origin ones.
+    dt = _delete_missing(db, "toolRentals", t_docs.keys())
+    print(f"  Wrote {nt} tool lines" + (f" | removed {dt} no longer on the report" if dt else ""))
 
     # Store the PDF itself so the in-app "PDF" button can show each job (same as the site).
     try:

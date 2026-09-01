@@ -8,12 +8,13 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
-ALL=(ui badge_tut myjobs delivered mobile_myjobs lastseen ptp deadclient regress notif medgas baddata growth monkey)
+ALL=(ui badge_tut myjobs delivered mobile_myjobs lastseen ptp deadclient regress notif medgas replace baddata growth monkey)
 SUITES=("${@:-}"); [ -z "${SUITES[0]:-}" ] && SUITES=("${ALL[@]}")
 
-echo "==> lint + the format.js <-> email_import.py contract"
+echo "==> lint + the format.js <-> email_import.py contract + the importer replace logic"
 ( cd .. && npx --yes eslint ./*.js ) || { echo "FAIL  eslint"; exit 1; }
 ( cd .. && python3 contract_check.py ) || { echo "FAIL  contract_check"; exit 1; }
+python3 py_replace.py || { echo "FAIL  py_replace"; exit 1; }
 
 fail=0
 for s in "${SUITES[@]}"; do

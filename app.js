@@ -380,7 +380,7 @@ const APP_VERSION="7.5";
 function setSync(s){ const d=$("syncDot"); d.className="sync-dot "+(s==="live"?"live":s==="err"?"err":s==="cache"?"cache":""); $("syncTxt").textContent=s==="live"?("Live V"+APP_VERSION):s==="err"?"Offline":s==="cache"?"Saved data":"Connecting"; }
 function startSync(){
   if(!fbReady){ setSync("err"); showErr("feedList"); showErr("rentList"); showErr("toolList"); return; }
-  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",deliveredBy:v.deliveredBy||"",deliveredMarkedOn:v.deliveredMarkedOn||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; autoLinkJobs(); renderAll(); }, e=>{fbNoteError(e,"arrivals"); setSync("err"); showErr("feedList",e.code);});
+  onSnapshot(collection(db,"arrivals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const deliveredDate=v.deliveredDate||v.deliveryDate||""; l.push({id:d.id,dateReceived:v.dateReceived||"",po:v.po||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",description:v.description||"",supplier:v.supplier||"",reqDeliv:v.reqDeliv||"",delivered:(v.delivered!=null?!!v.delivered:!!deliveredDate),deliveredDate:deliveredDate,partial:!!v.partial,storageLocation:v.storageLocation||"",requestedBy:v.requestedBy||"",photoBy:v.photoBy||"",deliveredBy:v.deliveredBy||"",deliveredMarkedOn:v.deliveredMarkedOn||"",source:v.source||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateReceived!==b.dateReceived?(a.dateReceived<b.dateReceived?1:-1):(b.seq||0)-(a.seq||0)); ARRIVALS=l; autoLinkJobs(); renderAll(); }, e=>{fbNoteError(e,"arrivals"); setSync("err"); showErr("feedList",e.code);});
 
   /* ---- Connection badge ----
      This used to hang off the arrivals listener, which is why it could sit on "Saved data"
@@ -400,8 +400,8 @@ function startSync(){
   onSnapshot(doc(db,"config","lastImport"), {includeMetadataChanges:true},
     s=>setSync(s.metadata && s.metadata.fromCache ? "cache" : "live"),
     e=>{ fbNoteError(e,"sync probe"); setSync("err"); });
-  onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{fbNoteError(e,"rentList"); showErr("rentList",e.code);});
-  onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{fbNoteError(e,"toolList"); showErr("toolList",e.code);});
+  onSnapshot(collection(db,"rentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,rentalId:v.rentalId||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",equipment:v.equipment||"",rate:v.rate||"",vendor:v.vendor||"",dateRented:v.dateRented||"",status:v.status||"Renting",dateReturned:v.dateReturned||"",orderedBy:v.orderedBy||"",po:v.po||"",source:v.source||"",seq:v.seq||0});}); l.sort((a,b)=>a.dateRented!==b.dateRented?(a.dateRented<b.dateRented?1:-1):(b.seq||0)-(a.seq||0)); RENTALS=l; renderRentals(); renderJobs(); renderEricStats(); }, e=>{fbNoteError(e,"rentList"); showErr("rentList",e.code);});
+  onSnapshot(collection(db,"toolRentals"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,jobNumber:v.jobNumber||"",jobName:v.jobName||"",jobClosed:!!v.jobClosed,toolType:v.toolType||"",toolId:v.toolId||"",rentalStarted:v.rentalStarted||"",rentalEnded:v.rentalEnded||"",billingDays:v.billingDays||0,dailyRate:v.dailyRate||0,billingTotal:v.billingTotal||"",discountedRate:v.discountedRate||"",status:v.status||(v.rentalEnded?"Returned":"Out"),source:v.source||"",seq:v.seq||0});}); l.sort((a,b)=>a.rentalStarted!==b.rentalStarted?(a.rentalStarted<b.rentalStarted?1:-1):(b.seq||0)-(a.seq||0)); TOOLS=l; renderTools(); renderJobs(); renderEricStats(); }, e=>{fbNoteError(e,"toolList"); showErr("toolList",e.code);});
   onSnapshot(doc(db,"config","ptpPool"),d=>{ PTP_POOL=d.exists()?(d.data()||{}):{};
     if(SF_TAB==="ptp" && $("ptpForm") && $("ptpForm").innerHTML) renderPtp(); },
     e=>fbNoteError(e,"ptpPool"));
@@ -3776,7 +3776,7 @@ Object.keys(SF_UPLOADS).forEach(kind=>{
   if(btn) btn.addEventListener("click",()=>sfOpenUpload(SF_UPLOADS[kind].viaTraining?"training":kind));
 });
 
-function dropHTML(kind){ const isPdf=kind==="pdf"; return `<div class="dropzone" id="dropzone"><div class="dz-ico">${isPdf?"🧰":"📄"}</div><h4>${isPdf?"Upload tool report":"Upload master sheet"}</h4><p>${isPdf?'Drop the <b>Webduct Tool Rental</b> PDF here, or pick it from your device.':'Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it.'} Re-importing is safe — duplicates merge.</p><label class="dz-btn">Choose file<input id="fileInput" type="file" accept="${isPdf?'.pdf':'.xlsx,.xlsm,.xls'}" hidden></label></div><div class="field" style="margin-top:16px"><div class="hint">${isPdf?'Reads every job and tool line. Job numbers, dates, days, and rates are pulled automatically.':'Loads every monthly tab into Arrivals, plus the Equipment Rentals tab into Rentals.'}</div></div>`; }
+function dropHTML(kind){ const isPdf=kind==="pdf"; return `<div class="dropzone" id="dropzone"><div class="dz-ico">${isPdf?"🧰":"📄"}</div><h4>${isPdf?"Upload tool report":"Upload master sheet"}</h4><p>${isPdf?'Drop the <b>Webduct Tool Rental</b> PDF here, or pick it from your device.':'Drop your <b>Equipment Received &amp; Rentals</b> file here, or pick it.'} Re-importing syncs to this file: it adds or updates rows and removes ones no longer on it. Rows you logged by hand are left alone.</p><label class="dz-btn">Choose file<input id="fileInput" type="file" accept="${isPdf?'.pdf':'.xlsx,.xlsm,.xls'}" hidden></label></div><div class="field" style="margin-top:16px"><div class="hint">${isPdf?'Reads every job and tool line. Job numbers, dates, days, and rates are pulled automatically.':'Loads every monthly tab into Arrivals, plus the Equipment Rentals tab into Rentals.'}</div></div>`; }
 function wireDrop(kind){ const dz=$("dropzone"),input=$("fileInput"); if(!dz)return; const go=f=>{ if(kind==="pdf")handlePdf(f); else handleExcel(f); }; input.addEventListener("change",()=>{if(input.files[0])go(input.files[0]);}); ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");})); ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");})); dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)go(f);}); }
 
 function parseArrivalSheet(ws,name){ if(/rental/i.test(name))return[]; const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true}); if(!rows.length)return[]; let hIdx=-1; for(let i=0;i<Math.min(rows.length,6);i++){if(!Array.isArray(rows[i]))continue; const j=rows[i].map(c=>String(c).toLowerCase()).join("|"); if(j.includes("date received")||(j.includes("job")&&j.includes("description"))){hIdx=i;break;}} if(hIdx<0)hIdx=1;
@@ -3787,6 +3787,26 @@ function parseArrivalSheet(ws,name){ if(/rental/i.test(name))return[]; const row
   if(!Array.isArray(rows[hIdx])) return [];
   const H=rows[hIdx].map(c=>String(c).toLowerCase()); const col=(...k)=>{for(const x of k){const i=H.findIndex(h=>h.includes(x));if(i>=0)return i;}return -1;}; const cD=col("date received","received"),cP=col("p.o","po","p o"),cJ=col("job#","job #","job num"),cN=col("job name"),cDe=col("description"),cS=col("supplier"),cDl=col("delivery"),cR=col("requested"); const out=[]; for(let i=hIdx+1;i<rows.length;i++){const row=rows[i];if(!row)continue;const g=x=>x>=0?row[x]:"";const desc=String(g(cDe)||"").trim();const dk=fmtDateKey(g(cD));if(!desc&&!dk)continue;if(!desc&&!String(g(cJ)||"").trim())continue; out.push({dateReceived:dk,po:String(g(cP)||"").trim(),jobNumber:String(g(cJ)||"").trim(),jobName:String(g(cN)||"").trim(),description:desc,supplier:String(g(cS)||"").trim(),deliveryDate:fmtDateKey(g(cDl)),requestedBy:String(g(cR)||"").trim()});} return out; }
 function parseRentalSheet(ws){ const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:"",cellDates:true}); let hIdx=0; for(let i=0;i<Math.min(rows.length,4);i++){if(Array.isArray(rows[i])&&rows[i].map(c=>String(c).toLowerCase()).join("|").includes("rental")){hIdx=i;break;}} const out=[]; for(let i=hIdx+1;i<rows.length;i++){const r=rows[i];if(!r)continue;const rid=String(r[0]||"").trim(),jn=String(r[1]||"").trim(),eq=String(r[2]||"").trim();if(!rid&&!jn&&!eq)continue;const po=String(r[9]||"").trim();const jm=po.match(/(\d{2}-\d{4})/)||jn.match(/(\d{2}-\d{4})/); out.push({rentalId:rid,jobName:jn,equipment:eq,rate:String(r[3]||"").trim(),vendor:String(r[4]||"").trim(),dateRented:fmtDateKey(r[5]),status:/return/i.test(String(r[6]))?"Returned":(String(r[6]||"").trim()||"Renting"),dateReturned:fmtDateKey(r[7]),orderedBy:String(r[8]||"").trim(),po,jobNumber:jm?jm[1]:""});} return out; }
+
+/* An import REPLACES what the sheet/report covers: a row that has dropped out of the newer file is
+   deleted, not left behind. But only rows an import itself wrote are ever removed — hand-logged
+   entries (source:"manual") and anything without a known import source are left alone, so the
+   "Log arrival/rental/tool" button on the site is never undone by the next sheet. */
+const IMPORT_SOURCES=new Set(["email-auto","import"]);
+function staleImportIds(existing,keepIds){
+  // An import that brought NO rows for a category never wipes it — that's a wrong/partial file, not
+  // an instruction to delete everything. A category is only replaced when the file has data for it.
+  if(!keepIds || !keepIds.size) return [];
+  return existing.filter(r=>r && !keepIds.has(r.id) && IMPORT_SOURCES.has(r.source)).map(r=>r.id);
+}
+async function deleteByIds(coll,ids){
+  for(let i=0;i<ids.length;i+=400){
+    const b=writeBatch(db);
+    ids.slice(i,i+400).forEach(id=>b.delete(doc(db,coll,id)));
+    await b.commit();
+  }
+  return ids.length;
+}
 
 async function handleExcel(file){
   const body=$("importBody"); body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Reading file…</h4><p>${esc(file.name)}</p></div>`;
@@ -3803,8 +3823,12 @@ async function handleExcel(file){
     let done=0; const CHUNK=400,base=Date.now()-total;
     for(let i=0;i<aAll.length;i+=CHUNK){ const b=writeBatch(db); aAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"arrivals",id),{...r,seq:base+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,aAll.length-i); upd(done,total); }
     for(let i=0;i<rAll.length;i+=CHUNK){ const b=writeBatch(db); rAll.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"rentals",id),{...r,seq:base+aAll.length+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,rAll.length-i); upd(done,total); }
-    body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${aAll.length.toLocaleString()}</b> arrivals and <b>${rAll.length}</b> rentals synced.</p><button class="submit" style="margin-top:20px" id="impClose">Done</button></div>`;
-    $("impClose").addEventListener("click",()=>closeModal("importModal")); toast(total.toLocaleString()+" imported");
+    // Remove import-origin rows that fell out of this sheet (hand-logged rows are left alone).
+    const delA=await deleteByIds("arrivals",staleImportIds(ARRIVALS,new Set(aMap.keys())));
+    const delR=await deleteByIds("rentals",staleImportIds(RENTALS,new Set(rMap.keys())));
+    const removed=delA+delR;
+    body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${aAll.length.toLocaleString()}</b> arrivals and <b>${rAll.length}</b> rentals synced.${removed?`<br>${removed.toLocaleString()} row${removed===1?"":"s"} no longer on the sheet removed.`:""}</p><button class="submit" style="margin-top:20px" id="impClose">Done</button></div>`;
+    $("impClose").addEventListener("click",()=>closeModal("importModal")); toast(total.toLocaleString()+" imported"+(removed?`, ${removed} removed`:""));
   }catch(e){ fbNoteError(e,"import"); body.innerHTML=stageErr("Import failed: "+fbSaveMsg(e)); }
 }
 
@@ -3821,11 +3845,13 @@ async function handlePdf(file){
     body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Importing ${total} tool lines…</h4><p id="impCount">Syncing</p><div class="imp-bar"><i id="impBar"></i></div></div>`;
     let done=0; const CHUNK=400,base=Date.now()-total;
     for(let i=0;i<all.length;i+=CHUNK){ const b=writeBatch(db); all.slice(i,i+CHUNK).forEach(([id,r],k)=>b.set(doc(db,"toolRentals",id),{...r,seq:base+i+k,source:"import"},{merge:true})); await b.commit(); done+=Math.min(CHUNK,all.length-i); upd(done,total); }
+    // A tool no longer on the report has been returned/closed — drop the import-origin ones.
+    const delT=await deleteByIds("toolRentals",staleImportIds(TOOLS,new Set(map.keys())));
     // store the PDF itself so jobs can be verified against it
     body.innerHTML=`<div class="imp-stage"><div class="ring"></div><h4>Saving report…</h4><p>Storing the PDF so you can view each job in it.</p></div>`;
     try{ const b64=abToB64(buf); if(b64.length<1040000){ await setDoc(doc(db,"pdfStore","data"),{data:b64}); await setDoc(doc(db,"pdfStore","meta"),{name:file.name,pages,pageMap,uploadedAt:serverTimestamp()}); } else { await setDoc(doc(db,"pdfStore","meta"),{name:file.name,pages,pageMap,uploadedAt:serverTimestamp(),tooBig:true}); } }catch(pe){ console.error("pdf store",pe); }
-    body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${total}</b> tool lines across ${new Set(items.map(i=>i.jobNumber)).size} jobs. The report PDF is saved — tap “PDF” on any job to verify.</p><button class="submit teal" style="margin-top:20px" id="impClose">Done</button></div>`;
-    $("impClose").addEventListener("click",()=>closeModal("importModal")); toast(total+" tool lines imported");
+    body.innerHTML=`<div class="imp-stage"><div style="font-size:46px;margin-bottom:10px">✅</div><h4>Import complete</h4><p><b>${total}</b> tool lines across ${new Set(items.map(i=>i.jobNumber)).size} jobs.${delT?`<br>${delT} tool line${delT===1?"":"s"} no longer on the report removed.`:""} The report PDF is saved — tap “PDF” on any job to verify.</p><button class="submit teal" style="margin-top:20px" id="impClose">Done</button></div>`;
+    $("impClose").addEventListener("click",()=>closeModal("importModal")); toast(total+" tool lines imported"+(delT?`, ${delT} removed`:""));
   }catch(e){ fbNoteError(e,"import"); body.innerHTML=stageErr("Import failed: "+fbSaveMsg(e)); }
 }
 function abToB64(buf){ let bin=""; const bytes=new Uint8Array(buf),chunk=0x8000; for(let i=0;i<bytes.length;i+=chunk){ bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk)); } return btoa(bin); }
