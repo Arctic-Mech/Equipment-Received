@@ -11,7 +11,7 @@ const browser=await chromium.launch({executablePath:CHROMIUM,args:["--no-sandbox
 
 const seed={
   people:{"p-jaren-eells":{first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",
-    nameNorm:"jaren eells",savedJobs:[],jobOrder:[],removedJobs:[]}},
+    nameNorm:"jaren eells",savedJobs:["25-0150"],jobOrder:[],removedJobs:[]}},
   arrivals:{}, rentals:{},
   toolRentals:{ t1:{jobNumber:"25-0150",jobName:"Alpha",toolType:"Core drill",toolId:"CD-9",
     rentalStarted:"2026-07-05",billingDays:5,dailyRate:40,billingTotal:"200",discountedRate:"180",status:"Out",seq:1} },
@@ -79,6 +79,26 @@ for(const [name,want] of [
   chk(/uploaded/i.test(t), "a nameless-date report should fall back to the upload day");
   chk(t.includes("Tool Rental Report.pdf"), "the file name should still be shown on the fallback");
   chk(await page.locator("#toolAsOf").isVisible(), "the banner should still show on the fallback");
+}
+
+/* ---- the SAME warning shows in My Jobs on the Tool Rentals segment ---- */
+{
+  await reMeta("Webduct Tool Rental 08-25-2026.pdf");   // back to a known dated report
+  await page.locator("nav.tabs .tab[data-view='jobs']").click();
+  await page.waitForTimeout(300);
+  await page.locator('#mjSeg button[data-seg="tools"]').click();
+  await page.waitForTimeout(300);
+  const mjBanner=page.locator("#mjItems .tool-asof");
+  chk(await mjBanner.count()===1, "the snapshot warning is missing from My Jobs' tool rentals");
+  const t=await mjBanner.innerText();
+  console.log("My Jobs tool banner:", JSON.stringify(t));
+  chk(/Accurate as of/.test(t) && t.includes("Aug 25, 2026"),
+      `My Jobs should carry the same as-of warning, got "${t}"`);
+  // and it's NOT shown on the arrivals segment
+  await page.locator('#mjSeg button[data-seg="arrivals"]').click();
+  await page.waitForTimeout(250);
+  chk(await page.locator("#mjItems .tool-asof").count()===0, "the tool snapshot warning leaked onto the arrivals segment");
+  console.log("My Jobs tool warning matches the Tool Rentals tab: ok");
 }
 
 await ctx.close();

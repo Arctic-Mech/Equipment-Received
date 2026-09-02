@@ -704,15 +704,25 @@ function pdfAsOf(){
   const up=fmtTs(PDF_META.uploadedAt);
   return up ? { disp:up, short:"", iso:"", fromName:false, name:PDF_META.name||"" } : null;
 }
+// The snapshot warning, shared verbatim between the Tool Rentals tab and My Jobs so it reads the
+// same wherever the tool list appears. Returns "" when there's no report yet.
+function pdfAsOfInner(){
+  const a=pdfAsOf(); if(!a) return "";
+  const msg=a.fromName
+    ? `Accurate as of <b>${esc(a.disp)}</b> — the day this report was pulled. It may have changed since.`
+    : `From the report uploaded <b>${esc(a.disp)}</b> — a snapshot that may have changed since.`;
+  return `<span class="asof-ico">📅</span><span>${msg}</span>${a.name?`<span class="asof-file">${esc(a.name)}</span>`:""}`;
+}
+function toolAsOfBanner(inList){
+  const inner=pdfAsOfInner();
+  return inner ? `<div class="as-of tool-asof${inList?" in-list":""}">${inner}</div>` : "";
+}
 function renderTools(){ if(typeof renderAutoImport==="function")renderAutoImport();
   const q=$("toolSearch").value.trim().toLowerCase(),st=$("toolStatus").value;
   $("toolClr").style.display=q?"block":"none"; const pt=$("pillTool"); if(pt)pt.textContent=TOOLS.length>999?(Math.floor(TOOLS.length/100)/10)+"k":TOOLS.length; const pr=$("pillRent"); if(pr)pr.textContent=(RENTALS.length+TOOLS.length)>999?(Math.floor((RENTALS.length+TOOLS.length)/100)/10)+"k":(RENTALS.length+TOOLS.length);
-  const asOf=$("toolAsOf"); if(asOf){ const a=pdfAsOf();
-    if(a){ asOf.style.display="block"; asOf.className="as-of tool-asof";
-      asOf.innerHTML = a.fromName
-        ? `<span class="asof-ico">📅</span><span>Accurate as of <b>${esc(a.disp)}</b> — the day this report was pulled. It may have changed since.</span>${a.name?`<span class="asof-file">${esc(a.name)}</span>`:""}`
-        : `<span class="asof-ico">📅</span><span>From the report uploaded <b>${esc(a.disp)}</b> — a snapshot that may have changed since.</span>${a.name?`<span class="asof-file">${esc(a.name)}</span>`:""}`;
-    } else asOf.style.display="none"; }
+  const asOf=$("toolAsOf"); if(asOf){ const inner=pdfAsOfInner();
+    if(inner){ asOf.style.display="block"; asOf.className="as-of tool-asof"; asOf.innerHTML=inner; }
+    else asOf.style.display="none"; }
   let rows=TOOLS;
   if(st) rows=rows.filter(r=> st==="Returned"?/return/i.test(r.status):!/return/i.test(r.status));
   if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.toolType,r.toolId].some(v=>lc(v).includes(q)));
@@ -983,12 +993,15 @@ function renderJobs(){
   const mjKey=[MJ_SEL,mjSeg,month,sq].join("\u0000");
   if(mjKey!==mjSig){ mjSig=mjKey; mjShown=PAGE_STEP; }
   const shown=items.slice(0,mjShown);
-  $("mjItems").innerHTML = items.length
+  // The tool list is a one-day snapshot; the same warning rides above it in My Jobs as on the
+  // Tool Rentals tab, so it reads the same wherever the tools are seen.
+  const toolWarn = mjSeg==="tools" ? toolAsOfBanner(true) : "";
+  $("mjItems").innerHTML = toolWarn + (items.length
     // compact hides an arrival card's job badge and name, which is right when one job is picked
     // and the header already says which — but in the merged list that's the thing you need most.
     ? `<div class="${mjSeg==="arrivals"?"rows":"tlines"}">${shown.map(r=>seg.row(r,{star:true,compact:!!MJ_SEL,job:!MJ_SEL,isNew:!viewingOther&&news.has("a:"+r.id)})).join("")}</div>`
       + moreBtn("jobs",mjShown,items.length)
-    : `<div class="sub-empty">No ${seg.plural}${sq?" match your search":month?" this month":MJ_SEL?" on this job":" on your jobs"} yet.</div>`;
+    : `<div class="sub-empty">No ${seg.plural}${sq?" match your search":month?" this month":MJ_SEL?" on this job":" on your jobs"} yet.</div>`);
   renderMjBar({
     mode:"normal",
     reorder:reorderMode&&!viewingOther,
