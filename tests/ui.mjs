@@ -7,6 +7,14 @@ import { startServer, routeCdn, CHROMIUM, TESTS_DIR } from "./serve.mjs";
 
 const { server, port: PORT } = await startServer();
 
+/* Dates that must stay on a fixed side of "today" are relative, so the suite doesn't rot as the
+   calendar advances — a hardcoded 2026-09-01 "expiring soon" turned into "expired" the day the
+   clock passed it and broke the expired-count assertions. Clearly-past dates stay literal. */
+const shift = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const SOON = shift(21);   // within the 90-day "expiring soon" window, not yet expired
+const SOON2 = shift(8);
+const FAR = shift(300);   // comfortably beyond "expiring soon" → reads as Valid
+
 const SEED = {
   people: { "p-jaren-eells": { first: "Jaren", last: "Eells", email: "jareneells@arctic.biz", nameNorm: "jaren eells" } },
   arrivals: { a1: { dateReceived: "2026-07-29", jobNumber: "25-0150", jobName: "Test Job", description: "Widget", supplier: "Acme", seq: 1 } },
@@ -17,7 +25,7 @@ const SEED = {
   },
   safetyTraining: {
     t1: { name: "Chris Brown", course: "Forklift", instructor: "Hailey Latherow", date: "2024-12-05", expires: "2027-12-05" },
-    t2: { name: "Alex Garcia", course: "Scissor Lift", instructor: "Hailey Sorensen", date: "2026-03-13", expires: "2026-09-01" },
+    t2: { name: "Alex Garcia", course: "Scissor Lift", instructor: "Hailey Sorensen", date: "2026-03-13", expires: SOON },
     t3: { name: "AJ Stansbury", course: "Respirator Fit Test", instructor: "Onsite Health", date: "2025-10-09", expires: "2025-11-01" },
     t4: { name: "Aaron Vanrheen", course: "OSHA 30", instructor: "OSHA", date: "2008-02-01", expires: "" },
     t5: { name: "Chris Brown", course: "Ladders", instructor: "Hailey Latherow", date: "2021-02-05", expires: "" },
@@ -26,8 +34,8 @@ const SEED = {
   },
   safetyDrugCards: {
     d1: { name: "Ted Carr", tested: "2024-09-09", expires: "2025-03-09" },
-    d2: { name: "Steven Duncan", tested: "2026-08-16", expires: "2027-02-16" },
-    d3: { name: "Daniel Shamray", tested: "2026-05-10", expires: "2026-09-10" },
+    d2: { name: "Steven Duncan", tested: "2026-08-16", expires: FAR },
+    d3: { name: "Daniel Shamray", tested: "2026-05-10", expires: SOON2 },
   },
   safetySds: { s1: { record: "1", product: "Acetylene", use: "Analytical Chemistry", vendor: "Airgas", issueDate: "2021-06-21", dept: "All", pages: "11" } },
   config: { safetyMeta: { points: { count: 2 }, training: { count: 7 }, sds: { count: 1 }, drug: { count: 3 } } },

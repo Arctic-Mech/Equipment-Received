@@ -1082,6 +1082,14 @@
   .del-section h3 .cnt{font-family:'JetBrains Mono';font-size:12px;color:#fff;background:var(--steel);padding:1px 8px;border-radius:8px}
   .as-of{margin:12px 14px 0;font-size:12px;color:var(--steel);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 12px}
   .as-of b{color:var(--ink)}
+  /* The tool list is a snapshot from one day — make that impossible to miss. */
+  .tool-asof{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13px;line-height:1.35;
+    color:#7a4a00;background:var(--amber-soft);border:1px solid var(--amber)}
+  .tool-asof b{color:#7a4a00}
+  .tool-asof .asof-ico{font-size:16px;flex:none}
+  .tool-asof .asof-file{flex-basis:100%;font-size:11px;color:var(--steel);font-family:'JetBrains Mono',monospace;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tas-of{color:var(--amber);font-weight:700}
   /* Webduct API test */
   .wd-card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:12px 14px;padding:14px;box-shadow:var(--shadow)}
   .wd-card-title{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:14px;color:var(--steel);margin:0 0 12px}
