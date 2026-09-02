@@ -670,47 +670,62 @@ function toolJobCard(job,items,opts={}){
 function groupByJob(items){ const m=new Map(); items.forEach(r=>{ const j=normJob(r.jobNumber); if(!m.has(j))m.set(j,[]); m.get(j).push(r); }); return m; }
 function fmtTs(ts){ try{ const d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null); if(!d||isNaN(d))return ""; return MON[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear(); }catch(e){return "";} }
 
-/* The tool rental report is a SNAPSHOT of one day, and that day is written into the PDF's file
-   name (Webduct exports it US-style). Pull it out so the app can say what day the list is really
-   accurate for, instead of only when it happened to be uploaded. Tries the common filename date
-   shapes and validates the calendar; returns null if the name has no readable date. */
+/* The tool rental report is a SNAPSHOT tied to a point in time, and that period is written into
+   the PDF's file name. The real report is MONTHLY, so the name usually carries a year + month and
+   no day (e.g. "Webduct Tool Rental_2026-7 July.pdf"); older/other exports may carry a full date.
+   Read whichever is there so the app can say what the list is really accurate for, instead of only
+   when it happened to be uploaded. Returns null if the name has no readable date. */
+const MONTHS_ABBR="jan feb mar apr may jun jul aug sep oct nov dec".split(" ");
+const MONTHS_FULL=["January","February","March","April","May","June","July","August","September","October","November","December"];
 function dateFromName(name){
   const s=String(name==null?"":name);
-  const MONTHS="jan feb mar apr may jun jul aug sep oct nov dec".split(" ");
+  // Full calendar date (day-level).
   const mk=(y,mo,da)=>{
     if(!(mo>=1&&mo<=12&&da>=1&&da<=31)) return null;
     const d=new Date(y,mo-1,da);
     if(d.getFullYear()!==y||d.getMonth()!==mo-1||d.getDate()!==da) return null;   // e.g. 2/30 is rejected
     return { iso:`${y}-${String(mo).padStart(2,"0")}-${String(da).padStart(2,"0")}`,
-             disp:MON[mo-1]+" "+da+", "+y, short:mo+"/"+da };
+             disp:MON[mo-1]+" "+da+", "+y, short:mo+"/"+da, month:false };
   };
+  // Month + year only (the monthly report's usual shape).
+  const mkMon=(y,mo)=>{
+    if(!(mo>=1&&mo<=12&&y>=2000&&y<=2100)) return null;
+    return { iso:`${y}-${String(mo).padStart(2,"0")}`, disp:MONTHS_FULL[mo-1]+" "+y, short:MON[mo-1], month:true };
+  };
+  const monName=w=>MONTHS_ABBR.findIndex(x=>w.startsWith(x))+1;   // 0 => not a month
+  const lo=s.toLowerCase();
   let m,r;
-  if((m=s.match(/(20\d{2})[-_.](\d{1,2})[-_.](\d{1,2})/))        && (r=mk(+m[1],+m[2],+m[3]))) return r;  // YYYY-MM-DD
-  if((m=s.match(/(20\d{2})(\d{2})(\d{2})(?!\d)/))                && (r=mk(+m[1],+m[2],+m[3]))) return r;  // YYYYMMDD
-  if((m=s.match(/(\d{1,2})[-_. ](\d{1,2})[-_. ](20\d{2})/))      && (r=mk(+m[3],+m[1],+m[2]))) return r;  // MM-DD-YYYY (US)
-  if((m=s.match(/(\d{1,2})[-_. ](\d{1,2})[-_. ](\d{2})(?!\d)/))  && (r=mk(2000+ +m[3],+m[1],+m[2]))) return r; // MM-DD-YY
-  if((m=s.toLowerCase().match(/([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d{2})/)) &&
-     (r=(()=>{const mi=MONTHS.findIndex(x=>m[1].startsWith(x)); return mi>=0?mk(+m[3],mi+1,+m[2]):null;})())) return r;  // Month DD, YYYY
-  if((m=s.toLowerCase().match(/(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,9})\.?,?\s+(20\d{2})/)) &&
-     (r=(()=>{const mi=MONTHS.findIndex(x=>m[2].startsWith(x)); return mi>=0?mk(+m[3],mi+1,+m[1]):null;})())) return r;  // DD Month YYYY
+  // --- day-level, tried first so a full date is never read as just its month ---
+  if((m=s.match(/(20\d{2})[-_.](\d{1,2})[-_.](\d{1,2})/))       && (r=mk(+m[1],+m[2],+m[3]))) return r;  // YYYY-MM-DD
+  if((m=s.match(/(20\d{2})(\d{2})(\d{2})(?!\d)/))               && (r=mk(+m[1],+m[2],+m[3]))) return r;  // YYYYMMDD
+  if((m=s.match(/(\d{1,2})[-_. ](\d{1,2})[-_. ](20\d{2})/))     && (r=mk(+m[3],+m[1],+m[2]))) return r;  // MM-DD-YYYY
+  if((m=s.match(/(\d{1,2})[-_. ](\d{1,2})[-_. ](\d{2})(?!\d)/)) && (r=mk(2000+ +m[3],+m[1],+m[2]))) return r; // MM-DD-YY
+  if((m=lo.match(/([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d{2})/)) && monName(m[1])>0 && (r=mk(+m[3],monName(m[1]),+m[2]))) return r; // Month DD, YYYY
+  if((m=lo.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,9})\.?,?\s+(20\d{2})/)) && monName(m[2])>0 && (r=mk(+m[3],monName(m[2]),+m[1]))) return r; // DD Month YYYY
+  // --- month-level fallbacks (no day) ---
+  if((m=s.match(/(20\d{2})[-_.](\d{1,2})(?!\d)/))   && (r=mkMon(+m[1],+m[2]))) return r;  // YYYY-M  ("2026-7 July")
+  if((m=lo.match(/([a-z]{3,9})\.?[\s_-]+(20\d{2})/)) && monName(m[1])>0 && (r=mkMon(+m[2],monName(m[1])))) return r;  // Month YYYY
+  if((m=s.match(/(\d{1,2})[-_.](20\d{2})(?!\d)/))    && (r=mkMon(+m[2],+m[1]))) return r;  // M-YYYY
   return null;
 }
-/* The day the tool list is accurate for. Prefer the date in the report's file name; only if the
-   name has none do we fall back to when it was uploaded (and say so). */
+/* What the tool list is accurate for. Prefer the date in the report's file name; only if the name
+   has none do we fall back to when it was uploaded (and say so). */
 function pdfAsOf(){
   if(!PDF_META) return null;
   const fromName=dateFromName(PDF_META.name);
   if(fromName) return { ...fromName, fromName:true, name:PDF_META.name||"" };
   const up=fmtTs(PDF_META.uploadedAt);
-  return up ? { disp:up, short:"", iso:"", fromName:false, name:PDF_META.name||"" } : null;
+  return up ? { disp:up, short:"", iso:"", fromName:false, month:false, name:PDF_META.name||"" } : null;
 }
 // The snapshot warning, shared verbatim between the Tool Rentals tab and My Jobs so it reads the
 // same wherever the tool list appears. Returns "" when there's no report yet.
 function pdfAsOfInner(){
   const a=pdfAsOf(); if(!a) return "";
-  const msg=a.fromName
-    ? `Accurate as of <b>${esc(a.disp)}</b> — the day this report was pulled. It may have changed since.`
-    : `From the report uploaded <b>${esc(a.disp)}</b> — a snapshot that may have changed since.`;
+  const msg = !a.fromName
+    ? `From the report uploaded <b>${esc(a.disp)}</b> — a snapshot that may have changed since.`
+    : a.month
+      ? `Accurate as of <b>${esc(a.disp)}</b> — the month this report covers. It may have changed since.`
+      : `Accurate as of <b>${esc(a.disp)}</b> — the day this report was pulled. It may have changed since.`;
   return `<span class="asof-ico">📅</span><span>${msg}</span>${a.name?`<span class="asof-file">${esc(a.name)}</span>`:""}`;
 }
 function toolAsOfBanner(inList){
