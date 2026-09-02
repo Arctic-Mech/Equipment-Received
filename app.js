@@ -661,7 +661,7 @@ function toolJobCard(job,items,opts={}){
   return `<div class="tcard ${open?'open':''}" data-tcard="${esc(job)}">
     <div class="tcard-head" data-ttoggle="${esc(job)}">
       <span class="ttag">${esc(job)}</span>
-      <div class="tinfo"><div class="tn">${esc(name)}${closed?' <span class="closedtag">Closed</span>':""}${pdfLinkFor(job)}</div><div class="tc"><b>${items.length}</b> tools · <b>${out}</b> out</div></div>
+      <div class="tinfo"><div class="tn">${esc(name)}${closed?' <span class="closedtag">Closed</span>':""}${pdfLinkFor(job)}</div><div class="tc"><b>${items.length}</b> tools · <b>${out}</b> out${(()=>{const a=pdfAsOf();return a&&a.short?` · <span class="tas-of">as of ${esc(a.short)}</span>`:"";})()}</div></div>
       <span class="tchev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
     </div>
     <div class="tcard-body">${items.map(toolLine).join("")}</div>
@@ -669,10 +669,50 @@ function toolJobCard(job,items,opts={}){
 }
 function groupByJob(items){ const m=new Map(); items.forEach(r=>{ const j=normJob(r.jobNumber); if(!m.has(j))m.set(j,[]); m.get(j).push(r); }); return m; }
 function fmtTs(ts){ try{ const d=ts&&ts.toDate?ts.toDate():(ts?new Date(ts):null); if(!d||isNaN(d))return ""; return MON[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear(); }catch(e){return "";} }
+
+/* The tool rental report is a SNAPSHOT of one day, and that day is written into the PDF's file
+   name (Webduct exports it US-style). Pull it out so the app can say what day the list is really
+   accurate for, instead of only when it happened to be uploaded. Tries the common filename date
+   shapes and validates the calendar; returns null if the name has no readable date. */
+function dateFromName(name){
+  const s=String(name==null?"":name);
+  const MONTHS="jan feb mar apr may jun jul aug sep oct nov dec".split(" ");
+  const mk=(y,mo,da)=>{
+    if(!(mo>=1&&mo<=12&&da>=1&&da<=31)) return null;
+    const d=new Date(y,mo-1,da);
+    if(d.getFullYear()!==y||d.getMonth()!==mo-1||d.getDate()!==da) return null;   // e.g. 2/30 is rejected
+    return { iso:`${y}-${String(mo).padStart(2,"0")}-${String(da).padStart(2,"0")}`,
+             disp:MON[mo-1]+" "+da+", "+y, short:mo+"/"+da };
+  };
+  let m,r;
+  if((m=s.match(/(20\d{2})[-_.](\d{1,2})[-_.](\d{1,2})/))        && (r=mk(+m[1],+m[2],+m[3]))) return r;  // YYYY-MM-DD
+  if((m=s.match(/(20\d{2})(\d{2})(\d{2})(?!\d)/))                && (r=mk(+m[1],+m[2],+m[3]))) return r;  // YYYYMMDD
+  if((m=s.match(/(\d{1,2})[-_. ](\d{1,2})[-_. ](20\d{2})/))      && (r=mk(+m[3],+m[1],+m[2]))) return r;  // MM-DD-YYYY (US)
+  if((m=s.match(/(\d{1,2})[-_. ](\d{1,2})[-_. ](\d{2})(?!\d)/))  && (r=mk(2000+ +m[3],+m[1],+m[2]))) return r; // MM-DD-YY
+  if((m=s.toLowerCase().match(/([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d{2})/)) &&
+     (r=(()=>{const mi=MONTHS.findIndex(x=>m[1].startsWith(x)); return mi>=0?mk(+m[3],mi+1,+m[2]):null;})())) return r;  // Month DD, YYYY
+  if((m=s.toLowerCase().match(/(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,9})\.?,?\s+(20\d{2})/)) &&
+     (r=(()=>{const mi=MONTHS.findIndex(x=>m[2].startsWith(x)); return mi>=0?mk(+m[3],mi+1,+m[1]):null;})())) return r;  // DD Month YYYY
+  return null;
+}
+/* The day the tool list is accurate for. Prefer the date in the report's file name; only if the
+   name has none do we fall back to when it was uploaded (and say so). */
+function pdfAsOf(){
+  if(!PDF_META) return null;
+  const fromName=dateFromName(PDF_META.name);
+  if(fromName) return { ...fromName, fromName:true, name:PDF_META.name||"" };
+  const up=fmtTs(PDF_META.uploadedAt);
+  return up ? { disp:up, short:"", iso:"", fromName:false, name:PDF_META.name||"" } : null;
+}
 function renderTools(){ if(typeof renderAutoImport==="function")renderAutoImport();
   const q=$("toolSearch").value.trim().toLowerCase(),st=$("toolStatus").value;
   $("toolClr").style.display=q?"block":"none"; const pt=$("pillTool"); if(pt)pt.textContent=TOOLS.length>999?(Math.floor(TOOLS.length/100)/10)+"k":TOOLS.length; const pr=$("pillRent"); if(pr)pr.textContent=(RENTALS.length+TOOLS.length)>999?(Math.floor((RENTALS.length+TOOLS.length)/100)/10)+"k":(RENTALS.length+TOOLS.length);
-  const asOf=$("toolAsOf"); if(asOf){ const when=PDF_META?fmtTs(PDF_META.uploadedAt):""; if(when){ asOf.style.display="block"; asOf.innerHTML=`As of <b>${esc(when)}</b>, this is the tool rental list${PDF_META.name?` (from ${esc(PDF_META.name)})`:""}.`; } else asOf.style.display="none"; }
+  const asOf=$("toolAsOf"); if(asOf){ const a=pdfAsOf();
+    if(a){ asOf.style.display="block"; asOf.className="as-of tool-asof";
+      asOf.innerHTML = a.fromName
+        ? `<span class="asof-ico">📅</span><span>Accurate as of <b>${esc(a.disp)}</b> — the day this report was pulled. It may have changed since.</span>${a.name?`<span class="asof-file">${esc(a.name)}</span>`:""}`
+        : `<span class="asof-ico">📅</span><span>From the report uploaded <b>${esc(a.disp)}</b> — a snapshot that may have changed since.</span>${a.name?`<span class="asof-file">${esc(a.name)}</span>`:""}`;
+    } else asOf.style.display="none"; }
   let rows=TOOLS;
   if(st) rows=rows.filter(r=> st==="Returned"?/return/i.test(r.status):!/return/i.test(r.status));
   if(q) rows=rows.filter(r=>[r.jobNumber,r.jobName,r.toolType,r.toolId].some(v=>lc(v).includes(q)));
