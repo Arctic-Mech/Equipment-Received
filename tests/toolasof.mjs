@@ -15,7 +15,8 @@ const seed={
   arrivals:{}, rentals:{},
   toolRentals:{ t1:{jobNumber:"25-0150",jobName:"Alpha",toolType:"Core drill",toolId:"CD-9",
     rentalStarted:"2026-07-05",billingDays:5,dailyRate:40,billingTotal:"200",discountedRate:"180",status:"Out",seq:1} },
-  pdfStore:{ meta:{ name:"Webduct Tool Rental 08-25-2026.pdf", pages:3, pageMap:{"25-0150":1}, uploadedAt:Date.now() } },
+  // The real report is monthly; its name carries a year + month, no day.
+  pdfStore:{ meta:{ name:"Webduct Tool Rental_2026-7 July.pdf", pages:3, pageMap:{"25-0150":1}, uploadedAt:Date.now() } },
   shares:{}, webductOrders:{},
   config:{lastImport:{emailDateMs:1,importedAt:"2026-08-05"}},
 };
@@ -41,27 +42,35 @@ await page.waitForTimeout(250);
 
 const banner=()=>page.locator("#toolAsOf").innerText();
 
-/* ---- the day comes from the file name, shown obviously ---- */
+/* ---- the month comes from the real monthly file name, shown obviously ---- */
 {
   const t=await banner();
-  console.log("banner (08-25-2026):", JSON.stringify(t));
-  chk(/Accurate as of/.test(t), "the banner doesn't say it's accurate as of a day");
-  chk(t.includes("Aug 25, 2026"), `the banner didn't read the day from the file name: "${t}"`);
+  console.log("banner (2026-7 July):", JSON.stringify(t));
+  chk(/Accurate as of/.test(t), "the banner doesn't say it's accurate as of a period");
+  chk(t.includes("July 2026"), `the banner didn't read the month from the file name: "${t}"`);
+  chk(/month this report covers/i.test(t), "a monthly report should say it's the month it covers");
   chk(/changed since/i.test(t), "the banner doesn't warn the snapshot may be stale");
-  chk(t.includes("08-25-2026"), "the file name isn't shown");
+  chk(t.includes("Webduct Tool Rental_2026-7 July.pdf"), "the file name isn't shown");
   chk(await page.locator("#toolAsOf.tool-asof").count()===1, "the prominent (amber) banner style isn't applied");
-  // per-job tag
+  // per-job tag reflects the month
   const card=await page.locator("#toolList .tc").first().innerText();
-  chk(/as of 8\/25/.test(card), `the tool job card doesn't carry an as-of tag: "${card}"`);
+  chk(/as of Jul/.test(card), `the tool job card doesn't carry an as-of tag: "${card}"`);
 }
 
-/* ---- other common file-name date shapes all parse ---- */
+/* ---- month-level and day-level file-name shapes all parse ---- */
 async function reMeta(name){
   await page.evaluate(n=>window.__echoDoc("pdfStore","meta",{name:n}), name);
   await page.waitForTimeout(200);
   return banner();
 }
 for(const [name,want] of [
+  // month-level (the report is monthly)
+  ["Webduct Tool Rental_2026-7 July.pdf","July 2026"],
+  ["Tool Rental July 2026.pdf","July 2026"],
+  ["Tool Rental 2026-07.pdf","July 2026"],
+  ["Tool Rental 07-2026.pdf","July 2026"],
+  ["Webduct Tool Rental_2026-12 December.pdf","December 2026"],
+  // day-level (older/other exports)
   ["Tool Rental Report 2026-12-01.pdf","Dec 1, 2026"],
   ["Webduct Tool Rental Aug 5 2026.pdf","Aug 5, 2026"],
   ["Tool Rental 1-3-26.pdf","Jan 3, 2026"],
@@ -83,7 +92,7 @@ for(const [name,want] of [
 
 /* ---- the SAME warning shows in My Jobs on the Tool Rentals segment ---- */
 {
-  await reMeta("Webduct Tool Rental 08-25-2026.pdf");   // back to a known dated report
+  await reMeta("Webduct Tool Rental_2026-7 July.pdf");   // the real monthly report
   await page.locator("nav.tabs .tab[data-view='jobs']").click();
   await page.waitForTimeout(300);
   await page.locator('#mjSeg button[data-seg="tools"]').click();
@@ -92,7 +101,7 @@ for(const [name,want] of [
   chk(await mjBanner.count()===1, "the snapshot warning is missing from My Jobs' tool rentals");
   const t=await mjBanner.innerText();
   console.log("My Jobs tool banner:", JSON.stringify(t));
-  chk(/Accurate as of/.test(t) && t.includes("Aug 25, 2026"),
+  chk(/Accurate as of/.test(t) && t.includes("July 2026"),
       `My Jobs should carry the same as-of warning, got "${t}"`);
   // and it's NOT shown on the arrivals segment
   await page.locator('#mjSeg button[data-seg="arrivals"]').click();
