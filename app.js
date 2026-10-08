@@ -3391,6 +3391,15 @@ document.addEventListener("click",e=>{
     if(PTP_DATA[w].length>1) PTP_DATA[w].splice(Number(i),1); else PTP_DATA[w][0]=["","",""];
     ptpPersist(); renderPtp(); return;
   }
+  const mv=e.target.closest("[data-moverow]");
+  if(mv){
+    const [w,i,dir]=mv.dataset.moverow.split("|");
+    // Save what's typed before reordering, or the swap would carry stale cell values.
+    ptpCollect($("ptpForm"),PTP_DATA);
+    const arr=PTP_DATA[w], idx=Number(i), j=dir==="up"?idx-1:idx+1;
+    if(arr && j>=0 && j<arr.length){ const tmp=arr[idx]; arr[idx]=arr[j]; arr[j]=tmp; ptpPersist(); renderPtp(); }
+    return;
+  }
 });
 
 $("ptpClear").addEventListener("click",()=>{

@@ -242,11 +242,15 @@ export function ptpFormHTML(t, d, pool) {
         <label class="ptp-f col"><span>Housekeeping plan (daily cleanup required)</span>${area("housekeeping", d.housekeeping)}</label>
       </div>
       <div class="ptp-h">Sequence of construction activities</div>
-      <div class="ptp-rows">${d.seq.map((r, i) => `<div class="ptp-row3">
+      <div class="ptp-rows">${d.seq.map((r, i) => `<div class="ptp-row3 mv">
         <div class="r3n">${i + 1}</div>
         ${area("seq." + i + ".0", r[0], "Step / activity")}
         ${area("seq." + i + ".1", r[1], "Hazards (incl. ergonomic)")}
         ${area("seq." + i + ".2", r[2], "Controls / PPE")}
+        <div class="ptp-mv">
+          <button type="button" class="ptp-mvb" data-moverow="seq|${i}|up" title="Move this step up"${i === 0 ? " disabled" : ""}>▲</button>
+          <button type="button" class="ptp-mvb" data-moverow="seq|${i}|down" title="Move this step down"${i === d.seq.length - 1 ? " disabled" : ""}>▼</button>
+        </div>
         <button type="button" class="ptp-del" data-delrow="seq|${i}" title="Remove this step">✕</button>
       </div>`).join("")}</div>
       <button type="button" class="ptp-add" data-add="seq">+ Add step</button></div>`;
@@ -447,13 +451,20 @@ export function ptpPdf(jsPDF, t, d, logoDataUrl, pool) {
     // Pad so the printed sheet keeps some room to write by hand. The paper form carries 20 blank
     // rows; a filled-in digital copy does not need that much dead space, so this is a floor.
     while (body.length < 6) body.push({ cells: [{ t: "" }, { t: "" }, { t: "" }], minH: 24 });
+    // The sequence starts on its own page: it used to begin wherever the task block happened to
+    // end, stranding the header and one step at the foot of a page with the rest overflowing. It
+    // may still run onto further pages, but it starts clean.
+    if (y > M + 1) { doc.addPage(); y = M; }
     table(c, [head, ...body], { repeat: head });
     gap();
   };
   S.nearest = () => {
+    // A blank "Location of nearest" field is noise on a finished plan — print only the ones that
+    // were filled in, and drop the whole section if none were.
+    const pairs = t.nearest.map(([k, l]) => [l, d.nearest[k]]).filter(([, v]) => String(v == null ? "" : v).trim());
+    if (!pairs.length) return;
     para("Location of nearest:", 9, "bold", 2);
-    ruleRow(t.nearest.slice(0, 2).map(([k, l]) => [l, d.nearest[k]]));
-    if (t.nearest.length > 2) ruleRow(t.nearest.slice(2).map(([k, l]) => [l, d.nearest[k]]));
+    for (let i = 0; i < pairs.length; i += 2) ruleRow(pairs.slice(i, i + 2));
     gap(2);
   };
   S.changing = () => {
