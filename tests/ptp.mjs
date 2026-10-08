@@ -115,6 +115,21 @@ chk(await p2.locator("#ptpForm .ptp-q").nth(2).locator(".yn.a.on").count()===1, 
 chk(await p2.locator("#ptpForm .ptp-chk.on").count()===2, "the checkboxes did not survive a reload");
 console.log("reload: everything came back");
 
+/* ---- reorder sequence steps with the up/down arrows ---- */
+await page.locator('[data-add="seq"]').click(); await page.waitForTimeout(200);
+await page.fill('[data-ptp="seq.1.0"]',"STEP TWO MARKER"); await page.waitForTimeout(350);
+await page.locator('[data-moverow="seq|1|up"]').click(); await page.waitForTimeout(350);
+chk(await page.inputValue('[data-ptp="seq.0.0"]')==="STEP TWO MARKER", "the up arrow didn't move the step up");
+chk(await page.inputValue('[data-ptp="seq.1.0"]')==="Lay out hangers from column lines", "the swapped step didn't land in row 2");
+chk(await page.locator('[data-moverow="seq|0|up"]').isDisabled(), "the top step's up arrow should be disabled");
+// move it back so the rest of the test sees the original first-step order
+await page.locator('[data-moverow="seq|0|down"]').click(); await page.waitForTimeout(350);
+chk(await page.inputValue('[data-ptp="seq.0.0"]')==="Lay out hangers from column lines", "the down arrow didn't restore the order");
+// and it stuck on this device
+const pReorder=await boot();
+chk(await pReorder.inputValue('[data-ptp="seq.1.0"]')==="STEP TWO MARKER", "the reorder wasn't saved");
+console.log("reorder arrows: ok");
+
 /* ---- the PDF ---- */
 const [dl]=await Promise.all([
   page.waitForEvent("download",{timeout:30000}),
@@ -194,6 +209,22 @@ const chgPP=perPage(read,/CHANGING CONDITIONS/g);
 console.log("header bands per page — sequence:",seqPP,"changing:",chgPP);
 chk(Math.max(0,...seqPP)<=1, `the SEQUENCE header is stacked twice on one page: ${seqPP}`);
 chk(Math.max(0,...chgPP)<=1, `the CHANGING CONDITIONS header is stacked twice on one page: ${chgPP}`);
+
+/* ---- the sequence starts on its own page (not stranded at the foot of the task block) ---- */
+const seqPage=read.pages.findIndex(p=>/SEQUENCE OF CONSTRUCTION ACTIVITIES/.test(p));
+chk(seqPage>=0, "the SEQUENCE section is missing from the PDF");
+if(seqPage>=0){
+  chk(read.pages[seqPage].includes("Lay out hangers"), "the first sequence step isn't on the same page as its header");
+  chk(!read.pages[seqPage].includes("Set VAV boxes"), "the sequence didn't start on its own page — the task block is on it");
+  console.log("sequence starts on its own page:", seqPage+1);
+}
+
+/* ---- a blank "location of nearest" field is left off the PDF ---- */
+// Shower + Fire Extinguisher were filled; Eyewash + Phone were left blank.
+chk(read.text.includes("Level 1 mech room"), "a filled 'nearest' field is missing from the PDF");
+chk(!read.text.includes("Eyewash"), "a blank 'nearest' field (Eyewash) was printed anyway");
+chk(!/\bPhone:/.test(read.text), "a blank 'nearest' field (Phone) was printed anyway");
+console.log("blank nearest fields omitted: ok");
 
 /* ---- typing survives a pool update landing mid-sentence ----
    Another phone adding a checklist item pushes a snapshot that rebuilds this form. That used to
