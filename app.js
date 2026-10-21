@@ -1761,6 +1761,7 @@ function renderPeople(){
     const n=VALID_VIEWS.filter(v=>pm[v]).length;
     const auto=isCompanyEmail(p.email);
     const custom=!!(p.perms && Object.keys(p.perms).length);
+    const laCur=(p.laRole==="pm"||p.laRole==="super")?"management":(p.laRole||"");   // PM/Super merged into Management
     const sub = n===0 ? "No access" : (n===VALID_VIEWS.length ? "All pages" : `${n} of ${VALID_VIEWS.length} pages`);
     const tag = custom ? `<span class="acc-chip acc-custom">Custom</span>`
                        : `<span class="acc-chip ${auto?'acc-auto-in':'acc-auto-out'}">${auto?"Auto · @arctic.biz":"Auto · no access"}</span>`;
@@ -1781,8 +1782,8 @@ function renderPeople(){
         <div class="pr-lbl">Pages this person can open</div>
         <div class="pr-perms">${VALID_VIEWS.map(v=>`<button class="perm-btn ${pm[v]?'on':'off'}" data-perm="${esc(p.id)}|||${v}">${pm[v]?"✓":"✕"} ${VIEW_LABELS[v]}</button>`).join("")}</div>
         <div class="pr-lbl" style="margin-top:12px">Look-Ahead</div>
-        <div class="pr-perms">${[["","No access"],["foreman","Foreman"],["pm","PM"],["super","Superintendent"]].map(([v,lab])=>`<button class="perm-btn ${(p.laRole||"")===v?'on':'off'}" data-larole="${esc(p.id)}|||${v}">${(p.laRole||"")===v?"✓":"✕"} ${lab}</button>`).join("")}</div>
-        ${p.laRole==="foreman"?`<div class="pr-perms" style="margin-top:6px">${[["sheet","Sheet Metal"],["piping","Piping"]].map(([v,lab])=>`<button class="perm-btn ${(p.laTrade||"sheet")===v?'on':'off'}" data-latrade="${esc(p.id)}|||${v}">${(p.laTrade||"sheet")===v?"✓":"✕"} ${lab}</button>`).join("")}</div>`:""}
+        <div class="pr-perms">${[["","No access"],["foreman","Foreman"],["management","Management"]].map(([v,lab])=>`<button class="perm-btn ${laCur===v?'on':'off'}" data-larole="${esc(p.id)}|||${v}">${laCur===v?"✓":"✕"} ${lab}</button>`).join("")}</div>
+        ${laCur==="foreman"?`<div class="pr-perms" style="margin-top:6px">${[["sheet","Sheet Metal"],["piping","Piping"]].map(([v,lab])=>`<button class="perm-btn ${(p.laTrade||"sheet")===v?'on':'off'}" data-latrade="${esc(p.id)}|||${v}">${(p.laTrade||"sheet")===v?"✓":"✕"} ${lab}</button>`).join("")}</div>`:""}
         <div class="pr-lbl" style="margin-top:12px">Email</div>
         <div style="display:flex;gap:6px">
           <input type="email" value="${esc(p.email||"")}" data-pemail="${esc(p.id)}" placeholder="[email protected]" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:13px">
@@ -5024,7 +5025,7 @@ document.addEventListener("click",e=>{
   const popen=e.target.closest("[data-popen]"); if(popen){ const id=popen.dataset.popen; if(PERM_OPEN.has(id))PERM_OPEN.delete(id); else PERM_OPEN.add(id); renderPeople(); return; }
   const pperm=e.target.closest("[data-perm]"); if(pperm){ e.stopPropagation(); const [id,v]=pperm.dataset.perm.split("|||"); const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; const cur=permsFor(p); const next=Object.assign({}, p.perms||{}); next[v]=!cur[v]; setDoc(doc(db,"people",id),{perms:next,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast(`${p.first}: ${VIEW_LABELS[v]} ${next[v]?"allowed":"blocked"}`)).catch(()=>toast("Couldn't save")); return; }
   const preset=e.target.closest("[data-permreset]"); if(preset){ e.stopPropagation(); const id=preset.dataset.permreset; const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; setDoc(doc(db,"people",id),{perms:null,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast("Back to the email default")).catch(()=>toast("Couldn't save")); return; }
-  const lar=e.target.closest("[data-larole]"); if(lar){ e.stopPropagation(); const [id,role]=lar.dataset.larole.split("|||"); const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; const patch={laRole:role,updatedAt:serverTimestamp()}; if(role==="foreman"&&!p.laTrade)patch.laTrade="sheet"; const lab=role?({foreman:"Foreman",pm:"PM",super:"Superintendent"}[role]||role):"no Look-Ahead access"; setDoc(doc(db,"people",id),patch,{merge:true}).then(()=>toast(`${p.first}: ${lab}`)).catch(()=>toast("Couldn't save")); return; }
+  const lar=e.target.closest("[data-larole]"); if(lar){ e.stopPropagation(); const [id,role]=lar.dataset.larole.split("|||"); const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; const patch={laRole:role,updatedAt:serverTimestamp()}; if(role==="foreman"&&!p.laTrade)patch.laTrade="sheet"; const lab=role?({foreman:"Foreman",management:"Management"}[role]||role):"no Look-Ahead access"; setDoc(doc(db,"people",id),patch,{merge:true}).then(()=>toast(`${p.first}: ${lab}`)).catch(()=>toast("Couldn't save")); return; }
   const lat=e.target.closest("[data-latrade]"); if(lat){ e.stopPropagation(); const [id,tr]=lat.dataset.latrade.split("|||"); const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; setDoc(doc(db,"people",id),{laTrade:tr,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast(`${p.first}: ${tr==="sheet"?"Sheet Metal":"Piping"}`)).catch(()=>toast("Couldn't save")); return; }
   if(e.target.closest("#laSampleLoad")){ e.stopPropagation(); if(!fbReady){toast("No connection");return;} toast("Loading sample…"); seedSampleCompany(db).then(r=>toast(`Sample loaded — ${r.jobs} jobs`)).catch(()=>toast("Couldn't load sample")); return; }
   if(e.target.closest("#laSampleRemove")){ e.stopPropagation(); if(!fbReady){toast("No connection");return;} if(!confirm("Remove all Look-Ahead sample data?"))return; removeSampleData(db).then(()=>toast("Sample data removed")).catch(()=>toast("Couldn't remove sample")); return; }

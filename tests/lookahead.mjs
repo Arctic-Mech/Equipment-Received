@@ -1,9 +1,8 @@
-/* Look-Ahead — the standalone 3-week lookahead page (lookahead.html + lookahead.js).
+/* Look-Ahead — the standalone 3-week lookahead page, modeled on Arctic's paper form.
 
-   Serves the real repo (serve.mjs injects the firebase stub import map into every .html, so
-   lookahead.html gets it too). Seeds the la* collections through window.__SEED and drives the
-   page as each role would see it. The week math has to line up with the module, so the current
-   Monday is computed here exactly the way lookahead.js computes it. */
+   Serves the real repo (serve.mjs injects the firebase stub import map into every .html).
+   Seeds the la* collections through window.__SEED and drives the page as each role sees it.
+   Roles live on the person's record (laRole/laTrade); PM + Superintendent are one "management". */
 import { chromium } from "playwright";
 import fs from "node:fs"; import path from "node:path";
 import { startServer, routeCdn, CHROMIUM, TESTS_DIR } from "./serve.mjs";
@@ -12,43 +11,33 @@ const { server, port: PORT } = await startServer();
 const fails=[]; const chk=(c,m)=>{ if(!c) fails.push(m); };
 const b=await chromium.launch({executablePath:CHROMIUM,args:["--no-sandbox"]});
 
-/* same Mon–Sun week start the module derives */
 function isoD(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function mondayOf(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); x.setHours(0,0,0,0); return x; }
 const CUR=isoD(mondayOf(new Date()));
-const wk=(id)=>`${id}__${CUR}`;
+const wk=id=>`${id}__${CUR}`;
+const days=(...pairs)=>{ const a=new Array(21).fill(0); pairs.forEach(([i,v])=>a[i]=v); return a; };
 
 function seed(){
   return {
-    // Look-Ahead roles live on the person's record (laRole/laTrade), set from the main app's admin.
     people:{
       "p-jaren-eells":{first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",laRole:"foreman",laTrade:"sheet"},
-      "p-dana-fox":{first:"Dana",last:"Fox",email:"danafox@arctic.biz",laRole:"pm"},
-      "p-sam-odell":{first:"Sam",last:"Odell",email:"samodell@arctic.biz",laRole:"super"},
+      "p-mgr":{first:"Morgan",last:"Reed",email:"morgan@arctic.biz",laRole:"management"},
       "p-nobody":{first:"No",last:"Body",email:"nobody@arctic.biz"},
     },
     laJobs:{
-      "25-0150":{jobNumber:"25-0150",jobName:"Riverside Medical",
-        pms:[{id:"p-dana-fox",name:"Dana Fox"}],
-        foremen:[{id:"p-jaren-eells",name:"Jaren Eells",trade:"sheet"}]},
+      "25-0150":{jobNumber:"25-0150",jobName:"Riverside Medical",foremen:[{id:"p-jaren-eells",name:"Jaren Eells",trade:"sheet"}]},
     },
     laWeeks:{
       [wk("p-jaren-eells")]:{foremanId:"p-jaren-eells",foremanName:"Jaren Eells",trade:"sheet",weekStart:CUR,
         tasks:[
-          {id:"t1",job:"25-0150",week:1,text:"Hang duct mains",headcount:4},
-          {id:"t2",job:"25-0150",week:2,text:"Set VAV boxes",headcount:3},
+          {id:"t1",job:"25-0150",text:"Hang duct mains",days:days([0,2],[1,2],[2,2],[3,2])},   // 2 men Mon–Thu wk1
+          {id:"t2",job:"25-0150",text:"Set VAV boxes",  days:days([7,3],[8,3],[9,3])},          // 3 men Mon–Wed wk2
         ],
-        conflicts:[
-          {id:"c1",scope:"current",job:"25-0150",type:"GC",what:"GC overhead work blocked our bay",
-           where:"Level 3 east",when:"Tue",impMan:true,impHours:true,impProd:false,impSched:true,hours:16,days:1,resolved:false,pmStatus:""},
-          {id:"c2",scope:"upcoming",job:"25-0150",type:"Design / RFI",what:"Ceiling height conflict at column line D",
-           where:"Area D",when:"Week 2",need:"RFI 214 answered",resolved:false,pmStatus:""},
-        ]},
+        reqs:{labor:"2 mechanics steady",co:"RFI 214 pending"}, dateCompleted:""},
     },
     laMeta:{ seed:{seeded:true,removed:false} },   // disable auto-seed in tests
   };
 }
-
 async function boot(user){
   const p=await b.newPage({viewport:{width:420,height:900}});
   const errs=[];
@@ -60,120 +49,101 @@ async function boot(user){
   await p.waitForTimeout(700);
   return {p,errs};
 }
-const JAREN={first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",id:"p-jaren-eells"};
-const DANA ={first:"Dana",last:"Fox",email:"danafox@arctic.biz",id:"p-dana-fox"};
-const SAM  ={first:"Sam",last:"Odell",email:"samodell@arctic.biz",id:"p-sam-odell"};
+const JAREN ={first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",id:"p-jaren-eells"};
+const MGR   ={first:"Morgan",last:"Reed",email:"morgan@arctic.biz",id:"p-mgr"};
 const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
 
-// --- 1. A signed-in person with no role gets the exact no-access message, not a stuck spinner. ---
+// --- 1. No role -> the access message, never a stuck spinner. ---
 {
   const {p,errs}=await boot(NOBODY);
-  // The skeleton must be gone — the page must resolve to the access message, never hang loading.
-  const skel=await p.locator(".la-skel").count();
-  chk(skel===0,"page stuck on the loading skeleton for a no-access user");
+  chk(await p.locator(".la-skel").count()===0,"page stuck on the loading skeleton for a no-access user");
   const notice=(await p.locator(".la-notice").innerText().catch(()=>"")).trim();
   console.log("no-role notice:", JSON.stringify(notice));
-  chk(notice.includes("You need Look-Ahead access set up to use this"),
-    `no-access message wrong: ${JSON.stringify(notice)}`);
-  // It must NOT name Bobby or tell them to ask him.
+  chk(notice.includes("You need Look-Ahead access set up to use this"),`no-access message wrong: ${JSON.stringify(notice)}`);
   chk(!/bobby/i.test(notice),"no-access message must not name Bobby");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
 
-// --- 2. Foreman sees their own single weekly lookahead: jobs, 3 weeks, tasks, CO flag. ---
+// --- 2. Foreman sees their day-by-day manpower sheet and can edit it. ---
 {
   const {p,errs}=await boot(JAREN);
   const nav0=(await p.locator("#laNav button").first().innerText()).trim();
-  console.log("foreman first tab:", JSON.stringify(nav0));
   chk(nav0==="My Look-Ahead",`foreman's first tab should be "My Look-Ahead", got ${JSON.stringify(nav0)}`);
+  chk(await p.locator("table.la-mp").count()===1,"the manpower grid is missing");
+  chk(await p.locator(".la-mp .tc-txt", {hasText:"Hang duct mains"}).count()===1,"seeded task not shown in the grid");
+  // 21 day columns in the header
+  chk(await p.locator(".la-mp thead .dh").count()===21,"grid should have 21 day columns (Mon–Sun x3)");
+  // the six requirement boxes
+  chk(await p.locator(".la-reqs textarea").count()===6,"the six requirement boxes are missing");
 
-  const chipTxt=await p.locator(".la-chip").first().innerText().catch(()=>"");
-  chk(/25-0150/.test(chipTxt),"foreman's job chip (25-0150) missing");
+  // edit a manpower cell: change the first day of task 1 from 2 to 5
+  const cell=p.locator('[data-mp="t1|0"]');
+  chk(await cell.count()===1,"editable day cell missing");
+  await cell.fill("5"); await cell.press("Tab"); await p.waitForTimeout(350);
+  const mpWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"
+     && (w.data.tasks||[]).some(t=>t.id==="t1" && Array.isArray(t.days) && t.days[0]===5)));
+  chk(mpWrote,"editing a day's crew count did not save");
 
-  const weeks=await p.locator(".la-week").count();
-  chk(weeks===3,`expected 3 week columns, got ${weeks}`);
+  // add a task
+  await p.locator("#laAddTask").click(); await p.waitForTimeout(250);
+  await p.locator("#tkText").fill("Pull permits for riser"); await p.locator("#tkSave").click(); await p.waitForTimeout(350);
+  chk(await p.locator(".la-mp .tc-txt", {hasText:"Pull permits for riser"}).count()===1,"new task did not appear in the grid");
 
-  const task=await p.locator(".la-task .t-text", {hasText:"Hang duct mains"}).count();
-  chk(task===1,"seeded Week-1 task not shown");
-
-  // A conflict that cost manpower/hours/schedule is auto-flagged a possible change order.
-  const co=await p.locator(".la-badge.co", {hasText:"possible change order"}).count();
-  chk(co>=1,"conflict with impact was not flagged as a possible change order");
-
-  // Add a task and confirm it round-trips (write recorded + shows in the week column).
-  await p.locator('[data-lataskadd="1"]').click();
-  await p.waitForTimeout(250);
-  await p.locator("#tkText").fill("Pull permits for riser");
-  await p.locator("#tkMen").fill("2");
-  await p.locator("#tkSave").click();
-  await p.waitForTimeout(350);
-  const added=await p.locator(".la-task .t-text", {hasText:"Pull permits for riser"}).count();
-  chk(added===1,"newly added task did not appear in the lookahead");
-  const wrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set" && w.coll==="laWeeks"
-     && (w.data.tasks||[]).some(t=>t.text==="Pull permits for riser")));
-  chk(wrote,"adding a task did not write to laWeeks");
+  // mark the week done
+  await p.locator("#laMarkDone").click(); await p.waitForTimeout(300);
+  const doneWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&w.data.dateCompleted));
+  chk(doneWrote,"Mark done did not save a completion date");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
 
-// --- 3. PM sees conflicts on their jobs and can triage toward a change order. ---
+// --- 3. Management sees every foreman and can adjust what they entered. ---
 {
-  const {p,errs}=await boot(DANA);
-  const hasConf=await p.locator('#laNav button', {hasText:"Conflicts"}).count();
-  chk(hasConf===1,"PM has no Conflicts tab");
-  // default view is Conflicts
-  const conf=await p.locator(".la-conf").count();
-  chk(conf>=1,"PM sees no conflicts for their own job");
-  const co=await p.locator(".la-badge.co", {hasText:"possible change order"}).count();
-  chk(co>=1,"PM view missing the possible-change-order flag");
-  const triage=await p.locator('[data-lapmtag]').count();
-  chk(triage>=1,"PM has no triage buttons");
-  // tag one as a change order → it writes back to the foreman's week doc
-  await p.locator('[data-lapmtag*="|co"]').first().click();
-  await p.waitForTimeout(300);
-  const wrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set" && w.coll==="laWeeks"
-     && (w.data.conflicts||[]).some(c=>c.pmStatus==="co")));
-  chk(wrote,"PM triage did not persist pmStatus");
-  chk(errs.length===0,"page errors: "+errs.join(" | "));
-  await p.close();
-}
-
-// --- 4. Superintendent gets the labor roll-up by job × week. ---
-{
-  const {p,errs}=await boot(SAM);
+  const {p,errs}=await boot(MGR);
   const nav0=(await p.locator("#laNav button").first().innerText()).trim();
-  chk(nav0==="Labor Needs",`super's first tab should be "Labor Needs", got ${JSON.stringify(nav0)}`);
-  const table=await p.locator("table.la-table").count();
-  chk(table===1,"labor roll-up table missing");
+  chk(nav0==="Foremen",`management's first tab should be "Foremen", got ${JSON.stringify(nav0)}`);
+  chk(await p.locator('[data-laopenforeman="p-jaren-eells"]').count()===1,"foreman not listed for management");
+  // open the foreman's sheet and edit a cell
+  await p.locator('[data-laopenforeman="p-jaren-eells"]').click(); await p.waitForTimeout(350);
+  chk(await p.locator("#laBack").count()===1,"no back button on the opened foreman sheet");
+  chk(await p.locator("table.la-mp").count()===1,"foreman's grid not shown to management");
+  const cell=p.locator('[data-mp="t1|1"]');
+  await cell.fill("7"); await cell.press("Tab"); await p.waitForTimeout(350);
+  const adj=await p.evaluate(cur=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&w.id===("p-jaren-eells__"+cur)
+     && (w.data.tasks||[]).some(t=>t.id==="t1"&&t.days[1]===7)),CUR);
+  chk(adj,"management's adjustment to a foreman's grid did not save to that foreman's week");
+  chk(errs.length===0,"page errors: "+errs.join(" | "));
+  await p.close();
+}
+
+// --- 4. Management labor roll-up. ---
+{
+  const {p,errs}=await boot(MGR);
+  await p.locator('#laNav button', {hasText:"Labor"}).click(); await p.waitForTimeout(300);
+  chk(await p.locator("table.la-table").count()===1,"labor roll-up table missing");
   const body=await p.locator("table.la-table").innerText();
   chk(/25-0150/.test(body),"labor table missing the job");
-  chk(/\b4\b/.test(body),"labor table missing the Week-1 headcount (4)");
+  chk(/\b2\b/.test(body) && /\b3\b/.test(body),"labor table missing the weekly peak crews (2 and 3)");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
 
-// --- 5. Deleting something that isn't yours demands the PIN. ---
+// --- 5. Deleting a job that isn't yours needs the PIN. ---
 {
-  const {p,errs}=await boot(SAM);
-  await p.locator('#laNav button', {hasText:"Jobs"}).click();
-  await p.waitForTimeout(300);
-  await p.locator('[data-lajobdel]').first().click();
-  await p.waitForTimeout(250);
+  const {p,errs}=await boot(MGR);
+  await p.locator('#laNav button', {hasText:"Jobs"}).click(); await p.waitForTimeout(300);
+  await p.locator('[data-lajobdel]').first().click(); await p.waitForTimeout(250);
   const title=(await p.locator("#laModalTitle").innerText().catch(()=>"")).trim();
-  console.log("delete-guard modal title:", JSON.stringify(title));
   chk(/Enter PIN to delete/i.test(title),"deleting another's job did not require the PIN");
-  // wrong PIN is refused, no delete write
-  await p.locator("#laPin").fill("0000");
-  await p.locator("#laPinGo").click();
-  await p.waitForTimeout(200);
+  await p.locator("#laPin").fill("0000"); await p.locator("#laPinGo").click(); await p.waitForTimeout(200);
   const delWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="del" && w.coll==="laJobs"));
   chk(!delWrote,"a wrong PIN still deleted the job");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
 
-// --- 6. Roles are assigned from the MAIN APP's admin (Manage People), not a Look-Ahead settings tab. ---
+// --- 6. Roles are assigned from the MAIN APP's admin (Manage People), with Foreman + Management only. ---
 {
   const SEED=JSON.parse(fs.readFileSync(path.join(TESTS_DIR,"seed.json"),"utf8"));
   const p=await b.newPage({viewport:{width:420,height:900}});
@@ -181,27 +151,23 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   p.on("pageerror",e=>errs.push("pageerror: "+e.message));
   p.on("console",m=>{const t=m.text(); if(m.type()==="error" && !/net::ERR_|Failed to load resource/.test(t)) errs.push("console: "+t);});
   await routeCdn(p);
-  await p.addInitScript(seed=>{ window.__SEED=seed;
+  await p.addInitScript(sd=>{ window.__SEED=sd;
     localStorage.setItem("er_user",JSON.stringify({first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",id:"p-jaren-eells"}));
     localStorage.setItem("tut_done","1"); },SEED);
   await p.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"});
   await p.waitForTimeout(500);
-  // unlock admin with the PIN, open Manage People
   await p.locator("#btnAdminOpen").click(); await p.waitForTimeout(200);
   await p.locator("#pinInput").fill("1977"); await p.waitForTimeout(400);
   await p.locator("#btnPeople").click(); await p.waitForTimeout(400);
-  // the Look-Ahead controls must live here in the main admin
-  const laLbl=await p.locator("#peopleList", {hasText:"Look-Ahead"}).count();
-  chk(laLbl>=1,"main admin Manage People has no Look-Ahead controls");
-  // expand a person and make them a Foreman
+  chk(await p.locator("#peopleList", {hasText:"Look-Ahead"}).count()>=1,"main admin Manage People has no Look-Ahead controls");
   const someone=await p.locator("#peopleList [data-popen]").first().getAttribute("data-popen");
   await p.locator(`[data-popen="${someone}"]`).click(); await p.waitForTimeout(250);
+  // Management option exists (PM/Superintendent were merged away)
+  chk(await p.locator(`[data-larole="${someone}|||management"]`).count()===1,"Management role option missing in admin");
   await p.locator(`[data-larole="${someone}|||foreman"]`).click(); await p.waitForTimeout(350);
-  const roleWrote=await p.evaluate(id=> (window.__WRITES||[]).some(w=>w.op==="set" && w.coll==="people" && w.id===id && w.data.laRole==="foreman"),someone);
+  const roleWrote=await p.evaluate(id=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="people"&&w.id===id&&w.data.laRole==="foreman"),someone);
   chk(roleWrote,"assigning a Look-Ahead role from the admin did not save to the person's record");
-  // the sample-data load/remove also lives in the main admin
-  const sample=await p.locator("#laSampleLoad").count();
-  chk(sample===1,"Look-Ahead sample load/remove is not in the main admin");
+  chk(await p.locator("#laSampleLoad").count()===1,"Look-Ahead sample load/remove is not in the main admin");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
