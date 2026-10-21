@@ -226,13 +226,15 @@ function mpGrid(w, editable){
   let body="";
   tasks.forEach(t=>{ const days=taskDays(t), men=days.reduce((a,b)=>a+b,0);
     const left = editable
-      ? `<input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">`
-        +`<input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project (fills in)">`
-        +`<input class="rin rin-txt" data-rowtext="${esc(t.id)}" value="${esc(t.text||"")}" placeholder="What's the task?">`
-        +`<button class="mini del rin-del" data-lataskdel="${esc(t.id)}" title="Delete this row">✕ row</button>`
-      : `<div class="tc-job">${esc(t.job||"—")}</div>`
-        +(jobNameFor(t.job)?`<div class="tc-name">${esc(jobNameFor(t.job))}</div>`:"")
-        +`<div class="tc-txt">${esc(t.text||"")}</div>`;
+      ? `<div class="rrow">`
+        +`<input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">`
+        +`<input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project">`
+        +`<input class="rin rin-txt" data-rowtext="${esc(t.id)}" value="${esc(t.text||"")}" placeholder="Task">`
+        +`<button class="rin-del" data-lataskdel="${esc(t.id)}" title="Delete this row">✕</button>`
+        +`</div>`
+      : `<div class="rrow ro"><span class="tc-job">${esc(t.job||"—")}</span>`
+        +(jobNameFor(t.job)?`<span class="tc-name">${esc(jobNameFor(t.job))}</span>`:"")
+        +`<span class="tc-txt">${esc(t.text||"")}</span></div>`;
     body+=`<tr><td class="tcol">${left}</td>`;
     for(let i=0;i<21;i++){ const v=days[i];
       body+= editable
