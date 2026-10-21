@@ -24,9 +24,9 @@ import { getFirestore, initializeFirestore, persistentLocalCache, persistentMult
          collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { esc, normJob, MON } from "./format.js";
+import { LA_TRADES as TRADES, seedSampleCompany } from "./lookahead-data.js";
 
 const ADMIN_PIN = "1977";                 // same guard the main app uses
-const TRADES = { sheet: "Sheet Metal", piping: "Piping" };
 const CONFLICT_TYPES = ["GC", "Access", "Other trade", "Material", "Equipment", "Design / RFI", "Other"];
 
 /* ---------- tiny DOM helpers (kept local so this page needs nothing from the main app) ---------- */
@@ -76,23 +76,28 @@ function weekRangeLabel(monIso){ const m=new Date(monIso+"T00:00:00"), s=new Dat
   const f=d=>MON[d.getMonth()]+" "+d.getDate(); return f(m)+" – "+f(s); }
 
 /* ---------- live state ---------- */
-let LA_ROLES={}, LA_JOBS=[], LA_WEEKS=[], PEOPLE=[], META={seeded:false,removed:false};
-let TAB="", pmShowAll=false, histWeek=null, seeding=false, ensuringWeek=false, rolesLoaded=false, weeksLoaded=false;
+let LA_JOBS=[], LA_WEEKS=[], PEOPLE=[], META={seeded:false,removed:false};
+let TAB="", pmShowAll=false, histWeek=null, seeding=false, ensuringWeek=false, peopleLoaded=false, weeksLoaded=false;
 
-function myRoleRec(){ return (USER && LA_ROLES[USER.id]) || null; }
-function myRole(){ const r=myRoleRec(); return r?r.role:""; }
-function myTrade(){ const r=myRoleRec(); return r?(r.trade||""):""; }
-function personName(id){ const r=LA_ROLES[id]; if(r&&r.name) return r.name; const p=PEOPLE.find(x=>x.id===id); return p?(p.first+" "+p.last).trim():id; }
+// Roles live on the person's record in the main app (people/{id}.laRole / .laTrade), set in
+// Admin → Manage People → Look-Ahead. This page only reads them.
+function myPerson(){ return (USER && PEOPLE.find(p=>p.id===USER.id)) || null; }
+function myRole(){ const p=myPerson(); return p?(p.laRole||""):""; }
+function myTrade(){ const p=myPerson(); return p?(p.laTrade||""):""; }
+function personName(id){ const p=PEOPLE.find(x=>x.id===id); return p?(p.first+" "+p.last).trim():id; }
 
 /* ---------- data listeners ---------- */
 function startSync(){
-  if(!fbReady) return;
-  onSnapshot(collection(db,"laRoles"), s=>{ LA_ROLES={}; s.forEach(d=>LA_ROLES[d.id]=d.data()); rolesLoaded=true; render(); }, e=>{ rolesLoaded=true; fbNote(e,"laRoles"); });
-  onSnapshot(collection(db,"laJobs"),  s=>{ const l=[]; s.forEach(d=>l.push({id:d.id,...d.data()})); LA_JOBS=l; render(); }, e=>fbNote(e,"laJobs"));
-  onSnapshot(collection(db,"laWeeks"), s=>{ const l=[]; s.forEach(d=>l.push({id:d.id,...d.data()})); LA_WEEKS=l; weeksLoaded=true; render(); }, e=>{ weeksLoaded=true; fbNote(e,"laWeeks"); });
-  onSnapshot(collection(db,"people"),  s=>{ const l=[]; s.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",email:v.email||""});}); PEOPLE=l; render(); }, e=>fbNote(e,"people"));
+  if(!fbReady){ peopleLoaded=true; weeksLoaded=true; render(); return; }
+  // Every handler re-renders on success AND on error, so a slow or denied read can never leave
+  // the page stuck on the loading skeleton — it falls through to the sign-in or access message.
+  onSnapshot(collection(db,"laJobs"),  s=>{ const l=[]; s.forEach(d=>l.push({id:d.id,...d.data()})); LA_JOBS=l; render(); }, e=>{ fbNote(e,"laJobs"); render(); });
+  onSnapshot(collection(db,"laWeeks"), s=>{ const l=[]; s.forEach(d=>l.push({id:d.id,...d.data()})); LA_WEEKS=l; weeksLoaded=true; render(); }, e=>{ weeksLoaded=true; fbNote(e,"laWeeks"); render(); });
+  onSnapshot(collection(db,"people"),  s=>{ const l=[]; s.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",email:v.email||"",laRole:v.laRole||"",laTrade:v.laTrade||""});}); PEOPLE=l; peopleLoaded=true; render(); }, e=>{ peopleLoaded=true; fbNote(e,"people"); render(); });
   onSnapshot(doc(db,"laMeta","seed"), d=>{ META=d.exists()?{seeded:!!d.data().seeded,removed:!!d.data().removed}:{seeded:false,removed:false};
-    maybeSeed(); render(); }, e=>fbNote(e,"laMeta"));
+    maybeSeed(); render(); }, e=>{ fbNote(e,"laMeta"); render(); });
+  // Last-resort guard: if the people read never calls back at all, show the page anyway.
+  setTimeout(()=>{ if(!peopleLoaded){ peopleLoaded=true; render(); } }, 4000);
 }
 
 /* ---------- jobs the signed-in person is tied to ---------- */
@@ -150,10 +155,10 @@ function canDelete(ownerId, then){
    RENDER
  * ========================================================================== */
 function navFor(role){
-  if(role==="foreman") return [["mine","My Look-Ahead"],["history","History"],["settings","Settings"]];
-  if(role==="pm")      return [["conflicts","Conflicts"],["jobs","Jobs"],["settings","Settings"]];
-  if(role==="super")   return [["labor","Labor Needs"],["conflicts","Conflicts"],["jobs","Jobs"],["settings","Settings"]];
-  return [["locked","Look-Ahead"],["settings","Settings"]];
+  if(role==="foreman") return [["mine","My Look-Ahead"],["history","History"]];
+  if(role==="pm")      return [["conflicts","Conflicts"],["jobs","Jobs"]];
+  if(role==="super")   return [["labor","Labor Needs"],["conflicts","Conflicts"],["jobs","Jobs"]];
+  return [["locked","Look-Ahead"]];
 }
 function render(){
   // header identity
@@ -162,16 +167,15 @@ function render(){
   $("laWeekLabel").textContent = "Week of "+weekRangeLabel(CUR_WEEK);
 
   if(!USER){ renderSignIn(); return; }
-  if(!rolesLoaded){ $("laMain").innerHTML=`<div class="la-skel"></div>`; return; }
+  if(!peopleLoaded){ $("laMain").innerHTML=`<div class="la-skel"></div>`; return; }
   const role=myRole();
   const tabs=navFor(role);
   if(!tabs.some(t=>t[0]===TAB)) TAB=tabs[0][0];
   $("laNav").innerHTML=tabs.map(([k,l])=>`<button data-latab="${k}" class="${k===TAB?"on":""}">${esc(l)}</button>`).join("");
 
-  if(!role && TAB!=="settings"){
+  if(!role){
     $("laMain").innerHTML=`<div class="la-notice">You need Look-Ahead access set up to use this.</div>
-      <div class="la-card"><div class="la-sub">If you manage the crew, open Settings to set up access.</div>
-      <button class="la-btn ghost" data-latab="settings">Open Settings</button></div>`;
+      <div class="la-card"><div class="la-sub">Whoever manages the crew sets this up in the main app: <b>Admin → Manage People → Look-Ahead</b>.</div></div>`;
     return;
   }
   if(TAB==="mine"){ ensureCurrentWeek(); renderForeman(); }
@@ -179,7 +183,6 @@ function render(){
   else if(TAB==="conflicts") renderConflicts();
   else if(TAB==="labor") renderLabor();
   else if(TAB==="jobs") renderJobs();
-  else if(TAB==="settings") renderSettings();
 }
 
 function renderSignIn(){
@@ -370,40 +373,6 @@ function renderJobs(){
   $("laMain").innerHTML=h;
 }
 
-/* ---------------- SETTINGS ---------------- */
-let settingsUnlocked=false;
-function renderSettings(){
-  let h=`<div class="la-card"><div class="la-h">Settings</div><div class="la-sub">Signed in as <b>${esc((USER.first+" "+USER.last).trim())}</b> · ${esc(TRADES[myTrade()]? "Foreman — "+TRADES[myTrade()] : (myRole()||"no role"))}</div>`;
-  if(!settingsUnlocked){ h+=`<div class="la-field" style="margin-top:10px"><label>Admin PIN to manage access & sample data</label>
-    <input class="la-in" id="stPin" type="password" inputmode="numeric" placeholder="PIN"></div>
-    <button class="la-btn" id="stUnlock">Unlock</button></div>`; $("laMain").innerHTML=h;
-    $("stUnlock").onclick=()=>{ if($("stPin").value===ADMIN_PIN){ settingsUnlocked=true; renderSettings(); } else toast("Wrong PIN"); };
-    return; }
-  h+=`<button class="la-btn soft" id="stLock">Lock</button></div>`;
-  // roles
-  h+=`<div class="la-card"><div class="la-h">People & Roles</div><div class="la-sub">Set who is a Foreman (and their trade), PM, or Superintendent.</div>`;
-  const people=PEOPLE.slice().sort((a,b)=>nameNorm(a.first,a.last)<nameNorm(b.first,b.last)?-1:1);
-  people.forEach(p=>{ const r=LA_ROLES[p.id]||{}; h+=`<div class="la-row" style="margin:8px 0;flex-wrap:wrap">
-    <div style="flex:1;min-width:120px;font-weight:650;font-size:13.5px">${esc((p.first+" "+p.last).trim())}</div>
-    <select class="la-sel" style="flex:none;width:auto" data-larole="${esc(p.id)}">
-      <option value="" ${!r.role?"selected":""}>No access</option>
-      <option value="foreman" ${r.role==="foreman"?"selected":""}>Foreman</option>
-      <option value="pm" ${r.role==="pm"?"selected":""}>PM</option>
-      <option value="super" ${r.role==="super"?"selected":""}>Superintendent</option></select>
-    <select class="la-sel" style="flex:none;width:auto" data-latrade="${esc(p.id)}" ${r.role==="foreman"?"":"disabled"}>
-      <option value="sheet" ${r.trade==="sheet"?"selected":""}>Sheet Metal</option>
-      <option value="piping" ${r.trade==="piping"?"selected":""}>Piping</option></select></div>`; });
-  h+=`</div>`;
-  // sample
-  h+=`<div class="la-card"><div class="la-h">Sample Data</div>
-    <div class="la-sub">${META.seeded?"A full sample company is loaded so you can see real scale.":"Load a full sample company to see what this looks like at scale."}</div>
-    ${META.seeded?`<button class="la-btn danger" id="stRemoveSample">Remove all sample data</button>`:`<button class="la-btn" id="stLoadSample">Load sample company</button>`}</div>`;
-  $("laMain").innerHTML=h;
-  $("stLock").onclick=()=>{ settingsUnlocked=false; renderSettings(); };
-  if($("stLoadSample")) $("stLoadSample").onclick=()=>{ seedSample(true); };
-  if($("stRemoveSample")) $("stRemoveSample").onclick=()=>removeSample();
-}
-
 /* ========================================================================== *
    MODALS for task / conflict / job entry
  * ========================================================================== */
@@ -463,7 +432,7 @@ function conflictModal(scope, existing){
   });
 }
 function addJobModal(){
-  const pmPeople=Object.entries(LA_ROLES).filter(([,r])=>r.role==="pm").map(([id,r])=>({id,name:r.name||personName(id)}));
+  const pmPeople=PEOPLE.filter(p=>p.laRole==="pm").map(p=>({id:p.id,name:(p.first+" "+p.last).trim()}));
   const existing=LA_JOBS.map(j=>`<option value="${esc(j.jobNumber)}">`).join("");
   openModal("Add a job", `
     <div class="la-field"><label>Job number</label><input class="la-in" id="jbNum" list="jbList" placeholder="e.g. 25-0150"><datalist id="jbList">${existing}</datalist></div>
@@ -502,7 +471,6 @@ document.addEventListener("click", e=>{
   const tabBtn=e.target.closest("[data-latab]"); if(tabBtn){ TAB=tabBtn.dataset.latab; render(); return; }
   if(e.target.closest("[data-laclose]")){ closeModal(); return; }
   if(e.target===$("laModal")){ closeModal(); return; }
-  if(e.target.closest("#laWho")){ TAB="settings"; render(); return; }
 
   const w=myWeek(CUR_WEEK);
   const ta=e.target.closest("[data-lataskadd]"); if(ta){ taskModal(Number(ta.dataset.lataskadd)); return; }
@@ -532,10 +500,6 @@ document.addEventListener("click", e=>{
   if(e.target.closest("#laExportConf")) exportConflicts();
   if(e.target.closest("#laExportMine")) exportLookaheadPdf(USER.id);
 });
-document.addEventListener("change", e=>{
-  const rl=e.target.closest("[data-larole]"); if(rl){ setRole(rl.dataset.larole, rl.value); return; }
-  const tr=e.target.closest("[data-latrade]"); if(tr){ setTrade(tr.dataset.latrade, tr.value); return; }
-});
 
 /* ---------- foreman leaves a job (own membership — free) ---------- */
 async function leaveJob(jobId){
@@ -552,83 +516,14 @@ async function pmResolve(combo){ const [wid,cid]=combo.split("|"); const w=LA_WE
   const c=(w.conflicts||[]).find(x=>x.id===cid); if(!c) return; c.resolved=!c.resolved;
   try{ await setDoc(doc(db,"laWeeks",w.id),{conflicts:w.conflicts,updatedAt:serverTimestamp()},{merge:true}); render(); }catch(e){ fbNote(e,"pmResolve"); } }
 
-/* ---------- role management (settings, PIN already unlocked) ---------- */
-async function setRole(personId,role){ const p=PEOPLE.find(x=>x.id===personId); const name=p?(p.first+" "+p.last).trim():personId;
-  const cur=LA_ROLES[personId]||{};
-  if(!role){ try{ await deleteDoc(doc(db,"laRoles",personId)); toast(name+": access removed"); }catch(e){ fbNote(e,"role"); } return; }
-  const rec={name,role,trade:role==="foreman"?(cur.trade||"sheet"):""};
-  try{ await setDoc(doc(db,"laRoles",personId),{...rec,updatedAt:serverTimestamp()},{merge:true}); toast(name+": "+role); }catch(e){ fbNote(e,"role"); }
-}
-async function setTrade(personId,trade){ try{ await setDoc(doc(db,"laRoles",personId),{trade,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ fbNote(e,"trade"); } }
-
 /* ========================================================================== *
-   SAMPLE COMPANY (hardwired, clearly tagged, removable)
+   SAMPLE COMPANY
+   Auto-seeded once on a fresh database so the full scale is visible from day one. Loading and
+   removing it is done from the main app's Admin (Manage People → Look-Ahead) via lookahead-data.js;
+   here we only kick off that first auto-seed.
  * ========================================================================== */
-function maybeSeed(){ if(META.seeded||META.removed||seeding||!fbReady) return; if(LA_JOBS.length) return; seedSample(false); }
-async function seedSample(manual){
-  if(seeding) return; seeding=true;
-  try{
-    const people=[
-      ["p-sam-odell","Sam","Odell","super",""],
-      ["p-dana-fox","Dana","Fox","pm",""],
-      ["p-priya-rao","Priya","Rao","pm",""],
-      ["p-jaren-eells","Jaren","Eells","foreman","sheet"],
-      ["p-marcus-hill","Marcus","Hill","foreman","sheet"],
-      ["p-pete-messner","Pete","Messner","foreman","piping"],
-      ["p-luis-ortega","Luis","Ortega","foreman","piping"],
-    ];
-    const jobs=[
-      ["25-0150","Riverside Medical Center",["p-dana-fox"],[["p-jaren-eells","sheet"],["p-pete-messner","piping"]]],
-      ["25-0200","Cedar High School",        ["p-dana-fox"],[["p-marcus-hill","sheet"]]],
-      ["25-0300","Summit Office Tower",       ["p-priya-rao"],[["p-jaren-eells","sheet"],["p-luis-ortega","piping"]]],
-      ["26-0147","North Valley Data Center",  ["p-priya-rao","p-dana-fox"],[["p-marcus-hill","sheet"],["p-pete-messner","piping"]]],
-      ["26-0210","Harbor Logistics Warehouse",["p-priya-rao"],[["p-luis-ortega","piping"]]],
-      ["26-0255","Grandview Apartments",      ["p-dana-fox"],[["p-marcus-hill","sheet"]]],
-      ["26-0312","Lakeside Clinic",           ["p-priya-rao"],[["p-pete-messner","piping"]]],
-      ["26-0355","Civic Center Renovation",   ["p-dana-fox","p-priya-rao"],[["p-jaren-eells","sheet"]]],
-    ];
-    const batch=writeBatch(db);
-    people.forEach(([id,f,l,role,trade])=>batch.set(doc(db,"laRoles",id),{name:`${f} ${l}`,role,trade,sample:true,updatedAt:serverTimestamp()},{merge:true}));
-    jobs.forEach(([num,name,pms,fore])=>batch.set(doc(db,"laJobs",num),{jobNumber:num,jobName:name,
-      pms:pms.map(id=>({id,name:nameOf(people,id)})), foremen:fore.map(([id,tr])=>({id,name:nameOf(people,id),trade:tr})),
-      sample:true,createdAt:serverTimestamp(),updatedAt:serverTimestamp()},{merge:true}));
-    // weekly lookaheads: current week for each foreman, plus one prior week for history.
-    const acts={sheet:["Hang duct mains","Set VAV boxes","Install grilles & diffusers","Fab shop spool delivery","Seal & insulate duct"],
-                piping:["Rough-in chilled water","Set pumps","Hydro test risers","Install hangers","Trim-out fixtures"]};
-    const foremen=people.filter(p=>p[3]==="foreman");
-    foremen.forEach(([id,f,l,,trade])=>{
-      const theirJobs=jobs.filter(j=>j[3].some(x=>x[0]===id)).map(j=>j[0]);
-      [CUR_WEEK, addDays(CUR_WEEK,-7)].forEach((ws,wi)=>{
-        const tasks=[]; theirJobs.forEach((job,ji)=>{ for(let wk=1;wk<=3;wk++){
-          const base=3+((ji+wk+wi)%4); tasks.push({id:rid(),job,week:wk,text:acts[trade][(ji+wk)%acts[trade].length],headcount:base}); } });
-        const conflicts=[];
-        if(wi===0 && theirJobs[0]){ conflicts.push({id:rid(),scope:"current",job:theirJobs[0],type:"GC",
-          what:"GC overhead work blocked our bay Tue–Wed; crew reassigned.",where:"Level 3 east",when:"Tue",
-          impMan:true,impHours:true,impProd:false,impSched:true,hours:16,days:1,resolved:false,pmStatus:"",createdAt:Date.now()});
-          conflicts.push({id:rid(),scope:"upcoming",job:theirJobs[0],type:"Design / RFI",
-          what:"Ceiling height conflict with structural steel at column line D.",where:"Area D",when:"Week 2",
-          need:"RFI 214 answered by GC before we can set mains.",resolved:false,pmStatus:"",createdAt:Date.now()}); }
-        batch.set(doc(db,"laWeeks",weekDocId(id,ws)),{foremanId:id,foremanName:`${f} ${l}`,trade,weekStart:ws,tasks,conflicts,sample:true,updatedAt:serverTimestamp()});
-      });
-    });
-    batch.set(doc(db,"laMeta","seed"),{seeded:true,removed:false,at:serverTimestamp()});
-    await batch.commit();
-    if(manual) toast("Sample company loaded");
-  }catch(e){ fbNote(e,"seed"); if(manual) toast("Couldn't load sample: "+saveMsg(e)); }
-  finally{ seeding=false; }
-}
-function nameOf(people,id){ const p=people.find(x=>x[0]===id); return p?`${p[1]} ${p[2]}`:id; }
-function removeSample(){
-  canDelete("__sample__", async()=>{
-    try{ const batch=writeBatch(db);
-      LA_JOBS.filter(j=>j.sample).forEach(j=>batch.delete(doc(db,"laJobs",j.id)));
-      LA_WEEKS.filter(w=>w.sample).forEach(w=>batch.delete(doc(db,"laWeeks",w.id)));
-      Object.entries(LA_ROLES).filter(([,r])=>r.sample).forEach(([id])=>batch.delete(doc(db,"laRoles",id)));
-      batch.set(doc(db,"laMeta","seed"),{seeded:false,removed:true,at:serverTimestamp()});
-      await batch.commit(); toast("Sample data removed"); render();
-    }catch(e){ fbNote(e,"removeSample"); toast("Couldn't remove: "+saveMsg(e)); }
-  });
-}
+function maybeSeed(){ if(META.seeded||META.removed||seeding||!fbReady||LA_JOBS.length) return;
+  seeding=true; seedSampleCompany(db).catch(e=>fbNote(e,"seed")).finally(()=>{ seeding=false; }); }
 
 /* ========================================================================== *
    EXPORTS
@@ -674,4 +569,4 @@ function exportLookaheadPdf(foremanId){
 
 /* ---------- boot ---------- */
 render(); startSync();
-window.__laDebug={ get roles(){return LA_ROLES;}, get jobs(){return LA_JOBS;}, get weeks(){return LA_WEEKS;} };
+window.__laDebug={ get people(){return PEOPLE;}, get jobs(){return LA_JOBS;}, get weeks(){return LA_WEEKS;} };

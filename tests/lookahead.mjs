@@ -5,7 +5,8 @@
    page as each role would see it. The week math has to line up with the module, so the current
    Monday is computed here exactly the way lookahead.js computes it. */
 import { chromium } from "playwright";
-import { startServer, routeCdn, CHROMIUM } from "./serve.mjs";
+import fs from "node:fs"; import path from "node:path";
+import { startServer, routeCdn, CHROMIUM, TESTS_DIR } from "./serve.mjs";
 
 const { server, port: PORT } = await startServer();
 const fails=[]; const chk=(c,m)=>{ if(!c) fails.push(m); };
@@ -19,16 +20,12 @@ const wk=(id)=>`${id}__${CUR}`;
 
 function seed(){
   return {
+    // Look-Ahead roles live on the person's record (laRole/laTrade), set from the main app's admin.
     people:{
-      "p-jaren-eells":{first:"Jaren",last:"Eells",email:"jareneells@arctic.biz"},
-      "p-dana-fox":{first:"Dana",last:"Fox",email:"danafox@arctic.biz"},
-      "p-sam-odell":{first:"Sam",last:"Odell",email:"samodell@arctic.biz"},
+      "p-jaren-eells":{first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",laRole:"foreman",laTrade:"sheet"},
+      "p-dana-fox":{first:"Dana",last:"Fox",email:"danafox@arctic.biz",laRole:"pm"},
+      "p-sam-odell":{first:"Sam",last:"Odell",email:"samodell@arctic.biz",laRole:"super"},
       "p-nobody":{first:"No",last:"Body",email:"nobody@arctic.biz"},
-    },
-    laRoles:{
-      "p-jaren-eells":{name:"Jaren Eells",role:"foreman",trade:"sheet"},
-      "p-dana-fox":{name:"Dana Fox",role:"pm"},
-      "p-sam-odell":{name:"Sam Odell",role:"super"},
     },
     laJobs:{
       "25-0150":{jobNumber:"25-0150",jobName:"Riverside Medical",
@@ -68,16 +65,16 @@ const DANA ={first:"Dana",last:"Fox",email:"danafox@arctic.biz",id:"p-dana-fox"}
 const SAM  ={first:"Sam",last:"Odell",email:"samodell@arctic.biz",id:"p-sam-odell"};
 const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
 
-// --- 1. A signed-in person with no role gets the exact no-access message, not the app. ---
+// --- 1. A signed-in person with no role gets the exact no-access message, not a stuck spinner. ---
 {
   const {p,errs}=await boot(NOBODY);
+  // The skeleton must be gone — the page must resolve to the access message, never hang loading.
+  const skel=await p.locator(".la-skel").count();
+  chk(skel===0,"page stuck on the loading skeleton for a no-access user");
   const notice=(await p.locator(".la-notice").innerText().catch(()=>"")).trim();
   console.log("no-role notice:", JSON.stringify(notice));
   chk(notice.includes("You need Look-Ahead access set up to use this"),
     `no-access message wrong: ${JSON.stringify(notice)}`);
-  // Settings must still be reachable so an admin can bootstrap access.
-  const hasSettings=await p.locator('#laNav button', {hasText:"Settings"}).count();
-  chk(hasSettings===1,"no-role user can't reach Settings to set up access");
   // It must NOT name Bobby or tell them to ask him.
   chk(!/bobby/i.test(notice),"no-access message must not name Bobby");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
@@ -172,6 +169,39 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   await p.waitForTimeout(200);
   const delWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="del" && w.coll==="laJobs"));
   chk(!delWrote,"a wrong PIN still deleted the job");
+  chk(errs.length===0,"page errors: "+errs.join(" | "));
+  await p.close();
+}
+
+// --- 6. Roles are assigned from the MAIN APP's admin (Manage People), not a Look-Ahead settings tab. ---
+{
+  const SEED=JSON.parse(fs.readFileSync(path.join(TESTS_DIR,"seed.json"),"utf8"));
+  const p=await b.newPage({viewport:{width:420,height:900}});
+  const errs=[];
+  p.on("pageerror",e=>errs.push("pageerror: "+e.message));
+  p.on("console",m=>{const t=m.text(); if(m.type()==="error" && !/net::ERR_|Failed to load resource/.test(t)) errs.push("console: "+t);});
+  await routeCdn(p);
+  await p.addInitScript(seed=>{ window.__SEED=seed;
+    localStorage.setItem("er_user",JSON.stringify({first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",id:"p-jaren-eells"}));
+    localStorage.setItem("tut_done","1"); },SEED);
+  await p.goto(`http://localhost:${PORT}/`,{waitUntil:"networkidle"});
+  await p.waitForTimeout(500);
+  // unlock admin with the PIN, open Manage People
+  await p.locator("#btnAdminOpen").click(); await p.waitForTimeout(200);
+  await p.locator("#pinInput").fill("1977"); await p.waitForTimeout(400);
+  await p.locator("#btnPeople").click(); await p.waitForTimeout(400);
+  // the Look-Ahead controls must live here in the main admin
+  const laLbl=await p.locator("#peopleList", {hasText:"Look-Ahead"}).count();
+  chk(laLbl>=1,"main admin Manage People has no Look-Ahead controls");
+  // expand a person and make them a Foreman
+  const someone=await p.locator("#peopleList [data-popen]").first().getAttribute("data-popen");
+  await p.locator(`[data-popen="${someone}"]`).click(); await p.waitForTimeout(250);
+  await p.locator(`[data-larole="${someone}|||foreman"]`).click(); await p.waitForTimeout(350);
+  const roleWrote=await p.evaluate(id=> (window.__WRITES||[]).some(w=>w.op==="set" && w.coll==="people" && w.id===id && w.data.laRole==="foreman"),someone);
+  chk(roleWrote,"assigning a Look-Ahead role from the admin did not save to the person's record");
+  // the sample-data load/remove also lives in the main admin
+  const sample=await p.locator("#laSampleLoad").count();
+  chk(sample===1,"Look-Ahead sample load/remove is not in the main admin");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }

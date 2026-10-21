@@ -13,6 +13,7 @@ import { PTP_TEMPLATES, ptpBlank, ptpLoad, ptpSave, ptpWipe, ptpFormHTML, ptpCol
          ptpQuestions, ptpCircleItems, ptpAttList, ptpAttAdd, ptpAttDel, ptpAttClear, ptpMerge } from "./ptp.js";
 import { esc, normJob, isRealJob, makeId, fmtDateKey, MON, rowDate, longDate,
          todayIso, monthKey, monthLabel, rateChips, money, lastSeenText } from "./format.js";
+import { seedSampleCompany, removeSampleData } from "./lookahead-data.js";
 
 /* pdf.js now loads async, so it usually is NOT here yet when this module runs. Set the worker
    path at the moment of use instead, and let callers ask whether the library actually arrived. */
@@ -411,7 +412,7 @@ function startSync(){
      until seenIds was added to it. It is carried for the signed-in person only: every other
      person's acknowledged list is none of this device's business, and at a few hundred people it
      would be the largest thing held in memory for no reason. */
-  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const mine=USER&&d.id===USER.id; l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null,seenInit:mine?!!v.seenInit:false,seenIds:mine&&Array.isArray(v.seenIds)?v.seenIds:null,lastSeen:tsMs(v.lastSeen)});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>fbNoteError(e,"people"));
+  onSnapshot(collection(db,"people"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); const mine=USER&&d.id===USER.id; l.push({id:d.id,first:v.first||"",last:v.last||"",nameNorm:v.nameNorm||"",email:v.email||"",laRole:v.laRole||"",laTrade:v.laTrade||"",access:v.access||"",perms:v.perms||null,savedJobs:v.savedJobs||null,removedJobs:v.removedJobs||null,jobOrder:v.jobOrder||null,seenInit:mine?!!v.seenInit:false,seenIds:mine&&Array.isArray(v.seenIds)?v.seenIds:null,lastSeen:tsMs(v.lastSeen)});}); PEOPLE=l; onPeople(); resolvePendingHash(); if(typeof applyAccess==="function")applyAccess(); if(typeof renderPeople==="function" && $("peopleModal") && $("peopleModal").classList.contains("show")) renderPeople(); }, e=>fbNoteError(e,"people"));
   onSnapshot(collection(db,"shares"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({id:d.id,toId:v.toId||"",toName:v.toName||"",fromName:v.fromName||"",jobNumber:v.jobNumber||"",jobName:v.jobName||"",status:v.status||"pending"});}); SHARES=l; renderJobs(); }, e=>fbNoteError(e,"shares"));
   onSnapshot(collection(db,"webductEquip"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_EQUIP=l; renderDeliveries(); renderFeed(); }, e=>fbNoteError(e,"webductEquip"));
   onSnapshot(collection(db,"webductOrders"),snap=>{ const l=[]; snap.forEach(d=>{const v=d.data(); l.push({docId:d.id, ...v});}); WD_ORDERS=l; if(typeof autoLinkOrderedJobs==="function") autoLinkOrderedJobs(); renderDeliveries(); }, e=>fbNoteError(e,"webductOrders"));
@@ -1779,6 +1780,9 @@ function renderPeople(){
       ${open?`<div class="pr-body">
         <div class="pr-lbl">Pages this person can open</div>
         <div class="pr-perms">${VALID_VIEWS.map(v=>`<button class="perm-btn ${pm[v]?'on':'off'}" data-perm="${esc(p.id)}|||${v}">${pm[v]?"✓":"✕"} ${VIEW_LABELS[v]}</button>`).join("")}</div>
+        <div class="pr-lbl" style="margin-top:12px">Look-Ahead</div>
+        <div class="pr-perms">${[["","No access"],["foreman","Foreman"],["pm","PM"],["super","Superintendent"]].map(([v,lab])=>`<button class="perm-btn ${(p.laRole||"")===v?'on':'off'}" data-larole="${esc(p.id)}|||${v}">${(p.laRole||"")===v?"✓":"✕"} ${lab}</button>`).join("")}</div>
+        ${p.laRole==="foreman"?`<div class="pr-perms" style="margin-top:6px">${[["sheet","Sheet Metal"],["piping","Piping"]].map(([v,lab])=>`<button class="perm-btn ${(p.laTrade||"sheet")===v?'on':'off'}" data-latrade="${esc(p.id)}|||${v}">${(p.laTrade||"sheet")===v?"✓":"✕"} ${lab}</button>`).join("")}</div>`:""}
         <div class="pr-lbl" style="margin-top:12px">Email</div>
         <div style="display:flex;gap:6px">
           <input type="email" value="${esc(p.email||"")}" data-pemail="${esc(p.id)}" placeholder="[email protected]" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:13px">
@@ -1794,7 +1798,12 @@ function renderPeople(){
   const week=sorted.filter(p=>p.lastSeen && Date.now()-p.lastSeen < 7*86400000).length;
   const never=sorted.filter(p=>!p.lastSeen).length;
   list.innerHTML=`<div style="font-family:'Barlow Condensed';font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px;color:var(--steel);margin:0 0 4px">${sorted.length} ${sorted.length===1?"person":"people"} · ${week} this week${never?` · ${never} never`:""}</div>
-    <div style="font-size:11.5px;color:var(--steel);margin-bottom:10px">Tap a name to set which pages they can open. The line under each name is the last time they opened the website.</div>`
+    <div style="font-size:11.5px;color:var(--steel);margin-bottom:10px">Tap a name to set which pages they can open and their Look-Ahead access. The line under each name is the last time they opened the website.</div>
+    <div style="border:1px solid var(--line);border-radius:10px;padding:11px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13.5px">Look-Ahead sample data</div>
+      <div style="font-size:11.5px;color:var(--steel);margin:3px 0 8px">A full demo company so you can see Look-Ahead at full scale. It's clearly tagged and safe to remove any time.</div>
+      <div style="display:flex;gap:6px"><button class="share-btn" id="laSampleLoad" style="margin:0">Load sample</button><button class="share-btn" id="laSampleRemove" style="margin:0">Remove sample</button></div>
+    </div>`
     + (sorted.length?sorted.map(row).join(""):`<div class="sub-empty">No people yet. Add someone above.</div>`);
 }
 onActivate($("pp_add"),async()=>{ const f=$("pp_first").value.trim(),l=$("pp_last").value.trim(),em=$("pp_email").value.trim(); if(!f||!l){toast("Enter first and last name");return;} if(em&&!/^\S+@\S+\.\S+$/.test(em)){toast("Enter a valid email");return;} if(!fbReady){toast("No connection");return;} const id=personId(f,l); try{ await setDoc(doc(db,"people",id),{first:f,last:l,nameNorm:nameNorm(f,l),email:em,updatedAt:serverTimestamp()},{merge:true}); $("pp_first").value="";$("pp_last").value="";$("pp_email").value=""; toast("Saved "+f); setTimeout(renderPeople,400); }catch(e){toast("Failed: "+(e.code||e.message));} });
@@ -5015,6 +5024,10 @@ document.addEventListener("click",e=>{
   const popen=e.target.closest("[data-popen]"); if(popen){ const id=popen.dataset.popen; if(PERM_OPEN.has(id))PERM_OPEN.delete(id); else PERM_OPEN.add(id); renderPeople(); return; }
   const pperm=e.target.closest("[data-perm]"); if(pperm){ e.stopPropagation(); const [id,v]=pperm.dataset.perm.split("|||"); const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; const cur=permsFor(p); const next=Object.assign({}, p.perms||{}); next[v]=!cur[v]; setDoc(doc(db,"people",id),{perms:next,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast(`${p.first}: ${VIEW_LABELS[v]} ${next[v]?"allowed":"blocked"}`)).catch(()=>toast("Couldn't save")); return; }
   const preset=e.target.closest("[data-permreset]"); if(preset){ e.stopPropagation(); const id=preset.dataset.permreset; const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; setDoc(doc(db,"people",id),{perms:null,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast("Back to the email default")).catch(()=>toast("Couldn't save")); return; }
+  const lar=e.target.closest("[data-larole]"); if(lar){ e.stopPropagation(); const [id,role]=lar.dataset.larole.split("|||"); const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; const patch={laRole:role,updatedAt:serverTimestamp()}; if(role==="foreman"&&!p.laTrade)patch.laTrade="sheet"; const lab=role?({foreman:"Foreman",pm:"PM",super:"Superintendent"}[role]||role):"no Look-Ahead access"; setDoc(doc(db,"people",id),patch,{merge:true}).then(()=>toast(`${p.first}: ${lab}`)).catch(()=>toast("Couldn't save")); return; }
+  const lat=e.target.closest("[data-latrade]"); if(lat){ e.stopPropagation(); const [id,tr]=lat.dataset.latrade.split("|||"); const p=PEOPLE.find(x=>x.id===id); if(!p||!fbReady)return; setDoc(doc(db,"people",id),{laTrade:tr,updatedAt:serverTimestamp()},{merge:true}).then(()=>toast(`${p.first}: ${tr==="sheet"?"Sheet Metal":"Piping"}`)).catch(()=>toast("Couldn't save")); return; }
+  if(e.target.closest("#laSampleLoad")){ e.stopPropagation(); if(!fbReady){toast("No connection");return;} toast("Loading sample…"); seedSampleCompany(db).then(r=>toast(`Sample loaded — ${r.jobs} jobs`)).catch(()=>toast("Couldn't load sample")); return; }
+  if(e.target.closest("#laSampleRemove")){ e.stopPropagation(); if(!fbReady){toast("No connection");return;} if(!confirm("Remove all Look-Ahead sample data?"))return; removeSampleData(db).then(()=>toast("Sample data removed")).catch(()=>toast("Couldn't remove sample")); return; }
   if(e.target.closest("#tp_x")){ closeModal("timeModal"); return; }
   if(e.target.closest("#pk_x")){ closeModal("pairModal"); return; }
   if(e.target.closest("#pk_full")){ wdDoPair(false); return; }
