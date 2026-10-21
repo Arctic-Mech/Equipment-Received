@@ -116,26 +116,29 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   await p.close();
 }
 
-// --- 3. Management sees every foreman and can adjust what they entered. ---
+// --- 3. Management VIEWS a foreman's sheet (read-only) and can pin a foreman to the top. ---
 {
   const {p,errs}=await boot(MGR);
   const nav0=(await p.locator("#laNav button").first().innerText()).trim();
   chk(nav0==="Foremen",`management's first tab should be "Foremen", got ${JSON.stringify(nav0)}`);
   chk(await p.locator('[data-laopenforeman="p-jaren-eells"]').count()===1,"foreman not listed for management");
-  // open the foreman's sheet and edit a cell
+  // favorite (pin) the foreman -> saved on the manager's own record
+  await p.locator('[data-lafavforeman="p-jaren-eells"]').click(); await p.waitForTimeout(300);
+  const favWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="people"&&w.id==="p-mgr"
+     && Array.isArray(w.data.laFavForemen) && w.data.laFavForemen.includes("p-jaren-eells")));
+  chk(favWrote,"pinning a foreman did not save");
+  // open the foreman's sheet — must be view only
   await p.locator('[data-laopenforeman="p-jaren-eells"]').click(); await p.waitForTimeout(350);
   chk(await p.locator("#laBack").count()===1,"no back button on the opened foreman sheet");
   chk(await p.locator("table.la-mp").count()===1,"foreman's grid not shown to management");
-  const cell=p.locator('[data-mp="t1|1"]');
-  await cell.fill("7"); await cell.press("Tab"); await p.waitForTimeout(350);
-  const adj=await p.evaluate(cur=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&w.id===("p-jaren-eells__"+cur)
-     && (w.data.tasks||[]).some(t=>t.id==="t1"&&t.days[1]===7)),CUR);
-  chk(adj,"management's adjustment to a foreman's grid did not save to that foreman's week");
+  chk(await p.locator(".la-mp .tc-txt", {hasText:"Hang duct mains"}).count()>=1,"task not shown in the read-only grid");
+  chk(await p.locator(".la-mp [data-mp]").count()===0,"management view must be read-only — no editable day cells");
+  chk(await p.locator("#laAddRow").count()===0,"management must not see Add row");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
 
-// --- 4. Management labor roll-up. ---
+// --- 4. Management labor roll-up, sortable by trade. ---
 {
   const {p,errs}=await boot(MGR);
   await p.locator('#laNav button', {hasText:"Labor"}).click(); await p.waitForTimeout(300);
@@ -143,20 +146,29 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   const body=await p.locator("table.la-table").innerText();
   chk(/25-0150/.test(body),"labor table missing the job");
   chk(/\b2\b/.test(body) && /\b3\b/.test(body),"labor table missing the weekly peak crews (2 and 3)");
+  // sort by trade still renders
+  await p.locator('[data-lasort="trade"]').click(); await p.waitForTimeout(250);
+  chk(await p.locator("table.la-table").count()===1,"labor table gone after sorting by trade");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
 
-// --- 5. Deleting a job that isn't yours needs the PIN. ---
+// --- 5. Jobs tab: per-job 3-week lookahead, pinnable, no delete. ---
 {
   const {p,errs}=await boot(MGR);
   await p.locator('#laNav button', {hasText:"Jobs"}).click(); await p.waitForTimeout(300);
-  await p.locator('[data-lajobdel]').first().click(); await p.waitForTimeout(250);
-  const title=(await p.locator("#laModalTitle").innerText().catch(()=>"")).trim();
-  chk(/Enter PIN to delete/i.test(title),"deleting another's job did not require the PIN");
-  await p.locator("#laPin").fill("0000"); await p.locator("#laPinGo").click(); await p.waitForTimeout(200);
-  const delWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="del" && w.coll==="laJobs"));
-  chk(!delWrote,"a wrong PIN still deleted the job");
+  chk(await p.locator("[data-lajobdel]").count()===0,"management should not be able to delete jobs");
+  chk(await p.locator('[data-laopenjob="25-0150"]').count()===1,"job not listed on the Jobs tab");
+  // pin a job
+  await p.locator('[data-lafavjob="25-0150"]').click(); await p.waitForTimeout(300);
+  const favJob=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="people"&&w.id==="p-mgr"
+     && Array.isArray(w.data.laFavJobs) && w.data.laFavJobs.includes("25-0150")));
+  chk(favJob,"pinning a job did not save");
+  // open the job's combined 3-week lookahead
+  await p.locator('[data-laopenjob="25-0150"]').click(); await p.waitForTimeout(350);
+  chk(await p.locator("#laBackJob").count()===1,"no back button on the per-job sheet");
+  chk(await p.locator("table.la-mp").count()===1,"per-job grid missing");
+  chk(/Hang duct mains|Set VAV/.test(await p.locator("table.la-mp").innerText()),"per-job grid missing the job's tasks");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }

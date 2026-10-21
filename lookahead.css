@@ -154,6 +154,8 @@ table.la-mp thead .tcol{z-index:3;background:var(--surface)}
 @media(min-width:720px){ .la-reqs{grid-template-columns:1fr 1fr} }
 .la-ro{border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:9px 11px;font-size:13px;line-height:1.4;white-space:pre-wrap;min-height:40px}
 .la-forow{cursor:pointer} .la-forow:active{background:var(--surface)}
+.la-star{font-size:17px;line-height:1;color:var(--steel-light);padding:0 4px 0 0;vertical-align:-1px}
+.la-star.on{color:var(--amber)}
 
 .la-conf{border:1px solid var(--line);border-left:4px solid var(--steel-light);border-radius:9px;padding:11px;margin-bottom:10px;background:var(--card)}
 .la-conf.co{border-left-color:var(--red)}
