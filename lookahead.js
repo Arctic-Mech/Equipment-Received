@@ -100,7 +100,11 @@ let SHEET_DOC_ID=null, SHEET_FALLBACK=null;   // the week doc currently shown as
 // PM + Superintendent were merged into "management"; old records are read as management.
 function myPerson(){ return (USER && PEOPLE.find(p=>p.id===USER.id)) || null; }
 function roleOf(p){ const r=p&&p.laRole; return (r==="pm"||r==="super")?"management":(r||""); }
-function myRole(){ return roleOf(myPerson()); }
+// Being named as a PM on any job is itself access to the (read-only) management view — no admin
+// role needed. Matched by person id, else by name (so a name typed before someone is a member
+// links up once they are), which is why naming a PM must make them see the job.
+function amNamedPm(){ if(!USER) return false; return LA_JOBS.some(j=>managingJob(j.jobNumber)); }
+function myRole(){ const r=roleOf(myPerson()); if(r) return r; return amNamedPm()?"management":""; }
 function myTrade(){ const p=myPerson(); return p?(p.laTrade||""):""; }
 function personName(id){ const p=PEOPLE.find(x=>x.id===id); return p?(p.first+" "+p.last).trim():id; }
 // Favorites (management pins a job or foreman to the top of their own view). Stored on the person.
@@ -110,10 +114,11 @@ async function toggleFav(field, val){ if(!USER) return; const p=myPerson()||{}; 
   const i=cur.indexOf(val); if(i>=0) cur.splice(i,1); else cur.unshift(val);
   try{ await setDoc(doc(db,"people",USER.id),{[field]:cur,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ fbNote(e,"fav"); toast("Couldn't save"); } }
 const normName = s => String(s||"").toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
-// PMs the foreman assigned to a job (names), stored on the job record.
-function pmsForJob(num){ return (LA_JOBS.find(j=>j.jobNumber===num)||{}).pms||[]; }
-// A job is pinned to the top of a manager's view if they starred it, or they're a PM on it.
-function isJobPinned(num){ const me=normName(USER?USER.first+" "+USER.last:""); return myFavJobs().includes(num) || pmsForJob(num).some(n=>normName(n)===me); }
+const myFullName = () => normName(USER?USER.first+" "+USER.last:"");
+// PM name(s) the foreman assigned to a job, stored on the job record (normalized to plain names).
+function pmsForJob(num){ return ((LA_JOBS.find(j=>j.jobNumber===num)||{}).pms||[]).map(pm=>typeof pm==="object"?pm.name:pm); }
+// Jobs this signed-in person is the PM on (matched by their name).
+function managingJob(num){ const me=myFullName(); return pmsForJob(num).some(n=>normName(n)===me); }
 
 /* ---------- data listeners ---------- */
 function startSync(){
@@ -261,13 +266,18 @@ function totalsCard(daysArrays, base){ const tot=new Array(21).fill(0); daysArra
   return `<div class="la-tcard totcard"><div class="tc-id ro"><span class="tc-job">TOTAL / day</span></div>${weekBlock(tot,"",false,base)}<div class="tc-men">${grand||0} man-days total</div></div>`;
 }
 function jobDatalist(){ const dir=jobDirectory(); return `<datalist id="laJobList">${Object.keys(dir).sort().map(n=>`<option value="${esc(n)}">${esc(dir[n]||"")}</option>`).join("")}</datalist>`; }
+// Member-name suggestions for PM fields, from the main site's people list.
+function peopleDatalist(){ return `<datalist id="laPeopleList">${PEOPLE.slice()
+  .sort((a,b)=>nameNorm(a.first,a.last)<nameNorm(b.first,b.last)?-1:1)
+  .map(p=>`<option value="${esc((p.first+" "+p.last).trim())}"></option>`).join("")}</datalist>`; }
 // The foreman enters a job's PM(s); those PMs see the lookahead at the top of their list.
 function pmSection(w){
   const jobs=[...new Set((w.tasks||[]).map(t=>t.job).filter(Boolean))];
   if(!jobs.length) return "";
   return `<div class="la-card"><div class="la-h">Project Managers</div>
-    <div class="la-sub">Add the PM on each job. They'll see this lookahead pinned to the top of their list. Separate names with commas.</div>
-    ${jobs.map(num=>`<div class="la-pmrow"><span class="pm-job">${esc(num)}</span><input class="la-in pm-in" data-pmjob="${esc(num)}" value="${esc((pmsForJob(num)||[]).join(", "))}" placeholder="PM name(s)"></div>`).join("")}</div>`;
+    <div class="la-sub">Add the PM on each job — start typing to pick from the member list, or type a new name and it links up when they're added. They'll see this lookahead at the top of their list. Separate names with commas.</div>
+    ${peopleDatalist()}
+    ${jobs.map(num=>`<div class="la-pmrow"><span class="pm-job">${esc(num)}</span><input class="la-in pm-in" list="laPeopleList" data-pmjob="${esc(num)}" value="${esc((pmsForJob(num)||[]).join(", "))}" placeholder="PM name(s)"></div>`).join("")}</div>`;
 }
 function reqBoxes(w, editable){
   const r=w.reqs||{};
@@ -387,17 +397,28 @@ function jobsInPlay(){ const nums=new Set();
   LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK).forEach(w=>(w.tasks||[]).forEach(t=>{ if(t.job) nums.add(t.job); }));
   LA_JOBS.forEach(j=>nums.add(j.jobNumber));
   return [...nums]; }
+function jobCardHTML(num){
+  const on=myFavJobs().includes(num);
+  const foremen=[...new Set(LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK && (w.tasks||[]).some(t=>t.job===num)).map(w=>w.foremanName))];
+  const pms=pmsForJob(num);
+  return `<div class="la-card la-forow" data-laopenjob="${esc(num)}">
+    <div class="c-head"><span class="c-type"><button class="la-star ${on?"on":""}" data-lafavjob="${esc(num)}" title="Pin to top">${on?"★":"☆"}</button> ${esc(num)} <span class="la-sub">${esc(jobNameFor(num)||"")}</span></span></div>
+    <div class="la-sub" style="margin-top:6px"><b>Foremen:</b> ${esc(foremen.join(", ")||"—")}${pms.length?` · <b>PM:</b> ${esc(pms.join(", "))}`:""} · tap to open ›</div></div>`;
+}
 function renderJobs(){
   const fav=myFavJobs();
-  const jobs=jobsInPlay().sort((a,b)=>{ const pa=isJobPinned(a), pb=isJobPinned(b); if(pa!==pb) return pa?-1:1; return a<b?-1:1; });
-  let h=`<div class="la-card"><div class="la-h">Jobs</div><div class="la-sub">Tap a job to view its 3-week lookahead (every foreman on that job together). Jobs you're the PM on sit up top; tap the star to pin any other.</div></div>`;
-  if(!jobs.length){ h+=`<div class="la-empty"><div class="ico">📁</div><h3>No jobs yet</h3></div>`; $("laMain").innerHTML=h; return; }
-  jobs.forEach(num=>{ const on=fav.includes(num);
-    const foremen=[...new Set(LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK && (w.tasks||[]).some(t=>t.job===num)).map(w=>w.foremanName))];
-    const pms=pmsForJob(num);
-    h+=`<div class="la-card la-forow" data-laopenjob="${esc(num)}">
-      <div class="c-head"><span class="c-type"><button class="la-star ${on?"on":""}" data-lafavjob="${esc(num)}" title="Pin to top">${on?"★":"☆"}</button> ${esc(num)} <span class="la-sub">${esc(jobNameFor(num)||"")}</span></span></div>
-      <div class="la-sub" style="margin-top:6px"><b>Foremen:</b> ${esc(foremen.join(", ")||"—")}${pms.length?` · <b>PM:</b> ${esc(pms.join(", "))}`:""} · tap to open ›</div></div>`; });
+  const all=jobsInPlay();
+  const managed=all.filter(managingJob).sort((a,b)=>a<b?-1:1);
+  const mset=new Set(managed);
+  const others=all.filter(n=>!mset.has(n)).sort((a,b)=>{ const fa=fav.includes(a), fb=fav.includes(b); if(fa!==fb) return fa?-1:1; return a<b?-1:1; });
+  let h="";
+  if(managed.length){
+    h+=`<div class="la-card"><div class="la-h">Jobs You're Managing</div><div class="la-sub">You're listed as the PM on these — tap to view the 3-week lookahead.</div></div>`;
+    h+=managed.map(jobCardHTML).join("");
+  }
+  h+=`<div class="la-card"><div class="la-h">${managed.length?"All Other Jobs":"Jobs"}</div><div class="la-sub">Tap a job to view its 3-week lookahead (every foreman on that job together). Tap the star to pin one to the top.</div></div>`;
+  if(!all.length){ h+=`<div class="la-empty"><div class="ico">📁</div><h3>No jobs yet</h3></div>`; $("laMain").innerHTML=h; return; }
+  h+= others.length ? others.map(jobCardHTML).join("") : `<div class="la-card"><div class="la-sub">Nothing else right now.</div></div>`;
   $("laMain").innerHTML=h;
 }
 /* ---------------- ONE JOB'S 3-WEEK LOOKAHEAD (management, view only) ---------------- */

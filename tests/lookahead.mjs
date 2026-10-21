@@ -22,10 +22,12 @@ function seed(){
     people:{
       "p-jaren-eells":{first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",laRole:"foreman",laTrade:"sheet"},
       "p-mgr":{first:"Morgan",last:"Reed",email:"morgan@arctic.biz",laRole:"management"},
+      // Tanner has NO Look-Ahead role — he should get the view only by being named a PM.
+      "p-tanner":{first:"Tanner",last:"Owen",email:"tanner@arctic.biz"},
       "p-nobody":{first:"No",last:"Body",email:"nobody@arctic.biz"},
     },
     laJobs:{
-      "25-0150":{jobNumber:"25-0150",jobName:"Riverside Medical",foremen:[{id:"p-jaren-eells",name:"Jaren Eells",trade:"sheet"}]},
+      "25-0150":{jobNumber:"25-0150",jobName:"Riverside Medical",pms:["Tanner Owen"],foremen:[{id:"p-jaren-eells",name:"Jaren Eells",trade:"sheet"}]},
     },
     // The main app's equipment data — job numbers + names Look-Ahead should pull from.
     arrivals:{ a1:{jobNumber:"26-0147",jobName:"Adventist Health",dateReceived:"2026-01-02"} },
@@ -53,6 +55,7 @@ async function boot(user){
 }
 const JAREN ={first:"Jaren",last:"Eells",email:"jareneells@arctic.biz",id:"p-jaren-eells"};
 const MGR   ={first:"Morgan",last:"Reed",email:"morgan@arctic.biz",id:"p-mgr"};
+const TANNER={first:"Tanner",last:"Owen",email:"tanner@arctic.biz",id:"p-tanner"};
 const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
 
 // --- 1. No role -> the access message, never a stuck spinner. ---
@@ -108,9 +111,11 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   chk(await p.locator(`[data-rowname="${id2}"]`).inputValue()==="Adventist Health",
     "job name did not populate from the equipment-received data");
 
-  // the foreman can enter a PM for a job — saved on the job record
+  // the foreman can enter a PM for a job — with member-name suggestions — saved on the job record
   const pmInput=p.locator('[data-pmjob="25-0150"]');
   chk(await pmInput.count()>=1,"no PM entry field for the job");
+  chk(await p.locator("#laPeopleList").count()>=1,"no member-name suggestions for the PM field");
+  chk(await pmInput.getAttribute("list")==="laPeopleList","PM field not wired to member suggestions");
   await pmInput.fill("Dana Fox"); await pmInput.press("Tab"); await p.waitForTimeout(350);
   const pmWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laJobs"&&w.id==="25-0150"
      && Array.isArray(w.data.pms) && w.data.pms.includes("Dana Fox")));
@@ -206,6 +211,19 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   const roleWrote=await p.evaluate(id=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="people"&&w.id===id&&w.data.laRole==="foreman"),someone);
   chk(roleWrote,"assigning a Look-Ahead role from the admin did not save to the person's record");
   chk(await p.locator("#laSampleLoad").count()===1,"Look-Ahead sample load/remove is not in the main admin");
+  chk(errs.length===0,"page errors: "+errs.join(" | "));
+  await p.close();
+}
+
+// --- 7. Being NAMED a PM (no admin role) grants the view and a "Jobs you're managing" section. ---
+{
+  const {p,errs}=await boot(TANNER);
+  const tabs=(await p.locator("#laNav button").allInnerTexts()).map(s=>s.trim());
+  chk(tabs.includes("Jobs"),`a named PM did not get the management view (tabs: ${JSON.stringify(tabs)})`);
+  await p.locator('#laNav button', {hasText:"Jobs"}).click(); await p.waitForTimeout(300);
+  const body=await p.locator("#laMain").innerText();
+  chk(/Jobs You'?re Managing/i.test(body),"no 'Jobs you're managing' section for the named PM");
+  chk(await p.locator('[data-laopenjob="25-0150"]').count()>=1,"the PM's managed job is not listed");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
