@@ -72,12 +72,12 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   const {p,errs}=await boot(JAREN);
   const nav0=(await p.locator("#laNav button").first().innerText()).trim();
   chk(nav0==="My Look-Ahead",`foreman's first tab should be "My Look-Ahead", got ${JSON.stringify(nav0)}`);
-  chk(await p.locator("table.la-mp").count()===1,"the manpower grid is missing");
-  // rows are inline inputs now; the seeded task text lives in its row field
-  chk(await p.locator('[data-rowtext="t1"]').inputValue()==="Hang duct mains","seeded task not shown in its row");
-  chk(await p.locator(".la-mp [data-rowjob]").count()===2,"expected 2 seeded rows");
-  // 21 day columns in the header
-  chk(await p.locator(".la-mp thead .dh").count()===21,"grid should have 21 day columns (Mon–Sun x3)");
+  chk(await p.locator(".la-tcard").count()>=2,"task cards missing");
+  // each task is a card; the seeded task text lives in its row field
+  chk(await p.locator('[data-rowtext="t1"]').inputValue()==="Hang duct mains","seeded task not shown in its card");
+  chk(await p.locator("[data-rowjob]").count()===2,"expected 2 seeded task cards");
+  // 21 day inputs for task t1 (Mon–Sun x3, laid out as 3 week rows of 7)
+  chk(await p.locator('[data-mp^="t1|"]').count()===21,"task should have 21 day boxes (3 weeks x 7)");
   // the six requirement boxes
   chk(await p.locator(".la-reqs textarea").count()===6,"the six requirement boxes are missing");
 
@@ -91,8 +91,8 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
 
   // add a blank row, then type a known job number — the project name fills in and the job is saved
   await p.locator("#laAddRow").click(); await p.waitForTimeout(350);
-  chk(await p.locator(".la-mp [data-rowjob]").count()===3,"Add row did not add a row");
-  const newId=await p.locator(".la-mp [data-rowjob]").last().getAttribute("data-rowjob");
+  chk(await p.locator("[data-rowjob]").count()===3,"Add row did not add a row");
+  const newId=await p.locator("[data-rowjob]").last().getAttribute("data-rowjob");
   const jobField=p.locator(`[data-rowjob="${newId}"]`);
   await jobField.fill("25-0150"); await jobField.press("Tab"); await p.waitForTimeout(350);
   const nameVal=await p.locator(`[data-rowname="${newId}"]`).inputValue();
@@ -102,11 +102,19 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
 
   // a job known only from the equipment-received data (arrivals) fills its name too
   await p.locator("#laAddRow").click(); await p.waitForTimeout(350);
-  const id2=await p.locator(".la-mp [data-rowjob]").last().getAttribute("data-rowjob");
+  const id2=await p.locator("[data-rowjob]").last().getAttribute("data-rowjob");
   const jf2=p.locator(`[data-rowjob="${id2}"]`);
   await jf2.fill("26-0147"); await jf2.press("Tab"); await p.waitForTimeout(350);
   chk(await p.locator(`[data-rowname="${id2}"]`).inputValue()==="Adventist Health",
     "job name did not populate from the equipment-received data");
+
+  // the foreman can enter a PM for a job — saved on the job record
+  const pmInput=p.locator('[data-pmjob="25-0150"]');
+  chk(await pmInput.count()>=1,"no PM entry field for the job");
+  await pmInput.fill("Dana Fox"); await pmInput.press("Tab"); await p.waitForTimeout(350);
+  const pmWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laJobs"&&w.id==="25-0150"
+     && Array.isArray(w.data.pms) && w.data.pms.includes("Dana Fox")));
+  chk(pmWrote,"entering a PM for a job did not save");
 
   // mark the week done
   await p.locator("#laMarkDone").click(); await p.waitForTimeout(300);
@@ -130,9 +138,9 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   // open the foreman's sheet — must be view only
   await p.locator('[data-laopenforeman="p-jaren-eells"]').click(); await p.waitForTimeout(350);
   chk(await p.locator("#laBack").count()===1,"no back button on the opened foreman sheet");
-  chk(await p.locator("table.la-mp").count()===1,"foreman's grid not shown to management");
-  chk(await p.locator(".la-mp .tc-txt", {hasText:"Hang duct mains"}).count()>=1,"task not shown in the read-only grid");
-  chk(await p.locator(".la-mp [data-mp]").count()===0,"management view must be read-only — no editable day cells");
+  chk(await p.locator(".la-tcard").count()>=1,"foreman's sheet not shown to management");
+  chk(await p.locator(".la-tcard .tc-txt", {hasText:"Hang duct mains"}).count()>=1,"task not shown in the read-only sheet");
+  chk(await p.locator("[data-mp]").count()===0,"management view must be read-only — no editable day cells");
   chk(await p.locator("#laAddRow").count()===0,"management must not see Add row");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
@@ -167,8 +175,8 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   // open the job's combined 3-week lookahead
   await p.locator('[data-laopenjob="25-0150"]').click(); await p.waitForTimeout(350);
   chk(await p.locator("#laBackJob").count()===1,"no back button on the per-job sheet");
-  chk(await p.locator("table.la-mp").count()===1,"per-job grid missing");
-  chk(/Hang duct mains|Set VAV/.test(await p.locator("table.la-mp").innerText()),"per-job grid missing the job's tasks");
+  chk(await p.locator(".la-tcard").count()>=1,"per-job sheet missing");
+  chk(/Hang duct mains|Set VAV/.test(await p.locator("#laMain").innerText()),"per-job sheet missing the job's tasks");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
