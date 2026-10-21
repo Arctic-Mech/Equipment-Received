@@ -66,6 +66,9 @@ async function monkey(label,width,height,mobile,seedN,steps){
     // In-page clicks hit the real window.confirm, which blocks. Auto-accept so the monkey
     // explores PAST destructive actions instead of parking on the first one.
     window.confirm=()=>true; window.alert=()=>{}; window.print=()=>{};
+    // This suite fuzzes ONE page. A real cross-page link (the Look-Ahead tab is an <a href>)
+    // would navigate away and destroy the evaluate context mid-run, so swallow anchor navigations.
+    window.addEventListener("click",e=>{ const a=e.target.closest&&e.target.closest("a[href]"); if(a) e.preventDefault(); }, true);
   });
 
   /* The whole step loop runs IN THE PAGE. Driving it from node meant a round trip per element
