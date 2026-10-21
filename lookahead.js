@@ -109,8 +109,11 @@ const myFavForemen = () => { const p=myPerson(); return (p&&p.laFavForemen)||[];
 async function toggleFav(field, val){ if(!USER) return; const p=myPerson()||{}; const cur=Array.isArray(p[field])?p[field].slice():[];
   const i=cur.indexOf(val); if(i>=0) cur.splice(i,1); else cur.unshift(val);
   try{ await setDoc(doc(db,"people",USER.id),{[field]:cur,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ fbNote(e,"fav"); toast("Couldn't save"); } }
-// People who pin a job appear as its assigned PMs; show them on the job.
-function pmsForJob(num){ return PEOPLE.filter(p=>roleOf(p)==="management" && (p.laFavJobs||[]).includes(num)).map(p=>(p.first+" "+p.last).trim()); }
+const normName = s => String(s||"").toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+// PMs the foreman assigned to a job (names), stored on the job record.
+function pmsForJob(num){ return (LA_JOBS.find(j=>j.jobNumber===num)||{}).pms||[]; }
+// A job is pinned to the top of a manager's view if they starred it, or they're a PM on it.
+function isJobPinned(num){ const me=normName(USER?USER.first+" "+USER.last:""); return myFavJobs().includes(num) || pmsForJob(num).some(n=>normName(n)===me); }
 
 /* ---------- data listeners ---------- */
 function startSync(){
@@ -183,7 +186,7 @@ function navFor(role){
 function render(){
   // While the user is typing in a grid cell, a row field, or a notes box, don't rebuild under them.
   const ae=document.activeElement;
-  if(ae && ae.closest && ae.closest("#laMain [data-mp], #laMain [data-req], #laMain [data-rowjob], #laMain [data-rowname], #laMain [data-rowtext]")) return;
+  if(ae && ae.closest && ae.closest("#laMain [data-mp], #laMain [data-req], #laMain [data-rowjob], #laMain [data-rowname], #laMain [data-rowtext], #laMain [data-pmjob]")) return;
 
   if($("laWhoName")){ if(USER){ $("laWhoAv").textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); $("laWhoName").textContent=USER.first; }
     else { $("laWhoAv").textContent="?"; $("laWhoName").textContent="Sign in"; } }
@@ -226,41 +229,45 @@ function renderSignIn(){
     render(); };
 }
 
-/* ---------------- THE SHEET (foreman's own, or a foreman's sheet opened by management) ---------- */
-function mpGrid(w, editable){
-  const tasks=w.tasks||[];
-  let head=`<tr><th class="tcol" rowspan="2">Task / Job</th>`;
-  for(let wk=0;wk<3;wk++) head+=`<th colspan="7" class="wkh w${wk+1}">Week ${wk+1}</th>`;
-  head+=`<th class="men" rowspan="2">Men</th></tr><tr>`;
-  for(let i=0;i<21;i++) head+=`<th class="dh w${Math.floor(i/7)+1}">${DAY_LBL[i%7]}<span>${dayDM(i)}</span></th>`;
-  head+=`</tr>`;
-  let body="";
-  tasks.forEach(t=>{ const days=taskDays(t), men=days.reduce((a,b)=>a+b,0);
-    const left = editable
-      ? `<div class="rrow">`
-        +`<input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">`
-        +`<input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project">`
-        +`<input class="rin rin-txt" data-rowtext="${esc(t.id)}" value="${esc(t.text||"")}" placeholder="Task">`
-        +`<button class="rin-del" data-lataskdel="${esc(t.id)}" title="Delete this row">✕</button>`
-        +`</div>`
-      : `<div class="rrow ro"><span class="tc-job">${esc(t.job||"—")}</span>`
-        +(jobNameFor(t.job)?`<span class="tc-name">${esc(jobNameFor(t.job))}</span>`:"")
-        +`<span class="tc-txt">${esc(t.text||"")}</span></div>`;
-    body+=`<tr><td class="tcol">${left}</td>`;
-    for(let i=0;i<21;i++){ const v=days[i];
-      body+= editable
-        ? `<td class="day w${Math.floor(i/7)+1}"><input inputmode="numeric" maxlength="2" data-mp="${esc(t.id)}|${i}" value="${v||""}"></td>`
-        : `<td class="day w${Math.floor(i/7)+1}">${v||""}</td>`; }
-    body+=`<td class="men num">${men||""}</td></tr>`;
-  });
-  const tot=new Array(21).fill(0); tasks.forEach(t=>{ const d=taskDays(t); for(let i=0;i<21;i++) tot[i]+=d[i]; });
-  let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
-  for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
-  totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
-  const dir = editable ? jobDirectory() : {};
-  const dl = editable ? `<datalist id="laJobList">${Object.keys(dir).sort().map(n=>`<option value="${esc(n)}">${esc(dir[n]||"")}</option>`).join("")}</datalist>` : "";
-  const empty = `<tr><td class="tcol">${editable?"No rows yet — tap “Add row”.":"No rows."}</td><td colspan="22"></td></tr>`;
-  return `${dl}<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
+/* ---------------- THE SHEET (foreman's own, or a foreman's sheet opened by management) ----------
+   Mobile-first: each task is a card whose 21 days are laid out as three stacked week rows of 7
+   cells, so a phone never has to scroll sideways. Read-only views reuse the same card. */
+const weekMon = (wk, base=CUR_WEEK) => { const m=new Date(addDays(base, wk*7)+"T00:00:00"); return (m.getMonth()+1)+"/"+m.getDate(); };
+function weekBlock(days, taskId, editable, base){
+  let h=`<div class="la-wk"><div class="wk-hd"><span class="wk-lab"></span>${DAY_LBL.map(d=>`<span class="wk-c">${d}</span>`).join("")}</div>`;
+  for(let wk=0;wk<3;wk++){ h+=`<div class="wk-row"><span class="wk-lab">Wk${wk+1}<i>${weekMon(wk,base)}</i></span>`;
+    for(let d=0;d<7;d++){ const i=wk*7+d, v=days[i]||"";
+      h+= editable ? `<input class="wk-c in" inputmode="numeric" maxlength="2" data-mp="${esc(taskId)}|${i}" value="${v}">`
+                   : `<span class="wk-c">${v}</span>`; }
+    h+=`</div>`; }
+  return h+`</div>`;
+}
+const menLabel = days => { const m=days.reduce((a,b)=>a+b,0); return m?`${m} man-days`:"—"; };
+function foremanCard(t){ const days=taskDays(t);
+  return `<div class="la-tcard">
+    <div class="tc-id"><input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">
+      <input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project (fills in)">
+      <button class="rin-del" data-lataskdel="${esc(t.id)}" title="Delete this row">✕</button></div>
+    <input class="rin rin-txt" data-rowtext="${esc(t.id)}" value="${esc(t.text||"")}" placeholder="Task / description">
+    ${weekBlock(days,t.id,true)}
+    <div class="tc-men">${menLabel(days)}</div></div>`;
+}
+function readCard(idTop, idName, text, days, base){
+  return `<div class="la-tcard"><div class="tc-id ro"><span class="tc-job">${esc(idTop||"—")}</span>${idName?`<span class="tc-name">${esc(idName)}</span>`:""}</div>
+    <div class="tc-txt">${esc(text||"")}</div>${weekBlock(days,"",false,base)}<div class="tc-men">${menLabel(days)}</div></div>`;
+}
+function totalsCard(daysArrays, base){ const tot=new Array(21).fill(0); daysArrays.forEach(d=>{ for(let i=0;i<21;i++) tot[i]+=d[i]; });
+  const grand=tot.reduce((a,b)=>a+b,0);
+  return `<div class="la-tcard totcard"><div class="tc-id ro"><span class="tc-job">TOTAL / day</span></div>${weekBlock(tot,"",false,base)}<div class="tc-men">${grand||0} man-days total</div></div>`;
+}
+function jobDatalist(){ const dir=jobDirectory(); return `<datalist id="laJobList">${Object.keys(dir).sort().map(n=>`<option value="${esc(n)}">${esc(dir[n]||"")}</option>`).join("")}</datalist>`; }
+// The foreman enters a job's PM(s); those PMs see the lookahead at the top of their list.
+function pmSection(w){
+  const jobs=[...new Set((w.tasks||[]).map(t=>t.job).filter(Boolean))];
+  if(!jobs.length) return "";
+  return `<div class="la-card"><div class="la-h">Project Managers</div>
+    <div class="la-sub">Add the PM on each job. They'll see this lookahead pinned to the top of their list. Separate names with commas.</div>
+    ${jobs.map(num=>`<div class="la-pmrow"><span class="pm-job">${esc(num)}</span><input class="la-in pm-in" data-pmjob="${esc(num)}" value="${esc((pmsForJob(num)||[]).join(", "))}" placeholder="PM name(s)"></div>`).join("")}</div>`;
 }
 function reqBoxes(w, editable){
   const r=w.reqs||{};
@@ -278,10 +285,15 @@ function renderSheet(w, opts){
       <div><label>3 weeks</label><b>${esc(weekRangeLabel(weekStartN(0)))} → ${esc(weekRangeLabel(weekStartN(2)))}</b></div>
       <div><label>Date completed</label>${w.dateCompleted?`<b>${esc(w.dateCompleted)}</b> ${editable?`<button class="mini" id="laUndone">clear</button>`:""}`:(editable?`<button class="mini" id="laMarkDone">Mark done</button>`:`<b>—</b>`)}</div>
     </div></div>`;
+  const tasks=w.tasks||[];
+  const cards = tasks.length
+    ? tasks.map(t=>editable?foremanCard(t):readCard(t.job,jobNameFor(t.job),t.text,taskDays(t))).join("") + totalsCard(tasks.map(taskDays))
+    : `<div class="la-sub">${editable?"No rows yet — tap “Add row” to start.":"Nothing entered."}</div>`;
   h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>
-    <div class="la-sub">Fill it in like a spreadsheet. Type the job number in a row — the project name fills in if we know it. Then put how many people work it each day (Mon–Sun, three weeks across).${editable?" Swipe the grid sideways to reach weeks 2 and 3.":""}</div>
-    ${mpGrid(w,editable)}
+    <div class="la-sub">${editable?"Type the job number — the project name fills in if we know it. Then put how many people work it each day, one box per day.":"Crew planned each day, Mon–Sun across three weeks."}</div>
+    ${editable?jobDatalist():""}${cards}
     ${editable?`<button class="la-btn soft wide" id="laAddRow" style="margin-top:10px">+ Add row</button>`:""}</div>`;
+  if(editable) h+=pmSection(w);
   h+=`<div class="la-card"><div class="la-h">Requirements & Notes</div>${reqBoxes(w,editable)}</div>`;
   h+=`<div class="la-card"><button class="la-btn wide" id="laExportMine">⬇ Export this lookahead (PDF)</button></div>`;
   $("laMain").innerHTML=h;
@@ -305,7 +317,11 @@ function renderHistory(){
   const w=weeks.find(x=>x.weekStart===sel)||weeks[0];
   let h=`<div class="la-card"><div class="la-h">Previous Weeks</div>
     <select class="la-sel" id="laHistPick">${weeks.map(x=>`<option value="${x.weekStart}" ${x.weekStart===sel?"selected":""}>Week of ${esc(weekRangeLabel(x.weekStart))}</option>`).join("")}</select></div>`;
-  h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>${mpGrid(w,false)}</div>`;
+  const tasks=w.tasks||[];
+  const cards = tasks.length
+    ? tasks.map(t=>readCard(t.job,jobNameFor(t.job),t.text,taskDays(t),w.weekStart)).join("") + totalsCard(tasks.map(taskDays), w.weekStart)
+    : `<div class="la-sub">Nothing entered that week.</div>`;
+  h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>${cards}</div>`;
   h+=`<div class="la-card"><div class="la-h">Requirements & Notes</div>${reqBoxes(w,false)}</div>`;
   $("laMain").innerHTML=h;
   $("laHistPick").onchange=()=>{ histWeek=$("laHistPick").value; renderHistory(); };
@@ -373,8 +389,8 @@ function jobsInPlay(){ const nums=new Set();
   return [...nums]; }
 function renderJobs(){
   const fav=myFavJobs();
-  const jobs=jobsInPlay().sort((a,b)=>{ const fa=fav.includes(a), fb=fav.includes(b); if(fa!==fb) return fa?-1:1; return a<b?-1:1; });
-  let h=`<div class="la-card"><div class="la-h">Jobs</div><div class="la-sub">Tap a job to view its 3-week lookahead (every foreman on that job together). Tap the star to pin one to the top.</div></div>`;
+  const jobs=jobsInPlay().sort((a,b)=>{ const pa=isJobPinned(a), pb=isJobPinned(b); if(pa!==pb) return pa?-1:1; return a<b?-1:1; });
+  let h=`<div class="la-card"><div class="la-h">Jobs</div><div class="la-sub">Tap a job to view its 3-week lookahead (every foreman on that job together). Jobs you're the PM on sit up top; tap the star to pin any other.</div></div>`;
   if(!jobs.length){ h+=`<div class="la-empty"><div class="ico">📁</div><h3>No jobs yet</h3></div>`; $("laMain").innerHTML=h; return; }
   jobs.forEach(num=>{ const on=fav.includes(num);
     const foremen=[...new Set(LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK && (w.tasks||[]).some(t=>t.job===num)).map(w=>w.foremanName))];
@@ -397,30 +413,14 @@ function renderJobSheet(num){
       <div><label>3 weeks</label><b>${esc(weekRangeLabel(weekStartN(0)))} → ${esc(weekRangeLabel(weekStartN(2)))}</b></div>
       <div><label>PM</label><b>${esc(pms.join(", ")||"—")}</b></div>
     </div></div>`;
+  const cards = rows.length
+    ? rows.map(r=>readCard(r.who, TRADES[r.trade]||"", r.text, r.days)).join("") + totalsCard(rows.map(r=>r.days))
+    : `<div class="la-sub">No tasks on this job yet.</div>`;
   h+=`<div class="la-card"><div class="la-h">3-Week Lookahead — all foremen on this job</div>
-    <div class="la-sub">Crew per day across every foreman working ${esc(num)}. Swipe sideways for weeks 2 and 3.</div>
-    ${jobGrid(rows)}</div>`;
+    <div class="la-sub">Crew per day across every foreman working ${esc(num)}.</div>
+    ${cards}</div>`;
   $("laMain").innerHTML=h;
   $("laBackJob").onclick=()=>{ viewJobNumber=null; render(); };
-}
-// Read-only day grid for a per-job view; left column shows the foreman + trade instead of the job.
-function jobGrid(rows){
-  let head=`<tr><th class="tcol" rowspan="2">Foreman / Task</th>`;
-  for(let wk=0;wk<3;wk++) head+=`<th colspan="7" class="wkh w${wk+1}">Week ${wk+1}</th>`;
-  head+=`<th class="men" rowspan="2">Men</th></tr><tr>`;
-  for(let i=0;i<21;i++) head+=`<th class="dh w${Math.floor(i/7)+1}">${DAY_LBL[i%7]}<span>${dayDM(i)}</span></th>`;
-  head+=`</tr>`;
-  let body="";
-  rows.forEach(r=>{ const men=r.days.reduce((a,b)=>a+b,0);
-    body+=`<tr><td class="tcol"><div class="rrow ro"><span class="tc-job">${esc(r.who)}</span><span class="tc-name">${esc(TRADES[r.trade]||"")}</span><span class="tc-txt">${esc(r.text)}</span></div></td>`;
-    for(let i=0;i<21;i++) body+=`<td class="day w${Math.floor(i/7)+1}">${r.days[i]||""}</td>`;
-    body+=`<td class="men num">${men||""}</td></tr>`; });
-  const tot=new Array(21).fill(0); rows.forEach(r=>{ for(let i=0;i<21;i++) tot[i]+=r.days[i]; });
-  let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
-  for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
-  totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
-  const empty=`<tr><td class="tcol">No tasks on this job yet.</td><td colspan="22"></td></tr>`;
-  return `<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
 }
 
 /* ========================================================================== *
@@ -466,6 +466,10 @@ document.addEventListener("change", e=>{
   const rn=e.target.closest("[data-rowname]"); if(rn){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===rn.dataset.rowname); if(!t) return;
     if(t.job) upsertJob(w, t.job, rn.value.trim()); return; }
   const rt=e.target.closest("[data-rowtext]"); if(rt){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===rt.dataset.rowtext); if(!t) return; t.text=rt.value; writeWeek(w); return; }
+  // Foreman types the PM name(s) for a job — stored on the shared job record.
+  const pm=e.target.closest("[data-pmjob]"); if(pm){ const num=pm.dataset.pmjob; const names=pm.value.split(",").map(s=>s.trim()).filter(Boolean);
+    const ex=LA_JOBS.find(j=>j.jobNumber===num);
+    setDoc(doc(db,"laJobs",num),{jobNumber:num,jobName:(ex&&ex.jobName)||jobNameFor(num)||"",pms:names,updatedAt:serverTimestamp(),createdAt:(ex&&ex.createdAt)||serverTimestamp()},{merge:true}).catch(er=>fbNote(er,"pm")); return; }
 });
 
 /* ========================================================================== *
