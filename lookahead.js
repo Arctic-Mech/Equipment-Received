@@ -85,7 +85,7 @@ function taskDays(t){ const a=Array.isArray(t.days)?t.days.slice(0,21):[]; while
 /* ---------- live state ---------- */
 let LA_JOBS=[], LA_WEEKS=[], PEOPLE=[], META={seeded:false,removed:false};
 let TAB="", histWeek=null, viewForemanId=null, seeding=false, ensuringWeek=false, peopleLoaded=false, weeksLoaded=false;
-let SHEET_DOC_ID=null;   // the week doc currently shown as an editable sheet
+let SHEET_DOC_ID=null, SHEET_FALLBACK=null;   // the week doc currently shown as an editable sheet (+ a fallback for one not yet created)
 
 // Roles live on the person's record in the main app (people/{id}.laRole / .laTrade).
 // PM + Superintendent were merged into "management"; old records are read as management.
@@ -106,9 +106,6 @@ function startSync(){
   onSnapshot(doc(db,"laMeta","seed"), d=>{ META=d.exists()?{seeded:!!d.data().seeded,removed:!!d.data().removed}:{seeded:false,removed:false}; maybeSeed(); render(); }, e=>{ fbNote(e,"laMeta"); render(); });
   setTimeout(()=>{ if(!peopleLoaded){ peopleLoaded=true; render(); } }, 4000);
 }
-
-/* ---------- jobs ---------- */
-const jobsForForeman = id => LA_JOBS.filter(j=>(j.foremen||[]).some(f=>f.id===id));
 
 /* ---------- week docs ---------- */
 const weekDocId = (foremanId,ws) => `${foremanId}__${ws}`;
@@ -142,8 +139,16 @@ async function writeWeek(w, note){
        if(note) toast(note); }
   catch(e){ fbNote(e,"writeWeek"); toast("Couldn't save: "+saveMsg(e)); }
 }
-// The doc backing the open sheet (a real loaded doc, else the just-ensured fallback).
-function sheetDoc(){ return (SHEET_DOC_ID && LA_WEEKS.find(w=>w.id===SHEET_DOC_ID)) || null; }
+// The doc backing the open sheet: the live loaded doc, or the fallback object the sheet was
+// rendered from (writing it creates the doc the first time anyone fills this foreman's week).
+function sheetDoc(){ return (SHEET_DOC_ID && LA_WEEKS.find(w=>w.id===SHEET_DOC_ID)) || SHEET_FALLBACK; }
+const jobNameFor = num => (LA_JOBS.find(j=>j.jobNumber===num)||{}).jobName||"";
+// Jobs are created just by typing their number into a row; keep the shared job record in step.
+function upsertJob(w, num, name){ if(!num) return; const ex=LA_JOBS.find(j=>j.jobNumber===num);
+  const fm={id:w.foremanId,name:w.foremanName||"",trade:w.trade||""};
+  const foremen=[...((ex&&ex.foremen)||[])]; if(!foremen.some(f=>f.id===fm.id)) foremen.push(fm);
+  const rec={ jobNumber:num, jobName:(name||(ex&&ex.jobName)||""), foremen, updatedAt:serverTimestamp(), createdAt:(ex&&ex.createdAt)||serverTimestamp() };
+  setDoc(doc(db,"laJobs",num),rec,{merge:true}).catch(e=>fbNote(e,"upsertJob")); }
 
 /* ---------- delete guard: your own is free, anything else needs the PIN ---------- */
 function canDelete(ownerId, then){
@@ -165,9 +170,9 @@ function navFor(role){
   return [["locked","Look-Ahead"]];
 }
 function render(){
-  // While the user is typing in a grid cell or a notes box, don't rebuild the DOM under them.
+  // While the user is typing in a grid cell, a row field, or a notes box, don't rebuild under them.
   const ae=document.activeElement;
-  if(ae && ae.closest && ae.closest("#laMain [data-mp], #laMain [data-req]")) return;
+  if(ae && ae.closest && ae.closest("#laMain [data-mp], #laMain [data-req], #laMain [data-rowjob], #laMain [data-rowname], #laMain [data-rowtext]")) return;
 
   if($("laWhoName")){ if(USER){ $("laWhoAv").textContent=((USER.first[0]||"")+(USER.last[0]||"")).toUpperCase(); $("laWhoName").textContent=USER.first; }
     else { $("laWhoAv").textContent="?"; $("laWhoName").textContent="Sign in"; } }
@@ -186,7 +191,7 @@ function render(){
       <div class="la-card"><div class="la-sub">Whoever manages the crew sets this up in the main app: <b>Admin → Manage People → Look-Ahead</b>.</div></div>`;
     return;
   }
-  if(TAB==="mine"){ ensureCurrentWeek(); const w=myWeek(CUR_WEEK) || {id:weekDocId(USER.id,CUR_WEEK),foremanId:USER.id,foremanName:(USER.first+" "+USER.last).trim(),trade:myTrade(),weekStart:CUR_WEEK,tasks:[],reqs:{}}; renderSheet(w,{editable:true,ownJobs:true}); }
+  if(TAB==="mine"){ ensureCurrentWeek(); const w=myWeek(CUR_WEEK) || {id:weekDocId(USER.id,CUR_WEEK),foremanId:USER.id,foremanName:(USER.first+" "+USER.last).trim(),trade:myTrade(),weekStart:CUR_WEEK,tasks:[],reqs:{}}; renderSheet(w,{editable:true}); }
   else if(TAB==="history") renderHistory();
   else if(TAB==="foremen"){ if(viewForemanId) renderForemanSheet(viewForemanId); else renderForemenList(); }
   else if(TAB==="labor") renderLabor();
@@ -220,9 +225,15 @@ function mpGrid(w, editable){
   head+=`</tr>`;
   let body="";
   tasks.forEach(t=>{ const days=taskDays(t), men=days.reduce((a,b)=>a+b,0);
-    body+=`<tr><td class="tcol"><div class="tc-job">${esc(t.job||"—")}</div><div class="tc-txt">${esc(t.text||"")}</div>`
-      + (editable?`<div class="tc-acts"><button class="mini" data-lataskedit="${esc(t.id)}">Edit</button><button class="mini del" data-lataskdel="${esc(t.id)}">Delete</button></div>`:"")
-      + `</td>`;
+    const left = editable
+      ? `<input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">`
+        +`<input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project (fills in)">`
+        +`<input class="rin rin-txt" data-rowtext="${esc(t.id)}" value="${esc(t.text||"")}" placeholder="What's the task?">`
+        +`<button class="mini del rin-del" data-lataskdel="${esc(t.id)}" title="Delete this row">✕ row</button>`
+      : `<div class="tc-job">${esc(t.job||"—")}</div>`
+        +(jobNameFor(t.job)?`<div class="tc-name">${esc(jobNameFor(t.job))}</div>`:"")
+        +`<div class="tc-txt">${esc(t.text||"")}</div>`;
+    body+=`<tr><td class="tcol">${left}</td>`;
     for(let i=0;i<21;i++){ const v=days[i];
       body+= editable
         ? `<td class="day w${Math.floor(i/7)+1}"><input inputmode="numeric" maxlength="2" data-mp="${esc(t.id)}|${i}" value="${v||""}"></td>`
@@ -233,7 +244,9 @@ function mpGrid(w, editable){
   let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
   for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
   totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
-  return `<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||`<tr><td class="tcol">No tasks yet.</td><td colspan="22"></td></tr>`}${totrow}</tbody></table></div>`;
+  const dl = editable ? `<datalist id="laJobList">${LA_JOBS.map(j=>`<option value="${esc(j.jobNumber)}">${esc(j.jobName||"")}</option>`).join("")}</datalist>` : "";
+  const empty = `<tr><td class="tcol">${editable?"No rows yet — tap “Add row”.":"No rows."}</td><td colspan="22"></td></tr>`;
+  return `${dl}<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
 }
 function reqBoxes(w, editable){
   const r=w.reqs||{};
@@ -242,7 +255,7 @@ function reqBoxes(w, editable){
     +`</div>`).join("")+`</div>`;
 }
 function renderSheet(w, opts){
-  opts=opts||{}; SHEET_DOC_ID=w.id||null; const editable=!!opts.editable;
+  opts=opts||{}; SHEET_DOC_ID=w.id||null; SHEET_FALLBACK=w; const editable=!!opts.editable;
   let h="";
   if(opts.back) h+=`<button class="la-btn soft" id="laBack" style="margin-bottom:12px">‹ All foremen</button>`;
   h+=`<div class="la-card"><div class="la-sheet-head">
@@ -251,15 +264,10 @@ function renderSheet(w, opts){
       <div><label>3 weeks</label><b>${esc(weekRangeLabel(weekStartN(0)))} → ${esc(weekRangeLabel(weekStartN(2)))}</b></div>
       <div><label>Date completed</label>${w.dateCompleted?`<b>${esc(w.dateCompleted)}</b> ${editable?`<button class="mini" id="laUndone">clear</button>`:""}`:(editable?`<button class="mini" id="laMarkDone">Mark done</button>`:`<b>—</b>`)}</div>
     </div></div>`;
-  if(opts.ownJobs){ const my=jobsForForeman(USER.id);
-    h+=`<div class="la-card"><div class="la-h">My Jobs <span class="la-badge">${esc(TRADES[myTrade()]||"—")}</span></div>
-      <div class="la-chips">${my.map(j=>`<span class="la-chip">${esc(j.jobNumber)} · ${esc(j.jobName||"")}<button data-lajobleave="${esc(j.id)}" title="Remove this job from my list">✕</button></span>`).join("")||`<span class="la-sub">No jobs yet — add one.</span>`}</div>
-      <button class="la-btn ghost" id="laAddJob" style="margin-top:10px">+ Add a job</button></div>`;
-  }
   h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>
-    <div class="la-sub">Each row is a task on a job. Put how many people work it each day — Mon–Sun, three weeks across. ${editable?"Swipe the grid sideways to reach weeks 2 and 3.":""}</div>
+    <div class="la-sub">Fill it in like a spreadsheet. Type the job number in a row — the project name fills in if we know it. Then put how many people work it each day (Mon–Sun, three weeks across).${editable?" Swipe the grid sideways to reach weeks 2 and 3.":""}</div>
     ${mpGrid(w,editable)}
-    ${editable?`<button class="la-btn soft wide" id="laAddTask" style="margin-top:10px">+ Add task</button>`:""}</div>`;
+    ${editable?`<button class="la-btn soft wide" id="laAddRow" style="margin-top:10px">+ Add row</button>`:""}</div>`;
   h+=`<div class="la-card"><div class="la-h">Requirements & Notes</div>${reqBoxes(w,editable)}</div>`;
   h+=`<div class="la-card"><button class="la-btn wide" id="laExportMine">⬇ Export this lookahead (PDF)</button></div>`;
   $("laMain").innerHTML=h;
@@ -349,51 +357,11 @@ function renderJobs(){
 }
 
 /* ========================================================================== *
-   MODALS — add/edit a task, add a job
+   MODAL (the delete-PIN prompt only; the sheet itself is edited inline)
  * ========================================================================== */
 function openModal(title, bodyHTML, after){ $("laModalTitle").textContent=title; $("laModalBody").innerHTML=bodyHTML;
   $("laModal").classList.add("show"); document.body.style.overflow="hidden"; if(after) after(); }
 function closeModal(){ $("laModal").classList.remove("show"); document.body.style.overflow=""; }
-
-function jobOptionsFor(foremanId, sel){ return jobsForForeman(foremanId).map(j=>`<option value="${esc(j.jobNumber)}" ${j.jobNumber===sel?"selected":""}>${esc(j.jobNumber)} · ${esc(j.jobName||"")}</option>`).join(""); }
-
-function taskModal(existing){
-  const w=sheetDoc(); if(!w){ toast("Loading…"); return; }
-  const jobsList=jobsForForeman(w.foremanId);
-  const t=existing||{job:(jobsList[0]||{}).jobNumber||"",text:""};
-  openModal(existing?"Edit task":"Add task", `
-    ${jobsList.length?`<div class="la-field"><label>Job</label><select class="la-sel" id="tkJob">${jobOptionsFor(w.foremanId,t.job)}</select></div>`
-      :`<div class="la-notice">This foreman has no jobs yet. ${w.foremanId===USER.id?"Add a job first.":"They need to add a job before tasks can go on it."}</div>`}
-    <div class="la-field"><label>Task / activity</label><textarea class="la-ta" id="tkText" placeholder="What needs to happen">${esc(t.text||"")}</textarea></div>
-    <div class="la-sub">You'll fill in how many people work it each day back on the grid.</div>
-    ${jobsList.length?`<button class="la-btn wide" id="tkSave" style="margin-top:10px">Save task</button>`:""}`, ()=>{
-    if(!jobsList.length) return;
-    $("tkSave").onclick=async()=>{ const d=sheetDoc(); if(!d) return;
-      const text=$("tkText").value.trim(); if(!text){ toast("Enter the task"); return; }
-      d.tasks=d.tasks||[];
-      if(existing){ const row=d.tasks.find(x=>x.id===existing.id); if(row){ row.job=$("tkJob").value; row.text=text; } }
-      else d.tasks.push({id:rid(),job:$("tkJob").value,text,days:new Array(21).fill(0)});
-      await writeWeek(d); closeModal(); render(); };
-  });
-}
-function addJobModal(){
-  const existing=LA_JOBS.map(j=>`<option value="${esc(j.jobNumber)}">`).join("");
-  openModal("Add a job", `
-    <div class="la-field"><label>Job number</label><input class="la-in" id="jbNum" list="jbList" placeholder="e.g. 26-0147"><datalist id="jbList">${existing}</datalist></div>
-    <div class="la-field"><label>Project name</label><input class="la-in" id="jbName" placeholder="e.g. Adventist Health"></div>
-    <div class="la-sub">If the job already exists you'll just join it. It uses your trade (${esc(TRADES[myTrade()]||"set your trade in the main app")}).</div>
-    <button class="la-btn wide" id="jbSave" style="margin-top:10px">Save job</button>`, ()=>{
-    $("jbNum").onchange=()=>{ const ex=LA_JOBS.find(j=>j.jobNumber===normJob($("jbNum").value)); if(ex) $("jbName").value=ex.jobName||""; };
-    $("jbSave").onclick=async()=>{ const num=normJob($("jbNum").value); if(!num){ toast("Enter a job number"); return; }
-      const ex=LA_JOBS.find(j=>j.jobNumber===num);
-      const me={id:USER.id,name:(USER.first+" "+USER.last).trim(),trade:myTrade()};
-      const foremen=[...((ex&&ex.foremen)||[])]; if(!foremen.some(f=>f.id===me.id)) foremen.push(me);
-      const rec={ jobNumber:num, jobName:$("jbName").value.trim()||(ex&&ex.jobName)||"", foremen,
-        updatedAt:serverTimestamp(), createdAt:(ex&&ex.createdAt)||serverTimestamp() };
-      try{ await setDoc(doc(db,"laJobs",num), rec, {merge:true}); closeModal(); render(); toast("Job saved"); }
-      catch(e){ fbNote(e,"saveJob"); toast("Couldn't save: "+saveMsg(e)); } };
-  });
-}
 
 /* ========================================================================== *
    EVENTS
@@ -405,16 +373,13 @@ document.addEventListener("click", e=>{
 
   const open=e.target.closest("[data-laopenforeman]"); if(open){ viewForemanId=open.dataset.laopenforeman; render(); return; }
 
-  if(e.target.closest("#laAddTask")){ taskModal(null); return; }
-  const te=e.target.closest("[data-lataskedit]"); if(te){ const w=sheetDoc(); const t=w&&(w.tasks||[]).find(x=>x.id===te.dataset.lataskedit); if(t) taskModal(t); return; }
+  if(e.target.closest("#laAddRow")){ const w=sheetDoc(); if(!w){ toast("Loading…"); return; } w.tasks=(w.tasks||[]).concat({id:rid(),job:"",text:"",days:new Array(21).fill(0)}); writeWeek(w).then(render); return; }
   const td=e.target.closest("[data-lataskdel]"); if(td){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===td.dataset.lataskdel);
-    if(t && confirm("Delete this task?")){ w.tasks=w.tasks.filter(x=>x.id!==t.id); writeWeek(w).then(render); } return; }
+    if(t && confirm("Delete this row?")){ w.tasks=w.tasks.filter(x=>x.id!==t.id); writeWeek(w).then(render); } return; }
 
   if(e.target.closest("#laMarkDone")){ const w=sheetDoc(); if(w){ w.dateCompleted=isoD(new Date()); writeWeek(w).then(render); } return; }
   if(e.target.closest("#laUndone")){ const w=sheetDoc(); if(w){ w.dateCompleted=""; writeWeek(w).then(render); } return; }
 
-  if(e.target.closest("#laAddJob")){ addJobModal(); return; }
-  const jl=e.target.closest("[data-lajobleave]"); if(jl){ leaveJob(jl.dataset.lajobleave); return; }
   const jd=e.target.closest("[data-lajobdel]"); if(jd){ const j=LA_JOBS.find(x=>x.id===jd.dataset.lajobdel);
     if(j) canDelete(j.sample?"__sample__":( (j.foremen||[]).every(f=>f.id===USER.id)?USER.id:"__other__"), ()=>{
       if(!confirm(`Delete job ${j.jobNumber}? This removes it for everyone.`)) return;
@@ -429,15 +394,17 @@ document.addEventListener("change", e=>{
     const t=(w.tasks||[]).find(x=>x.id===tid); if(!t) return; const days=taskDays(t); days[+di]=Math.max(0,Math.min(99,Number(mp.value)||0));
     t.days=days; mp.value=days[+di]||""; writeWeek(w); return; }
   const rq=e.target.closest("[data-req]"); if(rq){ const w=sheetDoc(); if(!w) return; w.reqs={...(w.reqs||{})}; w.reqs[rq.dataset.req]=rq.value; writeWeek(w); return; }
+  // Type the job number in a row; if it's a known job, fill its name into the row's name field.
+  const rj=e.target.closest("[data-rowjob]"); if(rj){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===rj.dataset.rowjob); if(!t) return;
+    const num=normJob(rj.value); t.job=num; rj.value=num;
+    const nameInp=document.querySelector(`[data-rowname="${t.id}"]`); const known=jobNameFor(num);
+    if(nameInp && known && !nameInp.value.trim()) nameInp.value=known;
+    const name=(nameInp?nameInp.value:"").trim();
+    upsertJob(w, num, name); writeWeek(w); return; }
+  const rn=e.target.closest("[data-rowname]"); if(rn){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===rn.dataset.rowname); if(!t) return;
+    if(t.job) upsertJob(w, t.job, rn.value.trim()); return; }
+  const rt=e.target.closest("[data-rowtext]"); if(rt){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===rt.dataset.rowtext); if(!t) return; t.text=rt.value; writeWeek(w); return; }
 });
-
-/* ---------- foreman leaves a job (own membership — free) ---------- */
-async function leaveJob(jobId){
-  const j=LA_JOBS.find(x=>x.id===jobId); if(!j) return;
-  if(!confirm(`Remove ${j.jobNumber} from your jobs?`)) return;
-  const foremen=(j.foremen||[]).filter(f=>f.id!==USER.id);
-  try{ await setDoc(doc(db,"laJobs",j.id),{foremen,updatedAt:serverTimestamp()},{merge:true}); render(); }catch(e){ fbNote(e,"leaveJob"); }
-}
 
 /* ========================================================================== *
    SAMPLE COMPANY — auto-seeded once on a fresh database so the full scale is
