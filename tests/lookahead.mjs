@@ -27,6 +27,8 @@ function seed(){
     laJobs:{
       "25-0150":{jobNumber:"25-0150",jobName:"Riverside Medical",foremen:[{id:"p-jaren-eells",name:"Jaren Eells",trade:"sheet"}]},
     },
+    // The main app's equipment data — job numbers + names Look-Ahead should pull from.
+    arrivals:{ a1:{jobNumber:"26-0147",jobName:"Adventist Health",dateReceived:"2026-01-02"} },
     laWeeks:{
       [wk("p-jaren-eells")]:{foremanId:"p-jaren-eells",foremanName:"Jaren Eells",trade:"sheet",weekStart:CUR,
         tasks:[
@@ -97,6 +99,14 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   chk(nameVal==="Riverside Medical",`typing a known job number did not fill the project name (got ${JSON.stringify(nameVal)})`);
   const jobWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laJobs"&&w.id==="25-0150"));
   chk(jobWrote,"typing a job number into a row did not save the job");
+
+  // a job known only from the equipment-received data (arrivals) fills its name too
+  await p.locator("#laAddRow").click(); await p.waitForTimeout(350);
+  const id2=await p.locator(".la-mp [data-rowjob]").last().getAttribute("data-rowjob");
+  const jf2=p.locator(`[data-rowjob="${id2}"]`);
+  await jf2.fill("26-0147"); await jf2.press("Tab"); await p.waitForTimeout(350);
+  chk(await p.locator(`[data-rowname="${id2}"]`).inputValue()==="Adventist Health",
+    "job name did not populate from the equipment-received data");
 
   // mark the week done
   await p.locator("#laMarkDone").click(); await p.waitForTimeout(300);
