@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Look-Ahead · Arctic Mechanical</title>
+<meta name="theme-color" content="#0e1116">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="lookahead.css">
+<!-- Report libraries. Async, same CDNs/versions the main app uses. -->
+<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <header class="la-appbar">
+    <div class="la-appbar-row">
+      <a class="la-back" href="index.html" title="Back to the main app">‹ Arctic</a>
+      <div class="la-title"><b>Look-Ahead</b><span id="laWeekLabel"></span></div>
+      <button class="la-who" id="laWho"><span id="laWhoAv">?</span><span id="laWhoName">Sign in</span></button>
+    </div>
+    <nav class="la-nav" id="laNav"></nav>
+  </header>
+
+  <main class="la-main" id="laMain">
+    <div class="la-skel"></div>
+  </main>
+
+  <!-- generic modal -->
+  <div class="la-modal-back" id="laModal">
+    <div class="la-modal"><div class="la-grip"></div>
+      <div class="la-modal-head"><h3 id="laModalTitle">—</h3><button class="la-x" data-laclose="1">✕</button></div>
+      <div class="la-modal-body" id="laModalBody"></div>
+    </div>
+  </div>
+
+  <div class="la-toast" id="laToastHost"></div>
+  <script type="module" src="lookahead.js"></script>
+</body>
+</html>
