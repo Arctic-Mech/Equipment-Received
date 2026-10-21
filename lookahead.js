@@ -22,7 +22,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
          collection, onSnapshot, doc, setDoc, deleteDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { esc, normJob, MON } from "./format.js";
+import { esc, normJob, isRealJob, MON } from "./format.js";
 import { LA_TRADES as TRADES, seedSampleCompany } from "./lookahead-data.js";
 
 const ADMIN_PIN = "1977";                 // same guard the main app uses
@@ -83,7 +83,17 @@ function dayDM(i){ const d=new Date(dayIso(i)+"T00:00:00"); return (d.getMonth()
 function taskDays(t){ const a=Array.isArray(t.days)?t.days.slice(0,21):[]; while(a.length<21) a.push(0); return a.map(n=>Number(n)||0); }
 
 /* ---------- live state ---------- */
+// JOBDIR maps job number -> job name, built from the main app's equipment data (arrivals,
+// rentals, tool rentals) so a job number a foreman types fills in the same name the main site shows.
 let LA_JOBS=[], LA_WEEKS=[], PEOPLE=[], META={seeded:false,removed:false};
+let JOBDIR={}, JOBDIR_SRC={arrivals:{},rentals:{},toolRentals:{}};
+function rebuildJobDir(){ const m={}; ["arrivals","rentals","toolRentals"].forEach(k=>{
+  Object.entries(JOBDIR_SRC[k]).forEach(([n,name])=>{ if(name) m[n]=name; else if(!(n in m)) m[n]=""; }); }); JOBDIR=m; }
+function ingestJobs(into, snap){ const m={}; snap.forEach(d=>{ const v=d.data(); const num=normJob(v.jobNumber||"");
+  if(!num || !isRealJob(num)) return; const name=(v.jobName||"").trim(); if(name) m[num]=name; else if(!(num in m)) m[num]=""; });
+  JOBDIR_SRC[into]=m; rebuildJobDir(); render(); }
+// All known job numbers -> names: the equipment directory plus any Look-Ahead-only jobs.
+function jobDirectory(){ const m={...JOBDIR}; LA_JOBS.forEach(j=>{ if(j.jobName) m[j.jobNumber]=j.jobName; else if(!(j.jobNumber in m)) m[j.jobNumber]=""; }); return m; }
 let TAB="", histWeek=null, viewForemanId=null, seeding=false, ensuringWeek=false, peopleLoaded=false, weeksLoaded=false;
 let SHEET_DOC_ID=null, SHEET_FALLBACK=null;   // the week doc currently shown as an editable sheet (+ a fallback for one not yet created)
 
@@ -104,6 +114,10 @@ function startSync(){
   onSnapshot(collection(db,"laWeeks"), s=>{ const l=[]; s.forEach(d=>l.push({id:d.id,...d.data()})); LA_WEEKS=l; weeksLoaded=true; render(); }, e=>{ weeksLoaded=true; fbNote(e,"laWeeks"); render(); });
   onSnapshot(collection(db,"people"),  s=>{ const l=[]; s.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",email:v.email||"",laRole:v.laRole||"",laTrade:v.laTrade||""});}); PEOPLE=l; peopleLoaded=true; render(); }, e=>{ peopleLoaded=true; fbNote(e,"people"); render(); });
   onSnapshot(doc(db,"laMeta","seed"), d=>{ META=d.exists()?{seeded:!!d.data().seeded,removed:!!d.data().removed}:{seeded:false,removed:false}; maybeSeed(); render(); }, e=>{ fbNote(e,"laMeta"); render(); });
+  // The main app's equipment data is the source of job numbers + names.
+  onSnapshot(collection(db,"arrivals"),    s=>ingestJobs("arrivals",s),    e=>fbNote(e,"arrivals"));
+  onSnapshot(collection(db,"rentals"),     s=>ingestJobs("rentals",s),     e=>fbNote(e,"rentals"));
+  onSnapshot(collection(db,"toolRentals"), s=>ingestJobs("toolRentals",s), e=>fbNote(e,"toolRentals"));
   setTimeout(()=>{ if(!peopleLoaded){ peopleLoaded=true; render(); } }, 4000);
 }
 
@@ -142,7 +156,8 @@ async function writeWeek(w, note){
 // The doc backing the open sheet: the live loaded doc, or the fallback object the sheet was
 // rendered from (writing it creates the doc the first time anyone fills this foreman's week).
 function sheetDoc(){ return (SHEET_DOC_ID && LA_WEEKS.find(w=>w.id===SHEET_DOC_ID)) || SHEET_FALLBACK; }
-const jobNameFor = num => (LA_JOBS.find(j=>j.jobNumber===num)||{}).jobName||"";
+// Prefer the live equipment-received name; fall back to a Look-Ahead-only job's stored name.
+const jobNameFor = num => JOBDIR[num] || (LA_JOBS.find(x=>x.jobNumber===num)||{}).jobName || "";
 // Jobs are created just by typing their number into a row; keep the shared job record in step.
 function upsertJob(w, num, name){ if(!num) return; const ex=LA_JOBS.find(j=>j.jobNumber===num);
   const fm={id:w.foremanId,name:w.foremanName||"",trade:w.trade||""};
@@ -246,7 +261,8 @@ function mpGrid(w, editable){
   let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
   for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
   totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
-  const dl = editable ? `<datalist id="laJobList">${LA_JOBS.map(j=>`<option value="${esc(j.jobNumber)}">${esc(j.jobName||"")}</option>`).join("")}</datalist>` : "";
+  const dir = editable ? jobDirectory() : {};
+  const dl = editable ? `<datalist id="laJobList">${Object.keys(dir).sort().map(n=>`<option value="${esc(n)}">${esc(dir[n]||"")}</option>`).join("")}</datalist>` : "";
   const empty = `<tr><td class="tcol">${editable?"No rows yet — tap “Add row”.":"No rows."}</td><td colspan="22"></td></tr>`;
   return `${dl}<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
 }
