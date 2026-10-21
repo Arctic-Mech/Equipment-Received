@@ -71,7 +71,9 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   const nav0=(await p.locator("#laNav button").first().innerText()).trim();
   chk(nav0==="My Look-Ahead",`foreman's first tab should be "My Look-Ahead", got ${JSON.stringify(nav0)}`);
   chk(await p.locator("table.la-mp").count()===1,"the manpower grid is missing");
-  chk(await p.locator(".la-mp .tc-txt", {hasText:"Hang duct mains"}).count()===1,"seeded task not shown in the grid");
+  // rows are inline inputs now; the seeded task text lives in its row field
+  chk(await p.locator('[data-rowtext="t1"]').inputValue()==="Hang duct mains","seeded task not shown in its row");
+  chk(await p.locator(".la-mp [data-rowjob]").count()===2,"expected 2 seeded rows");
   // 21 day columns in the header
   chk(await p.locator(".la-mp thead .dh").count()===21,"grid should have 21 day columns (Mon–Sun x3)");
   // the six requirement boxes
@@ -85,10 +87,16 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
      && (w.data.tasks||[]).some(t=>t.id==="t1" && Array.isArray(t.days) && t.days[0]===5)));
   chk(mpWrote,"editing a day's crew count did not save");
 
-  // add a task
-  await p.locator("#laAddTask").click(); await p.waitForTimeout(250);
-  await p.locator("#tkText").fill("Pull permits for riser"); await p.locator("#tkSave").click(); await p.waitForTimeout(350);
-  chk(await p.locator(".la-mp .tc-txt", {hasText:"Pull permits for riser"}).count()===1,"new task did not appear in the grid");
+  // add a blank row, then type a known job number — the project name fills in and the job is saved
+  await p.locator("#laAddRow").click(); await p.waitForTimeout(350);
+  chk(await p.locator(".la-mp [data-rowjob]").count()===3,"Add row did not add a row");
+  const newId=await p.locator(".la-mp [data-rowjob]").last().getAttribute("data-rowjob");
+  const jobField=p.locator(`[data-rowjob="${newId}"]`);
+  await jobField.fill("25-0150"); await jobField.press("Tab"); await p.waitForTimeout(350);
+  const nameVal=await p.locator(`[data-rowname="${newId}"]`).inputValue();
+  chk(nameVal==="Riverside Medical",`typing a known job number did not fill the project name (got ${JSON.stringify(nameVal)})`);
+  const jobWrote=await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laJobs"&&w.id==="25-0150"));
+  chk(jobWrote,"typing a job number into a row did not save the job");
 
   // mark the week done
   await p.locator("#laMarkDone").click(); await p.waitForTimeout(300);
