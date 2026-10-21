@@ -20,12 +20,11 @@
 ============================================================================ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-         collection, onSnapshot, doc, setDoc, deleteDoc, serverTimestamp }
+         collection, onSnapshot, doc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { esc, normJob, isRealJob, MON } from "./format.js";
 import { LA_TRADES as TRADES, seedSampleCompany } from "./lookahead-data.js";
 
-const ADMIN_PIN = "1977";                 // same guard the main app uses
 const DAY_LBL = ["M","T","W","T","F","S","S"];
 // The six requirement/notes boxes from the paper form, in order.
 const REQS = [["labor","Labor Requirements"],["fab","Fabrication / Detailing"],
@@ -94,7 +93,7 @@ function ingestJobs(into, snap){ const m={}; snap.forEach(d=>{ const v=d.data();
   JOBDIR_SRC[into]=m; rebuildJobDir(); render(); }
 // All known job numbers -> names: the equipment directory plus any Look-Ahead-only jobs.
 function jobDirectory(){ const m={...JOBDIR}; LA_JOBS.forEach(j=>{ if(j.jobName) m[j.jobNumber]=j.jobName; else if(!(j.jobNumber in m)) m[j.jobNumber]=""; }); return m; }
-let TAB="", histWeek=null, viewForemanId=null, seeding=false, ensuringWeek=false, peopleLoaded=false, weeksLoaded=false;
+let TAB="", histWeek=null, viewForemanId=null, viewJobNumber=null, laborSort="job", seeding=false, ensuringWeek=false, peopleLoaded=false, weeksLoaded=false;
 let SHEET_DOC_ID=null, SHEET_FALLBACK=null;   // the week doc currently shown as an editable sheet (+ a fallback for one not yet created)
 
 // Roles live on the person's record in the main app (people/{id}.laRole / .laTrade).
@@ -104,6 +103,14 @@ function roleOf(p){ const r=p&&p.laRole; return (r==="pm"||r==="super")?"managem
 function myRole(){ return roleOf(myPerson()); }
 function myTrade(){ const p=myPerson(); return p?(p.laTrade||""):""; }
 function personName(id){ const p=PEOPLE.find(x=>x.id===id); return p?(p.first+" "+p.last).trim():id; }
+// Favorites (management pins a job or foreman to the top of their own view). Stored on the person.
+const myFavJobs = () => { const p=myPerson(); return (p&&p.laFavJobs)||[]; };
+const myFavForemen = () => { const p=myPerson(); return (p&&p.laFavForemen)||[]; };
+async function toggleFav(field, val){ if(!USER) return; const p=myPerson()||{}; const cur=Array.isArray(p[field])?p[field].slice():[];
+  const i=cur.indexOf(val); if(i>=0) cur.splice(i,1); else cur.unshift(val);
+  try{ await setDoc(doc(db,"people",USER.id),{[field]:cur,updatedAt:serverTimestamp()},{merge:true}); }catch(e){ fbNote(e,"fav"); toast("Couldn't save"); } }
+// People who pin a job appear as its assigned PMs; show them on the job.
+function pmsForJob(num){ return PEOPLE.filter(p=>roleOf(p)==="management" && (p.laFavJobs||[]).includes(num)).map(p=>(p.first+" "+p.last).trim()); }
 
 /* ---------- data listeners ---------- */
 function startSync(){
@@ -112,7 +119,7 @@ function startSync(){
   // page stuck on the loading skeleton — it falls through to the sign-in or access message.
   onSnapshot(collection(db,"laJobs"),  s=>{ const l=[]; s.forEach(d=>l.push({id:d.id,...d.data()})); LA_JOBS=l; render(); }, e=>{ fbNote(e,"laJobs"); render(); });
   onSnapshot(collection(db,"laWeeks"), s=>{ const l=[]; s.forEach(d=>l.push({id:d.id,...d.data()})); LA_WEEKS=l; weeksLoaded=true; render(); }, e=>{ weeksLoaded=true; fbNote(e,"laWeeks"); render(); });
-  onSnapshot(collection(db,"people"),  s=>{ const l=[]; s.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",email:v.email||"",laRole:v.laRole||"",laTrade:v.laTrade||""});}); PEOPLE=l; peopleLoaded=true; render(); }, e=>{ peopleLoaded=true; fbNote(e,"people"); render(); });
+  onSnapshot(collection(db,"people"),  s=>{ const l=[]; s.forEach(d=>{const v=d.data(); l.push({id:d.id,first:v.first||"",last:v.last||"",email:v.email||"",laRole:v.laRole||"",laTrade:v.laTrade||"",laFavJobs:Array.isArray(v.laFavJobs)?v.laFavJobs:[],laFavForemen:Array.isArray(v.laFavForemen)?v.laFavForemen:[]});}); PEOPLE=l; peopleLoaded=true; render(); }, e=>{ peopleLoaded=true; fbNote(e,"people"); render(); });
   onSnapshot(doc(db,"laMeta","seed"), d=>{ META=d.exists()?{seeded:!!d.data().seeded,removed:!!d.data().removed}:{seeded:false,removed:false}; maybeSeed(); render(); }, e=>{ fbNote(e,"laMeta"); render(); });
   // The main app's equipment data is the source of job numbers + names.
   onSnapshot(collection(db,"arrivals"),    s=>ingestJobs("arrivals",s),    e=>fbNote(e,"arrivals"));
@@ -165,17 +172,6 @@ function upsertJob(w, num, name){ if(!num) return; const ex=LA_JOBS.find(j=>j.jo
   const rec={ jobNumber:num, jobName:(name||(ex&&ex.jobName)||""), foremen, updatedAt:serverTimestamp(), createdAt:(ex&&ex.createdAt)||serverTimestamp() };
   setDoc(doc(db,"laJobs",num),rec,{merge:true}).catch(e=>fbNote(e,"upsertJob")); }
 
-/* ---------- delete guard: your own is free, anything else needs the PIN ---------- */
-function canDelete(ownerId, then){
-  if(ownerId===USER?.id){ then(); return; }
-  openModal("Enter PIN to delete", `<p class="la-sub">This isn't yours to delete. Enter the admin PIN to remove it.</p>
-    <input class="la-in" id="laPin" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off">
-    <button class="la-btn wide danger" id="laPinGo" style="margin-top:12px">Delete</button>`, ()=>{
-      $("laPinGo").onclick=()=>{ if($("laPin").value===ADMIN_PIN){ closeModal(); then(); } else toast("Wrong PIN"); };
-      setTimeout(()=>$("laPin").focus(),60);
-    });
-}
-
 /* ========================================================================== *
    RENDER
  * ========================================================================== */
@@ -210,7 +206,7 @@ function render(){
   else if(TAB==="history") renderHistory();
   else if(TAB==="foremen"){ if(viewForemanId) renderForemanSheet(viewForemanId); else renderForemenList(); }
   else if(TAB==="labor") renderLabor();
-  else if(TAB==="jobs") renderJobs();
+  else if(TAB==="jobs"){ if(viewJobNumber) renderJobSheet(viewJobNumber); else renderJobs(); }
 }
 
 function renderSignIn(){
@@ -292,13 +288,13 @@ function renderSheet(w, opts){
   if($("laBack")) $("laBack").onclick=()=>{ viewForemanId=null; render(); };
 }
 
-/* management opening one foreman's current week */
+/* management opening one foreman's current week — view only */
 function renderForemanSheet(foremanId){
   const p=PEOPLE.find(x=>x.id===foremanId);
   const name=p?(p.first+" "+p.last).trim():foremanId;
   const trade=p?(p.laTrade||""):"";
   const w=weekFor(foremanId,CUR_WEEK) || {id:weekDocId(foremanId,CUR_WEEK),foremanId,foremanName:name,trade,weekStart:CUR_WEEK,tasks:[],reqs:{}};
-  renderSheet(w,{editable:true,back:true});
+  renderSheet(w,{editable:false,back:true});
 }
 
 /* ---------------- HISTORY (foreman, read-only) ---------------- */
@@ -315,18 +311,21 @@ function renderHistory(){
   $("laHistPick").onchange=()=>{ histWeek=$("laHistPick").value; renderHistory(); };
 }
 
-/* ---------------- FOREMEN LIST (management) ---------------- */
+/* ---------------- FOREMEN LIST (management, view only) ---------------- */
 function renderForemenList(){
-  const foremen=PEOPLE.filter(p=>roleOf(p)==="foreman").sort((a,b)=>nameNorm(a.first,a.last)<nameNorm(b.first,b.last)?-1:1);
+  const fav=myFavForemen();
+  const foremen=PEOPLE.filter(p=>roleOf(p)==="foreman").sort((a,b)=>{
+    const fa=fav.includes(a.id), fb=fav.includes(b.id); if(fa!==fb) return fa?-1:1;
+    return nameNorm(a.first,a.last)<nameNorm(b.first,b.last)?-1:1; });
   let h=`<div class="la-card"><div class="la-h">Foremen — This Week</div>
-    <div class="la-sub">Tap a foreman to see and adjust what they've entered for the week of ${esc(weekRangeLabel(CUR_WEEK))}.</div></div>`;
+    <div class="la-sub">Tap a foreman to view what they entered for the week of ${esc(weekRangeLabel(CUR_WEEK))}. Tap the star to pin one to the top.</div></div>`;
   if(!foremen.length){ h+=`<div class="la-empty"><div class="ico">👷</div><h3>No foremen yet</h3><p>Set someone to Foreman in the main app: Admin → Manage People → Look-Ahead.</p></div>`; $("laMain").innerHTML=h; return; }
   foremen.forEach(p=>{ const w=weekFor(p.id,CUR_WEEK);
     const men=w?(w.tasks||[]).reduce((s,t)=>s+taskDays(t).reduce((a,b)=>a+b,0),0):0;
     const tasks=w?(w.tasks||[]).length:0;
-    const done=w&&w.dateCompleted;
+    const done=w&&w.dateCompleted; const on=fav.includes(p.id);
     h+=`<div class="la-card la-forow" data-laopenforeman="${esc(p.id)}">
-      <div class="c-head"><span class="c-type">${esc((p.first+" "+p.last).trim())} <span class="la-badge">${esc(TRADES[p.laTrade]||"trade?")}</span></span>
+      <div class="c-head"><span class="c-type"><button class="la-star ${on?"on":""}" data-lafavforeman="${esc(p.id)}" title="Pin to top">${on?"★":"☆"}</button> ${esc((p.first+" "+p.last).trim())} <span class="la-badge">${esc(TRADES[p.laTrade]||"trade?")}</span></span>
         ${done?`<span class="la-badge ok">done ${esc(w.dateCompleted)}</span>`:`<span class="la-badge">in progress</span>`}</div>
       <div class="la-sub" style="margin-top:6px">${tasks} task${tasks===1?"":"s"} · ${men} man-day${men===1?"":"s"} planned · tap to open ›</div></div>`; });
   $("laMain").innerHTML=h;
@@ -340,9 +339,11 @@ function laborMatrix(){
     (w.tasks||[]).forEach(t=>{ const job=t.job||"—", k=job+"|"+tr;
       const e=m[k]=m[k]||{job,trade:tr,day:new Array(21).fill(0)};
       const d=taskDays(t); for(let i=0;i<21;i++) e.day[i]+=d[i]; }); });
-  return Object.values(m).map(e=>({job:e.job,trade:e.trade,
-      wk:[0,1,2].map(wi=>Math.max(0,...e.day.slice(wi*7,wi*7+7)))}))
-    .sort((a,b)=>a.job<b.job?-1:a.job>b.job?1:(a.trade<b.trade?-1:1));
+  const rows=Object.values(m).map(e=>({job:e.job,trade:e.trade,
+      wk:[0,1,2].map(wi=>Math.max(0,...e.day.slice(wi*7,wi*7+7)))}));
+  const byJob=(a,b)=>a.job<b.job?-1:a.job>b.job?1:(a.trade<b.trade?-1:1);
+  const byTrade=(a,b)=>a.trade<b.trade?-1:a.trade>b.trade?1:(a.job<b.job?-1:a.job>b.job?1:0);
+  return rows.sort(laborSort==="trade"?byTrade:byJob);
 }
 function renderLabor(){
   const rows=laborMatrix();
@@ -351,7 +352,8 @@ function renderLabor(){
     return `<td class="num ${jump?"la-jump":""} ${big?"la-big":""}">${v||""}</td>`; };
   let h=`<div class="la-card"><div class="la-h">Upcoming Labor Needs</div>
     <div class="la-sub">Biggest crew needed each week, by job and trade, from every foreman's lookahead. Amber = a jump from the week before, or an unusually big crew.</div>
-    <button class="la-btn soft" id="laExportLabor" style="margin-top:4px">⬇ Export labor report (Excel)</button></div>`;
+    <div class="la-row" style="margin-bottom:8px">Sort: <button class="mini ${laborSort==="job"?"on":""}" data-lasort="job">By job</button><button class="mini ${laborSort==="trade"?"on":""}" data-lasort="trade">By trade</button></div>
+    <button class="la-btn soft" id="laExportLabor">⬇ Export labor report (Excel)</button></div>`;
   if(!rows.length){ h+=`<div class="la-empty"><div class="ico">👷</div><h3>No labor planned yet</h3><p>It fills in as foremen fill out their lookaheads.</p></div>`; $("laMain").innerHTML=h; return; }
   h+=`<div class="la-card" style="overflow-x:auto"><table class="la-table"><thead><tr><th>Job</th><th>Trade</th>
     <th>Wk1<br><span style="font-weight:400">${esc(weekRangeLabel(weekStartN(0)))}</span></th>
@@ -363,33 +365,80 @@ function renderLabor(){
   $("laMain").innerHTML=h;
 }
 
-/* ---------------- JOBS (management) ---------------- */
+/* ---------------- JOBS (management, view only) ---------------- */
+// Every job number that shows up on a current-week lookahead (plus any laJobs record).
+function jobsInPlay(){ const nums=new Set();
+  LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK).forEach(w=>(w.tasks||[]).forEach(t=>{ if(t.job) nums.add(t.job); }));
+  LA_JOBS.forEach(j=>nums.add(j.jobNumber));
+  return [...nums]; }
 function renderJobs(){
-  const jobs=LA_JOBS.slice().sort((a,b)=>a.jobNumber<b.jobNumber?-1:1);
-  let h=`<div class="la-card"><div class="la-h">Jobs</div><div class="la-sub">Every job foremen have added to their lookaheads.</div></div>`;
+  const fav=myFavJobs();
+  const jobs=jobsInPlay().sort((a,b)=>{ const fa=fav.includes(a), fb=fav.includes(b); if(fa!==fb) return fa?-1:1; return a<b?-1:1; });
+  let h=`<div class="la-card"><div class="la-h">Jobs</div><div class="la-sub">Tap a job to view its 3-week lookahead (every foreman on that job together). Tap the star to pin one to the top.</div></div>`;
   if(!jobs.length){ h+=`<div class="la-empty"><div class="ico">📁</div><h3>No jobs yet</h3></div>`; $("laMain").innerHTML=h; return; }
-  jobs.forEach(j=>{ h+=`<div class="la-card"><div class="c-head"><span class="c-type">${esc(j.jobNumber)} <span class="la-sub">${esc(j.jobName||"")}</span></span>${j.sample?`<span class="la-badge sample">sample</span>`:""}</div>
-    <div class="la-sub" style="margin-top:6px"><b>Foremen:</b> ${esc((j.foremen||[]).map(f=>`${f.name} (${TRADES[f.trade]||"?"})`).join(", ")||"—")}</div>
-    <div class="t-acts" style="margin-top:8px"><button class="mini del" data-lajobdel="${esc(j.id)}">Delete job</button></div></div>`; });
+  jobs.forEach(num=>{ const on=fav.includes(num);
+    const foremen=[...new Set(LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK && (w.tasks||[]).some(t=>t.job===num)).map(w=>w.foremanName))];
+    const pms=pmsForJob(num);
+    h+=`<div class="la-card la-forow" data-laopenjob="${esc(num)}">
+      <div class="c-head"><span class="c-type"><button class="la-star ${on?"on":""}" data-lafavjob="${esc(num)}" title="Pin to top">${on?"★":"☆"}</button> ${esc(num)} <span class="la-sub">${esc(jobNameFor(num)||"")}</span></span></div>
+      <div class="la-sub" style="margin-top:6px"><b>Foremen:</b> ${esc(foremen.join(", ")||"—")}${pms.length?` · <b>PM:</b> ${esc(pms.join(", "))}`:""} · tap to open ›</div></div>`; });
   $("laMain").innerHTML=h;
 }
-
-/* ========================================================================== *
-   MODAL (the delete-PIN prompt only; the sheet itself is edited inline)
- * ========================================================================== */
-function openModal(title, bodyHTML, after){ $("laModalTitle").textContent=title; $("laModalBody").innerHTML=bodyHTML;
-  $("laModal").classList.add("show"); document.body.style.overflow="hidden"; if(after) after(); }
-function closeModal(){ $("laModal").classList.remove("show"); document.body.style.overflow=""; }
+/* ---------------- ONE JOB'S 3-WEEK LOOKAHEAD (management, view only) ---------------- */
+function renderJobSheet(num){
+  const rows=[];
+  LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK).forEach(w=>{ (w.tasks||[]).filter(t=>t.job===num).forEach(t=>{
+    rows.push({who:w.foremanName||"", trade:w.trade||"", text:t.text||"", days:taskDays(t)}); }); });
+  const pms=pmsForJob(num);
+  let h=`<button class="la-btn soft" id="laBackJob" style="margin-bottom:12px">‹ All jobs</button>`;
+  h+=`<div class="la-card"><div class="la-sheet-head">
+      <div><label>Job</label><b>${esc(num)}</b></div>
+      <div><label>Project</label><b>${esc(jobNameFor(num)||"—")}</b></div>
+      <div><label>3 weeks</label><b>${esc(weekRangeLabel(weekStartN(0)))} → ${esc(weekRangeLabel(weekStartN(2)))}</b></div>
+      <div><label>PM</label><b>${esc(pms.join(", ")||"—")}</b></div>
+    </div></div>`;
+  h+=`<div class="la-card"><div class="la-h">3-Week Lookahead — all foremen on this job</div>
+    <div class="la-sub">Crew per day across every foreman working ${esc(num)}. Swipe sideways for weeks 2 and 3.</div>
+    ${jobGrid(rows)}</div>`;
+  $("laMain").innerHTML=h;
+  $("laBackJob").onclick=()=>{ viewJobNumber=null; render(); };
+}
+// Read-only day grid for a per-job view; left column shows the foreman + trade instead of the job.
+function jobGrid(rows){
+  let head=`<tr><th class="tcol" rowspan="2">Foreman / Task</th>`;
+  for(let wk=0;wk<3;wk++) head+=`<th colspan="7" class="wkh w${wk+1}">Week ${wk+1}</th>`;
+  head+=`<th class="men" rowspan="2">Men</th></tr><tr>`;
+  for(let i=0;i<21;i++) head+=`<th class="dh w${Math.floor(i/7)+1}">${DAY_LBL[i%7]}<span>${dayDM(i)}</span></th>`;
+  head+=`</tr>`;
+  let body="";
+  rows.forEach(r=>{ const men=r.days.reduce((a,b)=>a+b,0);
+    body+=`<tr><td class="tcol"><div class="rrow ro"><span class="tc-job">${esc(r.who)}</span><span class="tc-name">${esc(TRADES[r.trade]||"")}</span><span class="tc-txt">${esc(r.text)}</span></div></td>`;
+    for(let i=0;i<21;i++) body+=`<td class="day w${Math.floor(i/7)+1}">${r.days[i]||""}</td>`;
+    body+=`<td class="men num">${men||""}</td></tr>`; });
+  const tot=new Array(21).fill(0); rows.forEach(r=>{ for(let i=0;i<21;i++) tot[i]+=r.days[i]; });
+  let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
+  for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
+  totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
+  const empty=`<tr><td class="tcol">No tasks on this job yet.</td><td colspan="22"></td></tr>`;
+  return `<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
+}
 
 /* ========================================================================== *
    EVENTS
  * ========================================================================== */
+function closeModal(){ $("laModal").classList.remove("show"); document.body.style.overflow=""; }
 document.addEventListener("click", e=>{
-  const tabBtn=e.target.closest("[data-latab]"); if(tabBtn){ TAB=tabBtn.dataset.latab; viewForemanId=null; render(); return; }
+  const tabBtn=e.target.closest("[data-latab]"); if(tabBtn){ TAB=tabBtn.dataset.latab; viewForemanId=null; viewJobNumber=null; render(); return; }
   if(e.target.closest("[data-laclose]")){ closeModal(); return; }
   if(e.target===$("laModal")){ closeModal(); return; }
 
+  // favorites (pin to top) — handle before the open handlers so the star doesn't also open the row
+  const ff=e.target.closest("[data-lafavforeman]"); if(ff){ e.stopPropagation(); toggleFav("laFavForemen", ff.dataset.lafavforeman); return; }
+  const fj=e.target.closest("[data-lafavjob]"); if(fj){ e.stopPropagation(); toggleFav("laFavJobs", fj.dataset.lafavjob); return; }
+  const sortBtn=e.target.closest("[data-lasort]"); if(sortBtn){ laborSort=sortBtn.dataset.lasort; render(); return; }
+
   const open=e.target.closest("[data-laopenforeman]"); if(open){ viewForemanId=open.dataset.laopenforeman; render(); return; }
+  const openJ=e.target.closest("[data-laopenjob]"); if(openJ){ viewJobNumber=openJ.dataset.laopenjob; render(); return; }
 
   if(e.target.closest("#laAddRow")){ const w=sheetDoc(); if(!w){ toast("Loading…"); return; } w.tasks=(w.tasks||[]).concat({id:rid(),job:"",text:"",days:new Array(21).fill(0)}); writeWeek(w).then(render); return; }
   const td=e.target.closest("[data-lataskdel]"); if(td){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===td.dataset.lataskdel);
@@ -397,11 +446,6 @@ document.addEventListener("click", e=>{
 
   if(e.target.closest("#laMarkDone")){ const w=sheetDoc(); if(w){ w.dateCompleted=isoD(new Date()); writeWeek(w).then(render); } return; }
   if(e.target.closest("#laUndone")){ const w=sheetDoc(); if(w){ w.dateCompleted=""; writeWeek(w).then(render); } return; }
-
-  const jd=e.target.closest("[data-lajobdel]"); if(jd){ const j=LA_JOBS.find(x=>x.id===jd.dataset.lajobdel);
-    if(j) canDelete(j.sample?"__sample__":( (j.foremen||[]).every(f=>f.id===USER.id)?USER.id:"__other__"), ()=>{
-      if(!confirm(`Delete job ${j.jobNumber}? This removes it for everyone.`)) return;
-      deleteDoc(doc(db,"laJobs",j.id)).then(()=>toast("Job deleted")).catch(er=>toast("Couldn't: "+saveMsg(er))); }); return; }
 
   if(e.target.closest("#laExportMine")) exportSheetPdf(SHEET_DOC_ID);
   if(e.target.closest("#laExportLabor")) exportLabor();
