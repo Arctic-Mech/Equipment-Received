@@ -27,46 +27,49 @@ export async function seedSampleCompany(db){
     ["smp-luis","Luis (sample)","piping"],
   ];
   const fname=id=>(foremen.find(f=>f[0]===id)||[,""])[1];
-  // number, name, [pm names], [[foremanId]]
+  // number, name, [[foremanId]]
   const jobs=[
-    ["SMP-0150","Riverside Medical Center",["Dana Fox"],["smp-jaren","smp-pete"]],
-    ["SMP-0200","Cedar High School",        ["Dana Fox"],["smp-marcus"]],
-    ["SMP-0300","Summit Office Tower",       ["Priya Rao"],["smp-jaren","smp-luis"]],
-    ["SMP-0147","North Valley Data Center",  ["Priya Rao","Dana Fox"],["smp-marcus","smp-pete"]],
-    ["SMP-0210","Harbor Logistics Warehouse",["Priya Rao"],["smp-luis"]],
-    ["SMP-0255","Grandview Apartments",      ["Dana Fox"],["smp-marcus"]],
-    ["SMP-0312","Lakeside Clinic",           ["Priya Rao"],["smp-pete"]],
-    ["SMP-0355","Civic Center Renovation",   ["Dana Fox","Priya Rao"],["smp-jaren"]],
+    ["SMP-0150","Riverside Medical Center",  ["smp-jaren","smp-pete"]],
+    ["SMP-0200","Cedar High School",         ["smp-marcus"]],
+    ["SMP-0300","Summit Office Tower",        ["smp-jaren","smp-luis"]],
+    ["SMP-0147","North Valley Data Center",   ["smp-marcus","smp-pete"]],
+    ["SMP-0210","Harbor Logistics Warehouse", ["smp-luis"]],
+    ["SMP-0255","Grandview Apartments",       ["smp-marcus"]],
+    ["SMP-0312","Lakeside Clinic",            ["smp-pete"]],
+    ["SMP-0355","Civic Center Renovation",    ["smp-jaren"]],
   ];
   const acts={ sheet:["Hang duct mains","Set VAV boxes","Install grilles & diffusers","Fab shop spool delivery","Seal & insulate duct"],
                piping:["Rough-in chilled water","Set pumps","Hydro test risers","Install hangers","Trim-out fixtures"] };
+  const sampleReqs=trade=>({
+    labor:trade==="sheet"?"2 sheet metal mechanics + 1 apprentice steady; add a 2-man crew for the mains in week 2."
+                         :"3 pipefitters through the shutdown window; 1 welder on call for the risers.",
+    fab:"Spools detailed and released; shop delivering in batches Tuesday and Thursday.",
+    special:"Scissor lift certs current. Firestop special inspection to be scheduled before cover-up.",
+    sub:"Coordinating ceiling grid with the drywall sub; need their layout before we set diffusers.",
+    material:"Hangers and strut on site. Grilles arriving week 2 — follow up with vendor on the VAV boxes.",
+    co:"RFI 214 (ceiling height at line D) may drive a change order — waiting on the GC's answer.",
+  });
+  // Build a per-day crew pattern (21 days): work Mon–Thu each week, ramping a little by week.
+  const patternFor=(base)=>{ const d=new Array(21).fill(0);
+    for(let wk=0;wk<3;wk++){ const crew=base+wk; for(let dd=0;dd<4;dd++) d[wk*7+dd]=crew; } return d; };
 
   const batch=writeBatch(db);
   const jobIds=[], weekIds=[];
-  jobs.forEach(([num,name,pms,fore])=>{
+  jobs.forEach(([num,name,fore])=>{
     batch.set(doc(db,"laJobs",num),{ jobNumber:num, jobName:name,
-      pms:pms.map(n=>({id:"",name:n})),
       foremen:fore.map(id=>({id,name:fname(id),trade:(foremen.find(f=>f[0]===id)||[])[2]})),
       sample:true, createdAt:serverTimestamp(), updatedAt:serverTimestamp() });
     jobIds.push(num);
   });
   foremen.forEach(([id,name,trade])=>{
-    const theirJobs=jobs.filter(j=>j[3].includes(id)).map(j=>j[0]);
+    const theirJobs=jobs.filter(j=>j[2].includes(id)).map(j=>j[0]);
     [CUR, addDays(CUR,-7)].forEach((ws,wi)=>{
       const tasks=[];
-      theirJobs.forEach((job,ji)=>{ for(let wk=1;wk<=3;wk++){
-        tasks.push({id:rid(),job,week:wk,text:acts[trade][(ji+wk)%acts[trade].length],headcount:3+((ji+wk+wi)%4)}); } });
-      const conflicts=[];
-      if(wi===0 && theirJobs[0]){
-        conflicts.push({id:rid(),scope:"current",job:theirJobs[0],type:"GC",
-          what:"GC overhead work blocked our bay Tue–Wed; crew reassigned.",where:"Level 3 east",when:"Tue",
-          impMan:true,impHours:true,impProd:false,impSched:true,hours:16,days:1,resolved:false,pmStatus:""});
-        conflicts.push({id:rid(),scope:"upcoming",job:theirJobs[0],type:"Design / RFI",
-          what:"Ceiling height conflict with structural steel at column line D.",where:"Area D",when:"Week 2",
-          need:"RFI 214 answered by GC before we can set mains.",resolved:false,pmStatus:""});
-      }
+      theirJobs.forEach((job,ji)=>{ for(let k=0;k<2;k++){
+        tasks.push({id:rid(),job,text:acts[trade][(ji+k)%acts[trade].length],days:patternFor(2+((ji+k+wi)%3))}); } });
       const wi2=wid(id,ws);
-      batch.set(doc(db,"laWeeks",wi2),{ foremanId:id, foremanName:name, trade, weekStart:ws, tasks, conflicts, sample:true, updatedAt:serverTimestamp() });
+      batch.set(doc(db,"laWeeks",wi2),{ foremanId:id, foremanName:name, trade, weekStart:ws, tasks,
+        reqs:sampleReqs(trade), dateCompleted:wi===1?addDays(ws,4):"", sample:true, updatedAt:serverTimestamp() });
       weekIds.push(wi2);
     });
   });

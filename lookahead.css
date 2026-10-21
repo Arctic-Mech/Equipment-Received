@@ -113,6 +113,38 @@ a{color:var(--blue);text-decoration:none}
 .la-jump{background:var(--amber-soft);color:var(--amber);font-weight:800}
 .la-big{outline:2px solid var(--amber)}
 
+/* ---- the lookahead sheet: header, day-by-day manpower grid, requirement boxes ---- */
+.la-sheet-head{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+@media(min-width:620px){ .la-sheet-head{grid-template-columns:repeat(4,1fr)} }
+.la-sheet-head label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--steel);margin-bottom:2px}
+.la-sheet-head b{font-size:14px}
+
+.la-grid{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
+table.la-mp{border-collapse:collapse;font-size:12px;min-width:max-content}
+table.la-mp th,table.la-mp td{border:1px solid var(--line);text-align:center;padding:0}
+table.la-mp .tcol{position:sticky;left:0;z-index:2;background:var(--card);text-align:left;min-width:150px;max-width:150px;padding:6px 8px;vertical-align:top}
+table.la-mp thead .tcol{z-index:3;background:var(--surface)}
+.la-mp .tc-job{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:var(--blue)}
+.la-mp .tc-txt{font-size:12px;line-height:1.3;margin-top:1px}
+.la-mp .tc-acts{display:flex;gap:5px;margin-top:5px}
+.la-mp .wkh{background:var(--surface);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--steel);padding:4px 0}
+.la-mp .dh{background:var(--surface);font-size:10px;font-weight:700;color:var(--steel);width:32px;min-width:32px;padding:3px 0;line-height:1.05}
+.la-mp .dh span{display:block;font-size:8px;font-weight:600;opacity:.75}
+.la-mp .dh.w1,.la-mp td.day.w1{background:var(--w1)} .la-mp .dh.w2,.la-mp td.day.w2{background:var(--w2)} .la-mp .dh.w3,.la-mp td.day.w3{background:var(--w3)}
+.la-mp td.day{width:32px;min-width:32px;height:34px}
+.la-mp td.day input{width:100%;height:32px;border:none;background:transparent;text-align:center;font-size:13px;font-weight:700;padding:0;color:var(--ink)}
+.la-mp td.day input:focus{outline:2px solid var(--blue);outline-offset:-2px;border-radius:4px}
+.la-mp .men{min-width:40px;width:40px;font-weight:800;padding:0 4px}
+.la-mp thead .men{background:var(--surface);font-size:10px;color:var(--steel)}
+.la-mp .totr td{background:var(--surface);font-weight:800}
+.la-mp .totr .tcol{font-family:'Barlow Condensed';letter-spacing:.03em;text-transform:uppercase;font-size:12px}
+.la-mp td.num{font-weight:700}
+
+.la-reqs{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:720px){ .la-reqs{grid-template-columns:1fr 1fr} }
+.la-ro{border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:9px 11px;font-size:13px;line-height:1.4;white-space:pre-wrap;min-height:40px}
+.la-forow{cursor:pointer} .la-forow:active{background:var(--surface)}
+
 .la-conf{border:1px solid var(--line);border-left:4px solid var(--steel-light);border-radius:9px;padding:11px;margin-bottom:10px;background:var(--card)}
 .la-conf.co{border-left-color:var(--red)}
 .la-conf.upcoming{border-left-color:var(--amber)}
