@@ -268,18 +268,32 @@ function mpGrid(w, editable){
   let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
   for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
   totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
-  // Per-day detail: a tappable note for each day (shutdowns, deliveries, inspections…).
-  const notes=w.dayNotes||[];
-  let noterow=`<tr class="noterow"><td class="tcol">Day notes</td>`;
-  for(let i=0;i<21;i++){ const n=notes[i]||"";
-    noterow+= editable
-      ? `<td class="day w${Math.floor(i/7)+1}"><button class="dnote ${n?"has":"empty"}" data-daynote="${i}" title="Add detail for this day">${n?esc(n):"+"}</button></td>`
-      : `<td class="day w${Math.floor(i/7)+1}">${n?`<button class="dnote has ro" data-daynoteview="${i}">${esc(n)}</button>`:""}</td>`; }
-  noterow+=`<td class="men"></td></tr>`;
   const dir = editable ? jobDirectory() : {};
   const dl = editable ? `<datalist id="laJobList">${Object.keys(dir).sort().map(n=>`<option value="${esc(n)}">${esc(dir[n]||"")}</option>`).join("")}</datalist>` : "";
   const empty = `<tr><td class="tcol">${editable?"No rows yet — tap “Add row”.":"No rows."}</td><td colspan="22"></td></tr>`;
-  return `${dl}<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}${noterow}</tbody></table></div>`;
+  return `${dl}<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
+}
+// The crew total for each of the 21 days, summed across every task.
+function dayCrewTotals(w){ const tot=new Array(21).fill(0); (w.tasks||[]).forEach(t=>{ const d=taskDays(t); for(let i=0;i<21;i++) tot[i]+=d[i]; }); return tot; }
+// A big 3-week calendar (like the delivery calendar): one large box per day, with that day's
+// crew count and any detail note shown right inside the box. Tap a day to add/read detail.
+function dayCalendar(w, editable){
+  const notes=w.dayNotes||[], crew=dayCrewTotals(w), todayIso=isoD(new Date());
+  let h=`<div class="la-cal">`;
+  h+=DAY_FULL.map(d=>`<div class="cdow">${d}</div>`).join("");
+  for(let wk=0;wk<3;wk++){
+    h+=`<div class="cwk w${wk+1}">Week ${wk+1} · ${esc(weekRangeLabel(weekStartN(wk)))}</div>`;
+    for(let d=0;d<7;d++){ const i=wk*7+d, n=notes[i]||"", c=crew[i]||0, iso=dayIso(i);
+      const num=new Date(iso+"T00:00:00").getDate();
+      const cls=`cday w${wk+1}${iso===todayIso?" today":""}${n?" has":""}`;
+      const inner=`<div class="cday-top"><span class="cnum">${num}</span>${c?`<span class="ccrew">👷 ${c}</span>`:""}</div>`
+        +`<div class="cnote">${n?esc(n):(editable?`<span class="cadd">＋</span>`:"")}</div>`;
+      h+= editable ? `<button class="${cls}" data-daynote="${i}">${inner}</button>`
+        : (n ? `<button class="${cls}" data-daynoteview="${i}">${inner}</button>`
+             : `<div class="${cls} flat">${inner}</div>`);
+    }
+  }
+  return h+`</div>`;
 }
 // Read-only per-job grid; the left column shows the foreman + trade instead of the job.
 function jobGrid(rows){
@@ -330,10 +344,13 @@ function renderSheet(w, opts){
       <div><label>3 weeks</label><b>${esc(weekRangeLabel(weekStartN(0)))} → ${esc(weekRangeLabel(weekStartN(2)))}</b></div>
       <div><label>Date completed</label>${w.dateCompleted?`<b>${esc(w.dateCompleted)}</b> ${editable?`<button class="mini" id="laUndone">clear</button>`:""}`:(editable?`<button class="mini" id="laMarkDone">Mark done</button>`:`<b>—</b>`)}</div>
     </div></div>`;
-  h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>
+  h+=`<div class="la-card gridcard"><div class="la-h">Tasks & Manpower</div>
     <div class="la-sub">${editable?"Fill it in like a spreadsheet. Type the job number in a row — the project name fills in if we know it. Then put how many people work it each day (Mon–Sun, three weeks across). Swipe the grid sideways to reach weeks 2 and 3.":"Crew planned each day, Mon–Sun across three weeks. Swipe sideways for weeks 2 and 3."}</div>
     ${mpGrid(w,editable)}
     ${editable?`<button class="la-btn soft wide" id="laAddRow" style="margin-top:10px">+ Add row</button>`:""}</div>`;
+  h+=`<div class="la-card"><div class="la-h">Day Detail</div>
+    <div class="la-sub">${editable?"Tap any day to add detail — shutdowns, deliveries, inspections, start times. It shows right on the day.":"Detail noted on specific days. Tap a day to read it."}</div>
+    ${dayCalendar(w,editable)}</div>`;
   if(editable && opts.own) h+=pmSection(w);
   h+=`<div class="la-card"><div class="la-h">Requirements & Notes</div>${reqBoxes(w,editable)}</div>`;
   h+=`<div class="la-card"><button class="la-btn wide" id="laExportMine">⬇ Export this lookahead (PDF)</button></div>`;
