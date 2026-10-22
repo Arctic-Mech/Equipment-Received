@@ -75,6 +75,12 @@ await page.locator("nav.tabs .tab[data-view='safety']").click();
 await page.waitForTimeout(250);
 chk(await page.locator("#view-safety").isVisible(), "Safety view did not open");
 chk(await page.locator(".sub-pill").count() === 6, "expected 6 Safety sub-pills (Points/Training/SDS/Drug Cards/Med Gas/PTP)");
+// PTP opens first.
+chk((await page.locator(".sub-pill.active").first().getAttribute("data-safety")) === "ptp", "PTP should be the default Safety sub-tab");
+chk(await page.locator("#safety-ptp").isVisible(), "PTP pane should be open by default");
+// switch to Points to exercise the points list.
+await page.locator("[data-safety='points']").click();
+await page.waitForTimeout(200);
 
 // 3. Safety data rendered.
 const ptsRows = await page.locator("#sfPointsList .sf-grp").count();
@@ -196,6 +202,7 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(700);
 await page.locator("nav.tabs .tab[data-view='safety']").click();
 await page.waitForTimeout(300);
+await page.locator("[data-safety='points']").click(); await page.waitForTimeout(200);
 chk(await page.locator("[data-sfadd='points']").isVisible(), "no Add button on Points when admin is unlocked");
 await page.locator("[data-safety='training']").click(); await page.waitForTimeout(250);
 chk(await page.locator("[data-sfadd='training']").isVisible(), "no Add button on Training");

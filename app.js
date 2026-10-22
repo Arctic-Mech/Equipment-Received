@@ -116,7 +116,7 @@ let MEDGAS_SETTINGS={warnDays:60};
 // default person even when Admin has since handed the job to someone else.
 let medgasSettingsLoaded=false;
 let SF_META={};                     // {points:{count,updatedAt,by}, training:{...}, sds:{...}}
-let SF_TAB="points";                // which sub-pill is showing
+let SF_TAB="ptp";                   // which sub-pill is showing (PTP opens first)
 let SF_TRAIN_FILTER="all";
 let SF_DRUG_FILTER="all";
 const SF_TRAIN_OPEN=new Set();      // which people are expanded on the training list
@@ -1104,7 +1104,7 @@ function setView(name,fromHash){
   if(name==="jobs")renderJobs();
   if(name==="deliveries")renderDeliveries();
   if(name==="feed")focusPendingArrival();
-  if(name==="safety")renderSafety();
+  if(name==="safety"){ renderSafety(); if(SF_TAB==="ptp") renderPtp(); }
   if(!fromHash){ const h="#"+hashForView(name); if(location.hash!==h) history.replaceState(null,"",h); }
 }
 
