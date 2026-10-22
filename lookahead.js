@@ -94,7 +94,6 @@ function ingestJobs(into, snap){ const m={}; snap.forEach(d=>{ const v=d.data();
 // All known job numbers -> names: the equipment directory plus any Look-Ahead-only jobs.
 function jobDirectory(){ const m={...JOBDIR}; LA_JOBS.forEach(j=>{ if(j.jobName) m[j.jobNumber]=j.jobName; else if(!(j.jobNumber in m)) m[j.jobNumber]=""; }); return m; }
 let TAB="", histWeek=null, viewForemanId=null, viewJobNumber=null, laborSort="job", seeding=false, ensuringWeek=false, peopleLoaded=false, weeksLoaded=false;
-let foremanMode="view", wizStep=0, viewWeek=0;   // foreman own tab: view vs wizard; which week is shown
 const OPEN=new Set();                              // which collapsible "other" sections are expanded
 let SHEET_DOC_ID=null, SHEET_FALLBACK=null;   // the week doc currently shown as an editable sheet (+ a fallback for one not yet created)
 
@@ -216,65 +215,82 @@ function renderSignIn(){
     render(); };
 }
 
-/* ---------------- THE SHEET (foreman's own, or a foreman's sheet opened by management) ----------
-   Mobile-first: each task is a card whose 21 days are laid out as three stacked week rows of 7
-   cells, so a phone never has to scroll sideways. Read-only views reuse the same card. */
-const weekMon = (wk, base=CUR_WEEK) => { const m=new Date(addDays(base, wk*7)+"T00:00:00"); return (m.getMonth()+1)+"/"+m.getDate(); };
-function weekBlock(days, taskId, editable, base){
-  let h=`<div class="la-wk"><div class="wk-hd"><span class="wk-lab"></span>${DAY_LBL.map(d=>`<span class="wk-c">${d}</span>`).join("")}</div>`;
-  for(let wk=0;wk<3;wk++){ h+=`<div class="wk-row"><span class="wk-lab">Wk${wk+1}<i>${weekMon(wk,base)}</i></span>`;
-    for(let d=0;d<7;d++){ const i=wk*7+d, v=days[i]||"";
-      h+= editable ? `<input class="wk-c in" inputmode="numeric" maxlength="2" data-mp="${esc(taskId)}|${i}" value="${v}">`
-                   : `<span class="wk-c">${v}</span>`; }
-    h+=`</div>`; }
-  return h+`</div>`;
+/* ---------------- THE SHEET: an Excel-style day-by-day grid (all three weeks across) ---------- */
+async function ensureCurrentWeek(){
+  // Wait for laWeeks to load, or a fast roles-first snapshot would overwrite a real week empty.
+  if(!USER || myRole()!=="foreman" || ensuringWeek || !weeksLoaded) return;
+  if(myWeek(CUR_WEEK)) return;
+  ensuringWeek=true;
+  const prior=priorWeekFor(USER.id, CUR_WEEK);
+  let tasks=[], reqs={};
+  if(prior){
+    // Roll the grid forward one week: each task's days shift left by 7; keep tasks with work left.
+    tasks=(prior.tasks||[]).map(t=>{ const d=taskDays(t), nd=new Array(21).fill(0);
+      for(let i=0;i<14;i++) nd[i]=d[i+7]; return {id:rid(),job:t.job,text:t.text,days:nd}; })
+      .filter(t=>t.days.some(n=>n>0));
+    reqs={...(prior.reqs||{})};
+  }
+  const rec={ foremanId:USER.id, foremanName:(USER.first+" "+USER.last).trim(), trade:myTrade(),
+    weekStart:CUR_WEEK, tasks, reqs, dateCompleted:"", updatedAt:serverTimestamp() };
+  try{ await setDoc(doc(db,"laWeeks",weekDocId(USER.id,CUR_WEEK)), rec); }
+  catch(e){ fbNote(e,"ensureWeek"); }
+  finally{ ensuringWeek=false; }
 }
-const menLabel = days => { const m=days.reduce((a,b)=>a+b,0); return m?`${m} man-days`:"—"; };
-
-/* ---- one-week-at-a-time helpers: dated day columns, editable + read-only cards, week nav ---- */
-const DAY3=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-function weekCols(wk){ let h=`<div class="wk1-hd">`; for(let d=0;d<7;d++){ const i=wk*7+d; h+=`<span class="wk1-c"><b>${DAY3[d]}</b><i>${dayDM(i)}</i></span>`; } return h+`</div>`; }
-function weekRow(days, taskId, wk, editable){ let h=`<div class="wk1-row">`;
-  for(let d=0;d<7;d++){ const i=wk*7+d, v=days[i]||"";
-    h+= editable ? `<input class="wk1-c in" inputmode="numeric" maxlength="2" data-mp="${esc(taskId)}|${i}" value="${v}">`
-                 : `<span class="wk1-c">${v}</span>`; }
-  return h+`</div>`; }
-const weekMen = (days,wk) => days.slice(wk*7,wk*7+7).reduce((a,b)=>a+b,0);
-// read-only one-week card (foreman summary, management foreman sheet, per-job sheet)
-function weekCardRO(idTop, idName, text, days, wk){ const m=weekMen(days,wk);
-  return `<div class="la-tcard"><div class="tc-id ro"><span class="tc-job">${esc(idTop||"—")}</span>${idName?`<span class="tc-name">${esc(idName)}</span>`:""}</div>
-    <div class="tc-txt">${esc(text||"")}</div>${weekCols(wk)}${weekRow(days,"",wk,false)}<div class="tc-men">${m?m+" this week":"—"}</div></div>`;
+// The spreadsheet grid: task/job column (sticky) + 21 day columns (M–S x3) + a Men total, and a
+// TOTAL/day row. editable=true shows inline inputs; false shows plain numbers. Scrolls sideways.
+function mpGrid(w, editable){
+  const tasks=w.tasks||[];
+  let head=`<tr><th class="tcol" rowspan="2">Task / Job</th>`;
+  for(let wk=0;wk<3;wk++) head+=`<th colspan="7" class="wkh w${wk+1}">Week ${wk+1}</th>`;
+  head+=`<th class="men" rowspan="2">Men</th></tr><tr>`;
+  for(let i=0;i<21;i++) head+=`<th class="dh w${Math.floor(i/7)+1}">${DAY_LBL[i%7]}<span>${dayDM(i)}</span></th>`;
+  head+=`</tr>`;
+  let body="";
+  tasks.forEach(t=>{ const days=taskDays(t), men=days.reduce((a,b)=>a+b,0);
+    const left = editable
+      ? `<div class="rrow">`
+        +`<input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">`
+        +`<input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project">`
+        +`<input class="rin rin-txt" data-rowtext="${esc(t.id)}" value="${esc(t.text||"")}" placeholder="Task">`
+        +`<button class="rin-del" data-lataskdel="${esc(t.id)}" title="Delete this row">✕</button>`
+        +`</div>`
+      : `<div class="rrow ro"><span class="tc-job">${esc(t.job||"—")}</span>`
+        +(jobNameFor(t.job)?`<span class="tc-name">${esc(jobNameFor(t.job))}</span>`:"")
+        +`<span class="tc-txt">${esc(t.text||"")}</span></div>`;
+    body+=`<tr><td class="tcol">${left}</td>`;
+    for(let i=0;i<21;i++){ const v=days[i];
+      body+= editable
+        ? `<td class="day w${Math.floor(i/7)+1}"><input inputmode="numeric" maxlength="2" data-mp="${esc(t.id)}|${i}" value="${v||""}"></td>`
+        : `<td class="day w${Math.floor(i/7)+1}">${v||""}</td>`; }
+    body+=`<td class="men num">${men||""}</td></tr>`;
+  });
+  const tot=new Array(21).fill(0); tasks.forEach(t=>{ const d=taskDays(t); for(let i=0;i<21;i++) tot[i]+=d[i]; });
+  let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
+  for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
+  totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
+  const dir = editable ? jobDirectory() : {};
+  const dl = editable ? `<datalist id="laJobList">${Object.keys(dir).sort().map(n=>`<option value="${esc(n)}">${esc(dir[n]||"")}</option>`).join("")}</datalist>` : "";
+  const empty = `<tr><td class="tcol">${editable?"No rows yet — tap “Add row”.":"No rows."}</td><td colspan="22"></td></tr>`;
+  return `${dl}<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
 }
-// editable one-week card (wizard week step)
-function weekCardEdit(t, wk){ const days=taskDays(t), m=weekMen(days,wk);
-  return `<div class="la-tcard"><div class="tc-id ro"><span class="tc-job">${esc(t.job||"—")}</span>${jobNameFor(t.job)?`<span class="tc-name">${esc(jobNameFor(t.job))}</span>`:""}</div>
-    <div class="tc-txt">${esc(t.text||"(no task yet)")}</div>${weekCols(wk)}${weekRow(days,t.id,wk,true)}<div class="tc-men">${m?m+" this week":"—"}</div></div>`;
-}
-function weekTotalCard(daysArrays, wk){ const tot=new Array(7).fill(0); daysArrays.forEach(d=>{ for(let dd=0;dd<7;dd++) tot[dd]+=(d[wk*7+dd]||0); });
-  const grand=tot.reduce((a,b)=>a+b,0);
-  let row=`<div class="wk1-row">`; for(let dd=0;dd<7;dd++) row+=`<span class="wk1-c">${tot[dd]||""}</span>`; row+=`</div>`;
-  return `<div class="la-tcard totcard"><div class="tc-id ro"><span class="tc-job">TOTAL / day</span></div>${weekCols(wk)}${row}<div class="tc-men">${grand||0} this week</div></div>`;
-}
-function weekNav(wk){ const r=weekRangeLabel(weekStartN(wk));
-  return `<div class="la-weeknav">
-    <button class="wn-btn" data-weeknav="-1" ${wk===0?"disabled":""}>‹ Back</button>
-    <div class="wn-mid"><b>Week ${wk+1} of 3</b><span>${esc(r)}</span></div>
-    <button class="wn-btn" data-weeknav="1" ${wk===2?"disabled":""}>Next ›</button></div>`;
-}
-// identity-only card used in the wizard's first step (job #, project, task)
-function taskIdCard(t){
-  return `<div class="la-tcard"><div class="tc-id"><input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">
-    <input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project (fills in)">
-    <button class="rin-del" data-lataskdel="${esc(t.id)}" title="Delete this row">✕</button></div>
-    <input class="rin rin-txt" data-rowtext="${esc(t.id)}" value="${esc(t.text||"")}" placeholder="Task / description"></div>`;
-}
-function readCard(idTop, idName, text, days, base){
-  return `<div class="la-tcard"><div class="tc-id ro"><span class="tc-job">${esc(idTop||"—")}</span>${idName?`<span class="tc-name">${esc(idName)}</span>`:""}</div>
-    <div class="tc-txt">${esc(text||"")}</div>${weekBlock(days,"",false,base)}<div class="tc-men">${menLabel(days)}</div></div>`;
-}
-function totalsCard(daysArrays, base){ const tot=new Array(21).fill(0); daysArrays.forEach(d=>{ for(let i=0;i<21;i++) tot[i]+=d[i]; });
-  const grand=tot.reduce((a,b)=>a+b,0);
-  return `<div class="la-tcard totcard"><div class="tc-id ro"><span class="tc-job">TOTAL / day</span></div>${weekBlock(tot,"",false,base)}<div class="tc-men">${grand||0} man-days total</div></div>`;
+// Read-only per-job grid; the left column shows the foreman + trade instead of the job.
+function jobGrid(rows){
+  let head=`<tr><th class="tcol" rowspan="2">Foreman / Task</th>`;
+  for(let wk=0;wk<3;wk++) head+=`<th colspan="7" class="wkh w${wk+1}">Week ${wk+1}</th>`;
+  head+=`<th class="men" rowspan="2">Men</th></tr><tr>`;
+  for(let i=0;i<21;i++) head+=`<th class="dh w${Math.floor(i/7)+1}">${DAY_LBL[i%7]}<span>${dayDM(i)}</span></th>`;
+  head+=`</tr>`;
+  let body="";
+  rows.forEach(r=>{ const men=r.days.reduce((a,b)=>a+b,0);
+    body+=`<tr><td class="tcol"><div class="rrow ro"><span class="tc-job">${esc(r.who)}</span><span class="tc-name">${esc(TRADES[r.trade]||"")}</span><span class="tc-txt">${esc(r.text)}</span></div></td>`;
+    for(let i=0;i<21;i++) body+=`<td class="day w${Math.floor(i/7)+1}">${r.days[i]||""}</td>`;
+    body+=`<td class="men num">${men||""}</td></tr>`; });
+  const tot=new Array(21).fill(0); rows.forEach(r=>{ for(let i=0;i<21;i++) tot[i]+=r.days[i]; });
+  let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
+  for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
+  totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
+  const empty=`<tr><td class="tcol">No tasks on this job yet.</td><td colspan="22"></td></tr>`;
+  return `<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
 }
 function jobDatalist(){ const dir=jobDirectory(); return `<datalist id="laJobList">${Object.keys(dir).sort().map(n=>`<option value="${esc(n)}">${esc(dir[n]||"")}</option>`).join("")}</datalist>`; }
 // Member-name suggestions for PM fields, from the main site's people list.
@@ -296,106 +312,41 @@ function reqBoxes(w, editable){
     +(editable?`<textarea class="la-ta" data-req="${k}" placeholder="—">${esc(r[k]||"")}</textarea>`:`<div class="la-ro">${esc(r[k]||"—")}</div>`)
     +`</div>`).join("")+`</div>`;
 }
-function headerCard(w, editable){
-  return `<div class="la-card"><div class="la-sheet-head">
+function renderSheet(w, opts){
+  opts=opts||{}; SHEET_DOC_ID=w.id||null; SHEET_FALLBACK=w; const editable=!!opts.editable;
+  let h="";
+  if(opts.back) h+=`<button class="la-btn soft" id="laBack" style="margin-bottom:12px">${esc(opts.back)}</button>`;
+  h+=`<div class="la-card"><div class="la-sheet-head">
       <div><label>Foreman</label><b>${esc(w.foremanName||"—")}</b></div>
       <div><label>Trade</label><b>${esc(TRADES[w.trade]||"—")}</b></div>
       <div><label>3 weeks</label><b>${esc(weekRangeLabel(weekStartN(0)))} → ${esc(weekRangeLabel(weekStartN(2)))}</b></div>
       <div><label>Date completed</label>${w.dateCompleted?`<b>${esc(w.dateCompleted)}</b> ${editable?`<button class="mini" id="laUndone">clear</button>`:""}`:(editable?`<button class="mini" id="laMarkDone">Mark done</button>`:`<b>—</b>`)}</div>
     </div></div>`;
-}
-function pmViewCard(w){
-  const jobs=[...new Set((w.tasks||[]).map(t=>t.job).filter(Boolean))];
-  if(!jobs.length) return "";
-  return `<div class="la-card"><div class="la-h">Project Managers</div>${jobs.map(num=>`<div class="la-sub"><b>${esc(num)}:</b> ${esc(pmsForJob(num).join(", ")||"—")}</div>`).join("")}</div>`;
-}
-function notesViewCard(w){
-  const r=w.reqs||{};
-  return `<div class="la-card"><div class="la-h">Requirements & Notes</div>${REQS.map(([k,lab])=>`<div class="la-field"><label>${lab}</label><div class="la-ro">${esc(r[k]||"—")}</div></div>`).join("")}</div>`;
+  h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>
+    <div class="la-sub">${editable?"Fill it in like a spreadsheet. Type the job number in a row — the project name fills in if we know it. Then put how many people work it each day (Mon–Sun, three weeks across). Swipe the grid sideways to reach weeks 2 and 3.":"Crew planned each day, Mon–Sun across three weeks. Swipe sideways for weeks 2 and 3."}</div>
+    ${mpGrid(w,editable)}
+    ${editable?`<button class="la-btn soft wide" id="laAddRow" style="margin-top:10px">+ Add row</button>`:""}</div>`;
+  if(editable && opts.own) h+=pmSection(w);
+  h+=`<div class="la-card"><div class="la-h">Requirements & Notes</div>${reqBoxes(w,editable)}</div>`;
+  h+=`<div class="la-card"><button class="la-btn wide" id="laExportMine">⬇ Export this lookahead (PDF)</button></div>`;
+  $("laMain").innerHTML=h;
+  if($("laBack")) $("laBack").onclick=()=>{ viewForemanId=null; render(); };
 }
 
-/* ---- FOREMAN'S OWN TAB: create landing / wizard / summary ---- */
-function rolledDraft(){
-  const prior=priorWeekFor(USER.id, CUR_WEEK);
-  let tasks=[], reqs={};
-  if(prior){ tasks=(prior.tasks||[]).map(t=>{ const d=taskDays(t), nd=new Array(21).fill(0);
-      for(let i=0;i<14;i++) nd[i]=d[i+7]; return {id:rid(),job:t.job,text:t.text,days:nd}; }).filter(t=>t.days.some(n=>n>0));
-    reqs={...(prior.reqs||{})}; }
-  return { id:weekDocId(USER.id,CUR_WEEK), foremanId:USER.id, foremanName:(USER.first+" "+USER.last).trim(), trade:myTrade(), weekStart:CUR_WEEK, tasks, reqs, dateCompleted:"" };
-}
-async function createThisWeek(){
-  if(!USER || !weeksLoaded) return;
-  let w=myWeek(CUR_WEEK);
-  if(!w){ w=rolledDraft(); try{ await setDoc(doc(db,"laWeeks",w.id), {...w, updatedAt:serverTimestamp()}); }catch(e){ fbNote(e,"create"); } }
-  foremanMode="wiz"; wizStep=0; viewWeek=0; render();
-}
+/* FOREMAN'S OWN TAB: the editable spreadsheet grid (auto-created, carrying last week forward). */
 function renderMine(){
-  const w=myWeek(CUR_WEEK);
-  if(foremanMode==="wiz"){ renderWizard(w || rolledDraft()); return; }
-  if(!w){ renderCreateLanding(); return; }
-  renderSummary(w, {editable:true});
-}
-function renderCreateLanding(){
-  const prior=priorWeekFor(USER.id, CUR_WEEK);
-  const carries = !!(prior && (prior.tasks||[]).length);
-  $("laMain").innerHTML=`<div class="la-card"><div class="la-h">This Week's Look-Ahead</div>
-    <div class="la-sub">Week of ${esc(weekRangeLabel(CUR_WEEK))} · ${esc(TRADES[myTrade()]||"set your trade in the main app")}</div></div>
-    <div class="la-card"><div class="la-empty"><div class="ico">🗓️</div><h3>No look-ahead for this week yet</h3>
-      <p>${carries?"Your last plan will carry forward (moved up a week) so you just update it and add the new third week.":"Start a fresh 3-week plan. We'll walk you through it."}</p></div>
-      <button class="la-btn wide" id="laCreate">+ Create this week's look-ahead</button></div>`;
+  ensureCurrentWeek();
+  const w=myWeek(CUR_WEEK) || {id:weekDocId(USER.id,CUR_WEEK),foremanId:USER.id,foremanName:(USER.first+" "+USER.last).trim(),trade:myTrade(),weekStart:CUR_WEEK,tasks:[],reqs:{}};
+  renderSheet(w,{editable:true,own:true});
 }
 
-const WIZ=[{k:"tasks",t:"Jobs & Tasks"},{k:"wk",t:"Week 1 Crew",wk:0},{k:"wk",t:"Week 2 Crew",wk:1},{k:"wk",t:"Week 3 Crew",wk:2},{k:"pms",t:"Project Managers"},{k:"notes",t:"Requirements & Notes"}];
-function renderWizard(w){
-  SHEET_DOC_ID=w.id||null; SHEET_FALLBACK=w;
-  const step=WIZ[wizStep], tasks=w.tasks||[];
-  let h=`<div class="la-card"><div class="la-h">New Look-Ahead · ${esc(step.t)}</div>
-    <div class="la-sub">Step ${wizStep+1} of ${WIZ.length} · ${esc(w.foremanName||"")}${step.wk!==undefined?` · ${esc(weekRangeLabel(weekStartN(step.wk)))}`:""}</div>
-    <div class="la-wizdots">${WIZ.map((s,i)=>`<span class="${i===wizStep?"on":i<wizStep?"done":""}"></span>`).join("")}</div></div>`;
-  if(step.k==="tasks"){
-    h+=`<div class="la-card"><div class="la-sub">List each task on a job. Type the job number — the project name fills in if we know it. You'll set the crew counts on the next steps.</div>
-      ${jobDatalist()}${tasks.length?tasks.map(taskIdCard).join(""):`<div class="la-sub">No rows yet — tap “Add row”.</div>`}
-      <button class="la-btn soft wide" id="laAddRow" style="margin-top:8px">+ Add row</button></div>`;
-  } else if(step.k==="wk"){
-    const wk=step.wk;
-    h+=`<div class="la-card"><div class="la-h">Week ${wk+1} — ${esc(weekRangeLabel(weekStartN(wk)))}</div>
-      <div class="la-sub">How many people work each task each day this week? Leave a day blank for none.</div>
-      ${tasks.length?tasks.map(t=>weekCardEdit(t,wk)).join("")+weekTotalCard(tasks.map(taskDays),wk):`<div class="la-sub">No tasks — go back and add some.</div>`}</div>`;
-  } else if(step.k==="pms"){
-    h+=pmSection(w) || `<div class="la-card"><div class="la-sub">Add a job on the Tasks step first, then you can name its PM here.</div></div>`;
-  } else if(step.k==="notes"){
-    h+=`<div class="la-card"><div class="la-h">Requirements & Notes</div>${reqBoxes(w,true)}</div>`;
-  }
-  h+=`<div class="la-wiznav">
-    <button class="la-btn soft" data-wiz="back">${wizStep===0?"✕ Close":"‹ Back"}</button>
-    <button class="la-btn" data-wiz="next">${wizStep===WIZ.length-1?"Done ✓":"Next ›"}</button></div>`;
-  $("laMain").innerHTML=h;
-}
-function renderSummary(w, opts){
-  opts=opts||{}; SHEET_DOC_ID=w.id||null; SHEET_FALLBACK=w; const editable=!!opts.editable;
-  const tasks=w.tasks||[];
-  let h="";
-  if(opts.back) h+=`<button class="la-btn soft" id="laBack" style="margin-bottom:12px">${esc(opts.back)}</button>`;
-  h+=headerCard(w, editable);
-  h+=`<div class="la-card">${weekNav(viewWeek)}
-    ${tasks.length? tasks.map(t=>weekCardRO(t.job,jobNameFor(t.job),t.text,taskDays(t),viewWeek)).join("")+weekTotalCard(tasks.map(taskDays),viewWeek)
-                  : `<div class="la-sub">${editable?"Nothing entered yet — tap Edit to fill it in.":"Nothing entered."}</div>`}</div>`;
-  h+=pmViewCard(w);
-  h+=notesViewCard(w);
-  if(editable) h+=`<div class="la-card"><button class="la-btn wide" id="laEdit">✎ Edit this look-ahead</button></div>`;
-  h+=`<div class="la-card"><button class="la-btn ghost wide" id="laExportMine">⬇ Export this look-ahead (PDF)</button></div>`;
-  $("laMain").innerHTML=h;
-  if($("laBack")) $("laBack").onclick=()=>{ viewForemanId=null; viewJobNumber=null; render(); };
-  if($("laEdit")) $("laEdit").onclick=()=>{ foremanMode="wiz"; wizStep=0; render(); };
-}
-
-/* management opening one foreman's current week — view only, one week at a time */
+/* management opening one foreman's current week — view only */
 function renderForemanSheet(foremanId){
   const p=PEOPLE.find(x=>x.id===foremanId);
   const name=p?(p.first+" "+p.last).trim():foremanId;
   const trade=p?(p.laTrade||""):"";
   const w=weekFor(foremanId,CUR_WEEK) || {id:weekDocId(foremanId,CUR_WEEK),foremanId,foremanName:name,trade,weekStart:CUR_WEEK,tasks:[],reqs:{}};
-  renderSummary(w,{editable:false,back:"‹ All foremen"});
+  renderSheet(w,{editable:false,back:"‹ All foremen"});
 }
 
 /* ---------------- HISTORY (foreman, read-only) ---------------- */
@@ -406,11 +357,7 @@ function renderHistory(){
   const w=weeks.find(x=>x.weekStart===sel)||weeks[0];
   let h=`<div class="la-card"><div class="la-h">Previous Weeks</div>
     <select class="la-sel" id="laHistPick">${weeks.map(x=>`<option value="${x.weekStart}" ${x.weekStart===sel?"selected":""}>Week of ${esc(weekRangeLabel(x.weekStart))}</option>`).join("")}</select></div>`;
-  const tasks=w.tasks||[];
-  const cards = tasks.length
-    ? tasks.map(t=>readCard(t.job,jobNameFor(t.job),t.text,taskDays(t),w.weekStart)).join("") + totalsCard(tasks.map(taskDays), w.weekStart)
-    : `<div class="la-sub">Nothing entered that week.</div>`;
-  h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>${cards}</div>`;
+  h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>${mpGrid(w,false)}</div>`;
   h+=`<div class="la-card"><div class="la-h">Requirements & Notes</div>${reqBoxes(w,false)}</div>`;
   $("laMain").innerHTML=h;
   $("laHistPick").onchange=()=>{ histWeek=$("laHistPick").value; renderHistory(); };
@@ -537,9 +484,9 @@ function renderJobSheet(num){
       <div><label>3 weeks</label><b>${esc(weekRangeLabel(weekStartN(0)))} → ${esc(weekRangeLabel(weekStartN(2)))}</b></div>
       <div><label>PM</label><b>${esc(pms.join(", ")||"—")}</b></div>
     </div></div>`;
-  h+=`<div class="la-card"><div class="la-h">All foremen on this job</div>${weekNav(viewWeek)}
-    ${rows.length? rows.map(r=>weekCardRO(r.who, TRADES[r.trade]||"", r.text, r.days, viewWeek)).join("")+weekTotalCard(rows.map(r=>r.days),viewWeek)
-                 : `<div class="la-sub">No tasks on this job yet.</div>`}</div>`;
+  h+=`<div class="la-card"><div class="la-h">3-Week Lookahead — all foremen on this job</div>
+    <div class="la-sub">Crew per day across every foreman working ${esc(num)}. Swipe sideways for weeks 2 and 3.</div>
+    ${jobGrid(rows)}</div>`;
   $("laMain").innerHTML=h;
   $("laBackJob").onclick=()=>{ viewJobNumber=null; render(); };
 }
@@ -554,16 +501,10 @@ document.addEventListener("click", e=>{
   const ae=document.activeElement;
   if(ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName) && ae.blur && !e.target.closest("input,textarea,select")) ae.blur();
 
-  const tabBtn=e.target.closest("[data-latab]"); if(tabBtn){ TAB=tabBtn.dataset.latab; viewForemanId=null; viewJobNumber=null; foremanMode="view"; viewWeek=0; render(); return; }
+  const tabBtn=e.target.closest("[data-latab]"); if(tabBtn){ TAB=tabBtn.dataset.latab; viewForemanId=null; viewJobNumber=null; render(); return; }
   if(e.target.closest("[data-laclose]")){ closeModal(); return; }
   if(e.target===$("laModal")){ closeModal(); return; }
 
-  if(e.target.closest("#laCreate")){ createThisWeek(); return; }
-  const wiz=e.target.closest("[data-wiz]"); if(wiz){ const d=wiz.dataset.wiz;
-    if(d==="back"){ if(wizStep===0){ foremanMode="view"; } else wizStep--; }
-    else { if(wizStep>=WIZ.length-1){ foremanMode="view"; toast("Look-ahead saved"); } else wizStep++; }
-    render(); return; }
-  const wn=e.target.closest("[data-weeknav]"); if(wn){ viewWeek=Math.max(0,Math.min(2,viewWeek+Number(wn.dataset.weeknav))); render(); return; }
   const col=e.target.closest("[data-lacollap]"); if(col){ const k=col.dataset.lacollap; if(OPEN.has(k)) OPEN.delete(k); else OPEN.add(k); render(); return; }
 
   // favorites (pin to top) — handle before the open handlers so the star doesn't also open the row

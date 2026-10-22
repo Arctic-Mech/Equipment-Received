@@ -77,52 +77,40 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   await p.close();
 }
 
-// --- 2. Foreman: one-week summary + the Edit wizard (tasks → weeks → PMs → notes). ---
+// --- 2. Foreman edits the Excel-style day-by-day grid, enters PMs, marks done. ---
 {
   const {p,errs}=await boot(JAREN);
   const nav0=(await p.locator("#laNav button").first().innerText()).trim();
   chk(nav0==="My Look-Ahead",`foreman's first tab should be "My Look-Ahead", got ${JSON.stringify(nav0)}`);
-  // has a current week -> summary (read-only), one week at a time with dated nav
-  chk(await p.locator(".la-weeknav").count()===1,"no week navigator on the summary");
-  chk(await p.locator(".wk1-hd .wk1-c i").count()>=7,"day columns are missing dates");
-  chk(await p.locator(".la-tcard .tc-txt", {hasText:"Hang duct mains"}).count()>=1,"week-1 task not shown");
-  chk(await p.locator("[data-mp]").count()===0,"the summary should be read-only (no editable cells)");
-  chk(await p.locator("#laEdit").count()===1,"no Edit button on the summary");
-  // advance a week
-  await p.locator('[data-weeknav="1"]').click(); await p.waitForTimeout(250);
-  chk(/Week 2 of 3/.test(await p.locator(".wn-mid").innerText()),"Next week button didn't advance");
+  chk(await p.locator("table.la-mp").count()===1,"the spreadsheet grid is missing");
+  chk(await p.locator('[data-rowtext="t1"]').inputValue()==="Hang duct mains","seeded task not shown in its row");
+  chk(await p.locator("[data-rowjob]").count()===2,"expected 2 seeded rows");
+  chk(await p.locator('[data-mp^="t1|"]').count()===21,"task should have 21 day cells across (3 weeks x 7)");
+  chk(await p.locator(".la-reqs textarea").count()===6,"the six requirement boxes are missing");
 
-  // Edit -> wizard step 1 (Jobs & Tasks)
-  await p.locator("#laEdit").click(); await p.waitForTimeout(250);
-  chk(/Step 1 of 6/.test(await p.locator("#laMain").innerText()),"Edit didn't open the wizard at step 1");
-  chk(await p.locator("[data-rowjob]").count()===2,"wizard tasks step is missing the rows");
+  // edit a day cell
+  const cell=p.locator('[data-mp="t1|0"]'); await cell.fill("5"); await cell.press("Tab"); await p.waitForTimeout(300);
+  chk(await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&(w.data.tasks||[]).some(t=>t.id==="t1"&&t.days[0]===5))),"editing a day's crew did not save");
+
   // add a row, type a known job -> name fills in and the job saves
   await p.locator("#laAddRow").click(); await p.waitForTimeout(300);
   chk(await p.locator("[data-rowjob]").count()===3,"Add row did not add a row");
   const newId=await p.locator("[data-rowjob]").last().getAttribute("data-rowjob");
   const jf=p.locator(`[data-rowjob="${newId}"]`); await jf.fill("25-0150"); await jf.press("Tab"); await p.waitForTimeout(300);
-  chk(await p.locator(`[data-rowname="${newId}"]`).inputValue()==="Riverside Medical","job-number autofill failed in the wizard");
+  chk(await p.locator(`[data-rowname="${newId}"]`).inputValue()==="Riverside Medical","job-number autofill failed");
   chk(await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laJobs"&&w.id==="25-0150")),"typing a job did not save it");
 
-  // Next -> Week 1 crew step; edit a day cell
-  await p.locator('[data-wiz="next"]').click(); await p.waitForTimeout(250);
-  chk(await p.locator('[data-mp="t1|0"]').count()===1,"week-1 crew cell missing in the wizard");
-  const cell=p.locator('[data-mp="t1|0"]'); await cell.fill("5"); await cell.press("Tab"); await p.waitForTimeout(300);
-  chk(await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&(w.data.tasks||[]).some(t=>t.id==="t1"&&t.days[0]===5))),"editing a day's crew did not save");
+  // a job known only from the equipment-received data fills its name too
+  await p.locator("#laAddRow").click(); await p.waitForTimeout(300);
+  const id2=await p.locator("[data-rowjob]").last().getAttribute("data-rowjob");
+  const jf2=p.locator(`[data-rowjob="${id2}"]`); await jf2.fill("26-0147"); await jf2.press("Tab"); await p.waitForTimeout(300);
+  chk(await p.locator(`[data-rowname="${id2}"]`).inputValue()==="Adventist Health","name didn't populate from the equipment data");
 
-  // Next x3 -> PM step (member suggestions + save)
-  for(let i=0;i<3;i++){ await p.locator('[data-wiz="next"]').click(); await p.waitForTimeout(300); }
-  chk(/project managers/i.test(await p.locator("#laMain").innerText()),"wizard PM step not reached");
+  // PM entry with member suggestions
   const pmInput=p.locator('[data-pmjob="25-0150"]');
   chk(await pmInput.count()>=1 && await p.locator("#laPeopleList").count()>=1 && await pmInput.getAttribute("list")==="laPeopleList","PM field or member suggestions missing");
   await pmInput.fill("Dana Fox"); await pmInput.press("Tab"); await p.waitForTimeout(300);
   chk(await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laJobs"&&w.id==="25-0150"&&(w.data.pms||[]).includes("Dana Fox"))),"entering a PM did not save");
-
-  // Next -> notes step (six boxes); Done -> back to summary
-  await p.locator('[data-wiz="next"]').click(); await p.waitForTimeout(250);
-  chk(await p.locator(".la-reqs textarea").count()===6,"the six requirement boxes are missing in the wizard");
-  await p.locator('[data-wiz="next"]').click(); await p.waitForTimeout(250);
-  chk(await p.locator("#laEdit").count()===1,"Done didn't return to the summary");
 
   // mark the week done
   await p.locator("#laMarkDone").click(); await p.waitForTimeout(250);
@@ -131,19 +119,18 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   await p.close();
 }
 
-// --- 2b. Create flow: a foreman with no current week clicks Create; last week rolls forward. ---
+// --- 2b. A foreman with no current week auto-gets one, carrying last week forward. ---
 {
   const {p,errs}=await boot(ROLLY);
-  chk(await p.locator("#laCreate").count()===1,"no Create button for a foreman with no current week");
-  await p.locator("#laCreate").click(); await p.waitForTimeout(450);
-  chk(/Step 1 of 6/.test(await p.locator("#laMain").innerText()),"Create didn't open the wizard");
+  await p.waitForTimeout(500);   // ensureCurrentWeek creates + rolls forward on open
+  chk(await p.locator("table.la-mp").count()===1,"foreman grid didn't render");
   chk(await p.locator('[data-rowtext]').first().inputValue()==="Rolled task","last week's task did not carry forward");
-  chk(await p.evaluate(cur=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&w.id===("p-rolly__"+cur)),CUR),"Create didn't save a new current-week doc");
+  chk(await p.evaluate(cur=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&w.id===("p-rolly__"+cur)),CUR),"current-week doc wasn't auto-created");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
 
-// --- 3. Management VIEWS a foreman's sheet (read-only) and can pin a foreman to the top. ---
+// --- 3. Management VIEWS a foreman's sheet (read-only grid) and can pin a foreman to the top. ---
 {
   const {p,errs}=await boot(MGR);
   const nav0=(await p.locator("#laNav button").first().innerText()).trim();
@@ -157,8 +144,8 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   // open the foreman's sheet — must be view only
   await p.locator('[data-laopenforeman="p-jaren-eells"]').click(); await p.waitForTimeout(350);
   chk(await p.locator("#laBack").count()===1,"no back button on the opened foreman sheet");
-  chk(await p.locator(".la-tcard").count()>=1,"foreman's sheet not shown to management");
-  chk(await p.locator(".la-tcard .tc-txt", {hasText:"Hang duct mains"}).count()>=1,"task not shown in the read-only sheet");
+  chk(await p.locator("table.la-mp").count()===1,"foreman's grid not shown to management");
+  chk(await p.locator(".la-mp .tc-txt", {hasText:"Hang duct mains"}).count()>=1,"task not shown in the read-only grid");
   chk(await p.locator("[data-mp]").count()===0,"management view must be read-only — no editable day cells");
   chk(await p.locator("#laAddRow").count()===0,"management must not see Add row");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
@@ -194,8 +181,8 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   // open the job's combined 3-week lookahead
   await p.locator('[data-laopenjob="25-0150"]').click(); await p.waitForTimeout(350);
   chk(await p.locator("#laBackJob").count()===1,"no back button on the per-job sheet");
-  chk(await p.locator(".la-tcard").count()>=1,"per-job sheet missing");
-  chk(/Hang duct mains|Set VAV/.test(await p.locator("#laMain").innerText()),"per-job sheet missing the job's tasks");
+  chk(await p.locator("table.la-mp").count()===1,"per-job grid missing");
+  chk(/Hang duct mains|Set VAV/.test(await p.locator("#laMain").innerText()),"per-job grid missing the job's tasks");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
