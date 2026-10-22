@@ -268,10 +268,18 @@ function mpGrid(w, editable){
   let totrow=`<tr class="totr"><td class="tcol">TOTAL / day</td>`;
   for(let i=0;i<21;i++) totrow+=`<td class="day num w${Math.floor(i/7)+1}">${tot[i]||""}</td>`;
   totrow+=`<td class="men num">${tot.reduce((a,b)=>a+b,0)||""}</td></tr>`;
+  // Per-day detail: a tappable note for each day (shutdowns, deliveries, inspections…).
+  const notes=w.dayNotes||[];
+  let noterow=`<tr class="noterow"><td class="tcol">Day notes</td>`;
+  for(let i=0;i<21;i++){ const n=notes[i]||"";
+    noterow+= editable
+      ? `<td class="day w${Math.floor(i/7)+1}"><button class="dnote ${n?"has":"empty"}" data-daynote="${i}" title="Add detail for this day">${n?esc(n):"+"}</button></td>`
+      : `<td class="day w${Math.floor(i/7)+1}">${n?`<button class="dnote has ro" data-daynoteview="${i}">${esc(n)}</button>`:""}</td>`; }
+  noterow+=`<td class="men"></td></tr>`;
   const dir = editable ? jobDirectory() : {};
   const dl = editable ? `<datalist id="laJobList">${Object.keys(dir).sort().map(n=>`<option value="${esc(n)}">${esc(dir[n]||"")}</option>`).join("")}</datalist>` : "";
   const empty = `<tr><td class="tcol">${editable?"No rows yet — tap “Add row”.":"No rows."}</td><td colspan="22"></td></tr>`;
-  return `${dl}<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}</tbody></table></div>`;
+  return `${dl}<div class="la-grid"><table class="la-mp"><thead>${head}</thead><tbody>${body||empty}${totrow}${noterow}</tbody></table></div>`;
 }
 // Read-only per-job grid; the left column shows the foreman + trade instead of the job.
 function jobGrid(rows){
@@ -355,6 +363,7 @@ function renderHistory(){
   if(!weeks.length){ $("laMain").innerHTML=`<div class="la-empty"><div class="ico">🗂️</div><h3>No history yet</h3><p>Your past weeks show up here once a new week begins.</p></div>`; return; }
   const sel=histWeek||weeks[0].weekStart;
   const w=weeks.find(x=>x.weekStart===sel)||weeks[0];
+  SHEET_DOC_ID=w.id||null; SHEET_FALLBACK=w;
   let h=`<div class="la-card"><div class="la-h">Previous Weeks</div>
     <select class="la-sel" id="laHistPick">${weeks.map(x=>`<option value="${x.weekStart}" ${x.weekStart===sel?"selected":""}>Week of ${esc(weekRangeLabel(x.weekStart))}</option>`).join("")}</select></div>`;
   h+=`<div class="la-card"><div class="la-h">Tasks & Manpower</div>${mpGrid(w,false)}</div>`;
@@ -494,7 +503,26 @@ function renderJobSheet(num){
 /* ========================================================================== *
    EVENTS
  * ========================================================================== */
+function openModal(title, bodyHTML, after){ $("laModalTitle").textContent=title; $("laModalBody").innerHTML=bodyHTML;
+  $("laModal").classList.add("show"); document.body.style.overflow="hidden"; if(after) after(); }
 function closeModal(){ $("laModal").classList.remove("show"); document.body.style.overflow=""; }
+const DAY_FULL=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const dayLabel=i=>DAY_FULL[i%7]+" "+dayDM(i);
+// Add/edit a note for one calendar day on the open sheet.
+function dayNoteModal(i){
+  const w=sheetDoc(); if(!w) return;
+  const cur=(w.dayNotes||[])[i]||"";
+  openModal("Day detail — "+dayLabel(i), `
+    <textarea class="la-ta" id="dnText" placeholder="What's happening this day? (shutdown, delivery, inspection, time, etc.)" style="min-height:120px">${esc(cur)}</textarea>
+    <button class="la-btn wide" id="dnSave" style="margin-top:10px">Save</button>`, ()=>{
+    setTimeout(()=>{ const t=$("dnText"); if(t){ t.focus(); } },60);
+    $("dnSave").onclick=()=>{ const d=sheetDoc(); if(!d) return;
+      const arr=Array.isArray(d.dayNotes)?d.dayNotes.slice():new Array(21).fill(""); while(arr.length<21) arr.push("");
+      arr[i]=$("dnText").value.trim(); d.dayNotes=arr; writeWeek(d); closeModal(); render(); };
+  });
+}
+function dayNoteView(i){ const w=sheetDoc(); const n=(w&&w.dayNotes||[])[i]||""; if(!n) return;
+  openModal("Day detail — "+dayLabel(i), `<div class="la-ro" style="white-space:pre-wrap;min-height:40px">${esc(n)}</div>`); }
 document.addEventListener("click", e=>{
   // If a field had focus and the user tapped a control (not another field), blur it first so its
   // change saves AND render() isn't blocked by the "don't rebuild while typing" guard.
@@ -518,6 +546,8 @@ document.addEventListener("click", e=>{
   if(e.target.closest("#laAddRow")){ const w=sheetDoc(); if(!w){ toast("Loading…"); return; } w.tasks=(w.tasks||[]).concat({id:rid(),job:"",text:"",days:new Array(21).fill(0)}); writeWeek(w).then(render); return; }
   const td=e.target.closest("[data-lataskdel]"); if(td){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===td.dataset.lataskdel);
     if(t && confirm("Delete this row?")){ w.tasks=w.tasks.filter(x=>x.id!==t.id); writeWeek(w).then(render); } return; }
+  const dn=e.target.closest("[data-daynote]"); if(dn){ dayNoteModal(Number(dn.dataset.daynote)); return; }
+  const dnv=e.target.closest("[data-daynoteview]"); if(dnv){ dayNoteView(Number(dnv.dataset.daynoteview)); return; }
 
   if(e.target.closest("#laMarkDone")){ const w=sheetDoc(); if(w){ w.dateCompleted=isoD(new Date()); writeWeek(w).then(render); } return; }
   if(e.target.closest("#laUndone")){ const w=sheetDoc(); if(w){ w.dateCompleted=""; writeWeek(w).then(render); } return; }

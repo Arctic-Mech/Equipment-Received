@@ -130,6 +130,22 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   await p.close();
 }
 
+// --- 2c. Foreman adds detail to a single day via the Day notes row + modal. ---
+{
+  const {p,errs}=await boot(JAREN);
+  chk(await p.locator(".la-mp .noterow").count()===1,"the Day notes row is missing from the grid");
+  chk(await p.locator('[data-daynote="0"]').count()===1,"no per-day note button in the grid");
+  await p.locator('[data-daynote="0"]').click(); await p.waitForTimeout(250);
+  chk(await p.locator("#laModal.show").count()===1,"day-note modal did not open");
+  chk(await p.locator("#dnText").count()===1,"day-note textarea missing");
+  await p.locator("#dnText").fill("Shutdown 6am"); await p.locator("#dnSave").click(); await p.waitForTimeout(300);
+  chk(await p.locator("#laModal.show").count()===0,"modal did not close after save");
+  chk(await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&Array.isArray(w.data.dayNotes)&&w.data.dayNotes[0]==="Shutdown 6am")),"day note did not save to laWeeks.dayNotes");
+  chk(await p.locator('[data-daynote="0"].has').count()===1,"saved day note not marked on its button");
+  chk(errs.length===0,"page errors: "+errs.join(" | "));
+  await p.close();
+}
+
 // --- 3. Management VIEWS a foreman's sheet (read-only grid) and can pin a foreman to the top. ---
 {
   const {p,errs}=await boot(MGR);
