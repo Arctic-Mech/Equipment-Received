@@ -222,16 +222,21 @@ async function ensureCurrentWeek(){
   if(myWeek(CUR_WEEK)) return;
   ensuringWeek=true;
   const prior=priorWeekFor(USER.id, CUR_WEEK);
-  let tasks=[], reqs={};
+  let tasks=[], reqs={}, dayTasks=[];
   if(prior){
     // Roll the grid forward one week: each task's days shift left by 7; keep tasks with work left.
     tasks=(prior.tasks||[]).map(t=>{ const d=taskDays(t), nd=new Array(21).fill(0);
       for(let i=0;i<14;i++) nd[i]=d[i+7]; return {id:rid(),job:t.job,text:t.text,days:nd}; })
       .filter(t=>t.days.some(n=>n>0));
     reqs={...(prior.reqs||{})};
+    // Carry day-detail tasks forward too: shift each one's start back a week, keep the part still ahead.
+    dayTasks=getDayTasks(prior).map(t=>{ const start=t.start-7, span=t.span||1;
+      if(start+span<=0) return null;                 // entirely in the past now
+      const ns=Math.max(0,start); return {id:rid(), text:t.text, start:ns, span:Math.min(span-(ns-start),21-ns)}; })
+      .filter(Boolean);
   }
   const rec={ foremanId:USER.id, foremanName:(USER.first+" "+USER.last).trim(), trade:myTrade(),
-    weekStart:CUR_WEEK, tasks, reqs, dateCompleted:"", updatedAt:serverTimestamp() };
+    weekStart:CUR_WEEK, tasks, reqs, dayTasks, dateCompleted:"", updatedAt:serverTimestamp() };
   try{ await setDoc(doc(db,"laWeeks",weekDocId(USER.id,CUR_WEEK)), rec); }
   catch(e){ fbNote(e,"ensureWeek"); }
   finally{ ensuringWeek=false; }
@@ -240,23 +245,22 @@ async function ensureCurrentWeek(){
 // TOTAL/day row. editable=true shows inline inputs; false shows plain numbers. Scrolls sideways.
 function mpGrid(w, editable){
   const tasks=w.tasks||[];
-  let head=`<tr><th class="tcol" rowspan="2">Task / Job</th>`;
+  let head=`<tr><th class="tcol" rowspan="2">Job</th>`;
   for(let wk=0;wk<3;wk++) head+=`<th colspan="7" class="wkh w${wk+1}">Week ${wk+1}</th>`;
   head+=`<th class="men" rowspan="2">Men</th></tr><tr>`;
   for(let i=0;i<21;i++) head+=`<th class="dh w${Math.floor(i/7)+1}">${DAY_LBL[i%7]}<span>${dayDM(i)}</span></th>`;
   head+=`</tr>`;
   let body="";
   tasks.forEach(t=>{ const days=taskDays(t), men=days.reduce((a,b)=>a+b,0);
+    // Left column: job number on top, project name stacked under it (no task text — tasks live in Day Detail).
     const left = editable
-      ? `<div class="rrow">`
-        +`<input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">`
-        +`<input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project">`
-        +`<input class="rin rin-txt" data-rowtext="${esc(t.id)}" value="${esc(t.text||"")}" placeholder="Task">`
-        +`<button class="rin-del" data-lataskdel="${esc(t.id)}" title="Delete this row">✕</button>`
+      ? `<div class="jcell">`
+        +`<div class="jtop"><input class="rin rin-job" data-rowjob="${esc(t.id)}" list="laJobList" value="${esc(t.job||"")}" placeholder="Job #" autocomplete="off">`
+        +`<button class="rin-del" data-lataskdel="${esc(t.id)}" title="Delete this job">✕</button></div>`
+        +`<input class="rin rin-name" data-rowname="${esc(t.id)}" value="${esc(jobNameFor(t.job))}" placeholder="Project name">`
         +`</div>`
-      : `<div class="rrow ro"><span class="tc-job">${esc(t.job||"—")}</span>`
-        +(jobNameFor(t.job)?`<span class="tc-name">${esc(jobNameFor(t.job))}</span>`:"")
-        +`<span class="tc-txt">${esc(t.text||"")}</span></div>`;
+      : `<div class="jcell ro"><span class="tc-job">${esc(t.job||"—")}</span>`
+        +`<span class="tc-name">${esc(jobNameFor(t.job)||"")}</span></div>`;
     body+=`<tr><td class="tcol">${left}</td>`;
     for(let i=0;i<21;i++){ const v=days[i];
       body+= editable
@@ -275,21 +279,36 @@ function mpGrid(w, editable){
 }
 // The crew total for each of the 21 days, summed across every task.
 function dayCrewTotals(w){ const tot=new Array(21).fill(0); (w.tasks||[]).forEach(t=>{ const d=taskDays(t); for(let i=0;i<21;i++) tot[i]+=d[i]; }); return tot; }
-// A big 3-week calendar (like the delivery calendar): one large box per day, with that day's
-// crew count and any detail note shown right inside the box. Tap a day to add/read detail.
+// The distinct job numbers that have crew on each day, from the manpower grid — drives the day badges.
+function dayJobBadges(w){ const out=Array.from({length:21},()=>[]);
+  (w.tasks||[]).forEach(t=>{ const d=taskDays(t), job=(t.job||"").trim(); if(!job) return;
+    for(let i=0;i<21;i++){ if(d[i]>0 && !out[i].includes(job)) out[i].push(job); } }); return out; }
+// Day-detail tasks: [{id,text,start,span}]. Falls back to migrating the old per-day notes.
+function getDayTasks(w){
+  if(Array.isArray(w.dayTasks)) return w.dayTasks.map(t=>({id:t.id||rid(), text:String(t.text||""),
+    start:Math.max(0,Math.min(20,t.start|0)), span:Math.max(1,Math.min(21-(t.start|0),t.span|0||1))}));
+  const out=[]; (Array.isArray(w.dayNotes)?w.dayNotes:[]).forEach((n,i)=>{ if(n&&String(n).trim()) out.push({id:rid(),text:String(n).trim(),start:i,span:1}); });
+  return out;
+}
+const tasksForDay=(list,i)=>list.filter(t=>i>=t.start && i<t.start+t.span);
+// A big 3-week calendar (like the delivery calendar): one large box per day. Each box shows that day's
+// job badges (from the manpower grid) and the tasks planned for it. Tap a day to add/read tasks.
 function dayCalendar(w, editable){
-  const notes=w.dayNotes||[], crew=dayCrewTotals(w), todayIso=isoD(new Date());
+  const crew=dayCrewTotals(w), badges=dayJobBadges(w), dtasks=getDayTasks(w), todayIso=isoD(new Date());
   let h=`<div class="la-cal">`;
   h+=DAY_FULL.map(d=>`<div class="cdow">${d}</div>`).join("");
   for(let wk=0;wk<3;wk++){
     h+=`<div class="cwk w${wk+1}">Week ${wk+1} · ${esc(weekRangeLabel(weekStartN(wk)))}</div>`;
-    for(let d=0;d<7;d++){ const i=wk*7+d, n=notes[i]||"", c=crew[i]||0, iso=dayIso(i);
+    for(let d=0;d<7;d++){ const i=wk*7+d, c=crew[i]||0, iso=dayIso(i);
       const num=new Date(iso+"T00:00:00").getDate();
-      const cls=`cday w${wk+1}${iso===todayIso?" today":""}${n?" has":""}`;
-      const inner=`<div class="cday-top"><span class="cnum">${num}</span>${c?`<span class="ccrew">👷 ${c}</span>`:""}</div>`
-        +`<div class="cnote">${n?esc(n):(editable?`<span class="cadd">＋</span>`:"")}</div>`;
+      const dts=tasksForDay(dtasks,i), jb=badges[i];
+      const cls=`cday w${wk+1}${iso===todayIso?" today":""}${dts.length?" has":""}`;
+      const badgeHTML=jb.length?`<div class="cbadges">${jb.map(j=>`<span class="jbadge">${esc(j)}</span>`).join("")}</div>`:"";
+      const taskHTML=dts.length?`<div class="ctasks">${dts.map(t=>`<div class="ctask">${t.start<i?"› ":""}${esc(t.text)}</div>`).join("")}</div>`
+        :(editable?`<div class="ctasks"><span class="cadd">＋</span></div>`:"");
+      const inner=`<div class="cday-top"><span class="cnum">${num}</span>${c?`<span class="ccrew">👷 ${c}</span>`:""}</div>${badgeHTML}${taskHTML}`;
       h+= editable ? `<button class="${cls}" data-daynote="${i}">${inner}</button>`
-        : (n ? `<button class="${cls}" data-daynoteview="${i}">${inner}</button>`
+        : (dts.length ? `<button class="${cls}" data-daynoteview="${i}">${inner}</button>`
              : `<div class="${cls} flat">${inner}</div>`);
     }
   }
@@ -297,14 +316,14 @@ function dayCalendar(w, editable){
 }
 // Read-only per-job grid; the left column shows the foreman + trade instead of the job.
 function jobGrid(rows){
-  let head=`<tr><th class="tcol" rowspan="2">Foreman / Task</th>`;
+  let head=`<tr><th class="tcol" rowspan="2">Foreman</th>`;
   for(let wk=0;wk<3;wk++) head+=`<th colspan="7" class="wkh w${wk+1}">Week ${wk+1}</th>`;
   head+=`<th class="men" rowspan="2">Men</th></tr><tr>`;
   for(let i=0;i<21;i++) head+=`<th class="dh w${Math.floor(i/7)+1}">${DAY_LBL[i%7]}<span>${dayDM(i)}</span></th>`;
   head+=`</tr>`;
   let body="";
   rows.forEach(r=>{ const men=r.days.reduce((a,b)=>a+b,0);
-    body+=`<tr><td class="tcol"><div class="rrow ro"><span class="tc-job">${esc(r.who)}</span><span class="tc-name">${esc(TRADES[r.trade]||"")}</span><span class="tc-txt">${esc(r.text)}</span></div></td>`;
+    body+=`<tr><td class="tcol"><div class="jcell ro"><span class="tc-job">${esc(r.who)}</span><span class="tc-name">${esc(TRADES[r.trade]||"")}</span></div></td>`;
     for(let i=0;i<21;i++) body+=`<td class="day w${Math.floor(i/7)+1}">${r.days[i]||""}</td>`;
     body+=`<td class="men num">${men||""}</td></tr>`; });
   const tot=new Array(21).fill(0); rows.forEach(r=>{ for(let i=0;i<21;i++) tot[i]+=r.days[i]; });
@@ -345,11 +364,11 @@ function renderSheet(w, opts){
       <div><label>Date completed</label>${w.dateCompleted?`<b>${esc(w.dateCompleted)}</b> ${editable?`<button class="mini" id="laUndone">clear</button>`:""}`:(editable?`<button class="mini" id="laMarkDone">Mark done</button>`:`<b>—</b>`)}</div>
     </div></div>`;
   h+=`<div class="la-card gridcard"><div class="la-h">Tasks & Manpower</div>
-    <div class="la-sub">${editable?"Fill it in like a spreadsheet. Type the job number in a row — the project name fills in if we know it. Then put how many people work it each day (Mon–Sun, three weeks across). Swipe the grid sideways to reach weeks 2 and 3.":"Crew planned each day, Mon–Sun across three weeks. Swipe sideways for weeks 2 and 3."}</div>
+    <div class="la-sub">${editable?"One row per job — type the job number and the project name fills in. Then put how many people work it each day (Mon–Sun, three weeks across).":"Crew per job each day, Mon–Sun across three weeks."}</div>
     ${mpGrid(w,editable)}
     ${editable?`<button class="la-btn soft wide" id="laAddRow" style="margin-top:10px">+ Add row</button>`:""}</div>`;
   h+=`<div class="la-card"><div class="la-h">Day Detail</div>
-    <div class="la-sub">${editable?"Tap any day to add detail — shutdowns, deliveries, inspections, start times. It shows right on the day.":"Detail noted on specific days. Tap a day to read it."}</div>
+    <div class="la-sub">${editable?"Tap a day to add tasks — pick whether a task is just that day or carries across several. Days with crew show job-number badges.":"Tasks planned per day. Job-number badges show which jobs have crew that day. Tap a day to read it."}</div>
     ${dayCalendar(w,editable)}</div>`;
   if(editable && opts.own) h+=pmSection(w);
   h+=`<div class="la-card"><div class="la-h">Requirements & Notes</div>${reqBoxes(w,editable)}</div>`;
@@ -499,9 +518,11 @@ function renderJobs(){
 }
 /* ---------------- ONE JOB'S 3-WEEK LOOKAHEAD (management, view only) ---------------- */
 function renderJobSheet(num){
-  const rows=[];
-  LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK).forEach(w=>{ (w.tasks||[]).filter(t=>t.job===num).forEach(t=>{
-    rows.push({who:w.foremanName||"", trade:w.trade||"", text:t.text||"", days:taskDays(t)}); }); });
+  const byForeman=new Map();
+  LA_WEEKS.filter(w=>w.weekStart===CUR_WEEK).forEach(w=>{ const jobTasks=(w.tasks||[]).filter(t=>t.job===num); if(!jobTasks.length) return;
+    const key=w.foremanId||w.foremanName||""; const r=byForeman.get(key)||{who:w.foremanName||"",trade:w.trade||"",days:new Array(21).fill(0)};
+    jobTasks.forEach(t=>{ const d=taskDays(t); for(let i=0;i<21;i++) r.days[i]+=d[i]; }); byForeman.set(key,r); });
+  const rows=[...byForeman.values()];
   const pms=pmsForJob(num);
   let h=`<button class="la-btn soft" id="laBackJob" style="margin-bottom:12px">‹ All jobs</button>`;
   h+=`<div class="la-card"><div class="la-sheet-head">
@@ -525,21 +546,46 @@ function openModal(title, bodyHTML, after){ $("laModalTitle").textContent=title;
 function closeModal(){ $("laModal").classList.remove("show"); document.body.style.overflow=""; }
 const DAY_FULL=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const dayLabel=i=>DAY_FULL[i%7]+" "+dayDM(i);
-// Add/edit a note for one calendar day on the open sheet.
-function dayNoteModal(i){
-  const w=sheetDoc(); if(!w) return;
-  const cur=(w.dayNotes||[])[i]||"";
-  openModal("Day detail — "+dayLabel(i), `
-    <textarea class="la-ta" id="dnText" placeholder="What's happening this day? (shutdown, delivery, inspection, time, etc.)" style="min-height:120px">${esc(cur)}</textarea>
-    <button class="la-btn wide" id="dnSave" style="margin-top:10px">Save</button>`, ()=>{
-    setTimeout(()=>{ const t=$("dnText"); if(t){ t.focus(); } },60);
-    $("dnSave").onclick=()=>{ const d=sheetDoc(); if(!d) return;
-      const arr=Array.isArray(d.dayNotes)?d.dayNotes.slice():new Array(21).fill(""); while(arr.length<21) arr.push("");
-      arr[i]=$("dnText").value.trim(); d.dayNotes=arr; writeWeek(d); closeModal(); render(); };
-  });
+let DT_EDIT=null;   // id of the day-task being edited in the modal, or null for "add new"
+// Add/edit the tasks on one calendar day. A task can be just that day or carried across several.
+function dayTaskModal(i){ DT_EDIT=null; openModal("Tasks — "+dayLabel(i), `<div id="dtWrap"></div>`, ()=>fillDayTaskModal(i)); }
+function fillDayTaskModal(i){
+  const w=sheetDoc(); if(!w){ closeModal(); return; }
+  const all=getDayTasks(w), here=tasksForDay(all,i).slice().sort((a,b)=>a.start-b.start);
+  const editing=DT_EDIT?all.find(t=>t.id===DT_EDIT):null;
+  const maxSpan=21-i, curSpan=editing?editing.span:1;
+  const list=here.length?here.map(t=>{
+      const meta=[t.span>1?`${t.span} days`:"", t.start!==i?`from ${dayDM(t.start)}`:""].filter(Boolean).join(" · ");
+      return `<div class="dt-row"><button class="dt-edit" data-dtedit="${esc(t.id)}">${esc(t.text)}${meta?`<span class="dt-meta">${esc(meta)}</span>`:""}</button><button class="dt-del" data-dtdel="${esc(t.id)}" title="Remove">✕</button></div>`;
+    }).join(""):`<div class="dt-empty">No tasks on this day yet.</div>`;
+  const spanOpts=Array.from({length:maxSpan},(_,k)=>k+1).map(n=>`<option value="${n}"${n===curSpan?" selected":""}>${n===1?"Just this day":n+" days"}</option>`).join("");
+  $("dtWrap").innerHTML=`
+    <div class="dt-list">${list}</div>
+    <div class="dt-form">
+      <label class="dt-lbl">${editing?"Edit task":"Add a task"}</label>
+      <textarea class="la-ta" id="dtText" placeholder="What's the task? (e.g. Hang duct mains)">${esc(editing?editing.text:"")}</textarea>
+      <label class="dt-lbl" style="margin-top:9px">How many days?</label>
+      <select class="la-sel" id="dtSpan">${spanOpts}</select>
+      <div class="dt-btns">${editing?`<button class="la-btn soft" id="dtCancel">Cancel</button>`:""}<button class="la-btn wide" id="dtSave">${editing?"Update task":"Add task"}</button></div>
+    </div>`;
+  $("dtSave").onclick=()=>{ const text=$("dtText").value.trim(); if(!text){ $("dtText").focus(); return; }
+    const span=Math.max(1,Math.min(maxSpan,Number($("dtSpan").value)||1));
+    const d=sheetDoc(); if(!d) return; const arr=getDayTasks(d).slice();
+    if(DT_EDIT){ const t=arr.find(x=>x.id===DT_EDIT); if(t){ t.text=text; t.span=Math.min(span,21-t.start); } }
+    else arr.push({id:rid(),text,start:i,span});
+    d.dayTasks=arr; delete d.dayNotes; writeWeek(d); DT_EDIT=null; fillDayTaskModal(i); render(); };
+  if($("dtCancel")) $("dtCancel").onclick=()=>{ DT_EDIT=null; fillDayTaskModal(i); };
+  $("dtWrap").querySelectorAll("[data-dtedit]").forEach(b=>b.onclick=()=>{ DT_EDIT=b.dataset.dtedit; fillDayTaskModal(i); });
+  $("dtWrap").querySelectorAll("[data-dtdel]").forEach(b=>b.onclick=()=>{ const d=sheetDoc(); if(!d) return;
+    d.dayTasks=getDayTasks(d).filter(x=>x.id!==b.dataset.dtdel); delete d.dayNotes; writeWeek(d);
+    if(DT_EDIT===b.dataset.dtdel) DT_EDIT=null; fillDayTaskModal(i); render(); });
 }
-function dayNoteView(i){ const w=sheetDoc(); const n=(w&&w.dayNotes||[])[i]||""; if(!n) return;
-  openModal("Day detail — "+dayLabel(i), `<div class="la-ro" style="white-space:pre-wrap;min-height:40px">${esc(n)}</div>`); }
+function dayTaskView(i){ const w=sheetDoc(); if(!w) return; const here=tasksForDay(getDayTasks(w),i);
+  if(!here.length) return;
+  openModal("Tasks — "+dayLabel(i), `<div class="dt-list">${here.map(t=>{
+    const meta=[t.span>1?`${t.span} days`:"", t.start!==i?`from ${dayDM(t.start)}`:""].filter(Boolean).join(" · ");
+    return `<div class="la-ro" style="margin-bottom:8px">${esc(t.text)}${meta?`<div class="dt-meta">${esc(meta)}</div>`:""}</div>`;
+  }).join("")}</div>`); }
 document.addEventListener("click", e=>{
   // If a field had focus and the user tapped a control (not another field), blur it first so its
   // change saves AND render() isn't blocked by the "don't rebuild while typing" guard.
@@ -563,8 +609,8 @@ document.addEventListener("click", e=>{
   if(e.target.closest("#laAddRow")){ const w=sheetDoc(); if(!w){ toast("Loading…"); return; } w.tasks=(w.tasks||[]).concat({id:rid(),job:"",text:"",days:new Array(21).fill(0)}); writeWeek(w).then(render); return; }
   const td=e.target.closest("[data-lataskdel]"); if(td){ const w=sheetDoc(); if(!w) return; const t=(w.tasks||[]).find(x=>x.id===td.dataset.lataskdel);
     if(t && confirm("Delete this row?")){ w.tasks=w.tasks.filter(x=>x.id!==t.id); writeWeek(w).then(render); } return; }
-  const dn=e.target.closest("[data-daynote]"); if(dn){ dayNoteModal(Number(dn.dataset.daynote)); return; }
-  const dnv=e.target.closest("[data-daynoteview]"); if(dnv){ dayNoteView(Number(dnv.dataset.daynoteview)); return; }
+  const dn=e.target.closest("[data-daynote]"); if(dn){ dayTaskModal(Number(dn.dataset.daynote)); return; }
+  const dnv=e.target.closest("[data-daynoteview]"); if(dnv){ dayTaskView(Number(dnv.dataset.daynoteview)); return; }
 
   if(e.target.closest("#laMarkDone")){ const w=sheetDoc(); if(w){ w.dateCompleted=isoD(new Date()); writeWeek(w).then(render); } return; }
   if(e.target.closest("#laUndone")){ const w=sheetDoc(); if(w){ w.dateCompleted=""; writeWeek(w).then(render); } return; }
@@ -641,7 +687,7 @@ function exportSheetPdf(docId){
   const tot=new Array(21).fill(0);
   (w.tasks||[]).forEach(t=>{ const days=taskDays(t); const men=days.reduce((a,b)=>a+b,0);
     if(y+rowH>PH-120){ d.addPage(); y=M; }
-    const label=`[${t.job||"—"}] ${t.text||""}`;
+    const label=`[${t.job||"—"}] ${jobNameFor(t.job)||""}`;
     const lines=d.splitTextToSize(label, taskW-4); const rh=Math.max(rowH, lines.length*8+4);
     d.text(lines, M+2, y+9);
     for(let i=0;i<21;i++){ tot[i]+=days[i]; if(days[i]) d.text(String(days[i]), dayX(i)+dayW/2-2, y+9); }
@@ -653,6 +699,19 @@ function exportSheetPdf(docId){
   for(let i=0;i<21;i++){ if(tot[i]) d.text(String(tot[i]), dayX(i)+dayW/2-2, y+9); }
   d.text(String(tot.reduce((a,b)=>a+b,0)||""), PW-M-menW+2, y+9);
   y+=rowH+8;
+  // day-detail tasks (one line per day that has any)
+  const dtasks=getDayTasks(w);
+  if(dtasks.length){ if(y>PH-60){ d.addPage(); y=M; }
+    d.setFont("helvetica","bold").setFontSize(9).text("Day Detail",M,y); y+=12; d.setFontSize(8);
+    for(let i=0;i<21;i++){ const here=tasksForDay(dtasks,i); if(!here.length) continue;
+      if(y>PH-30){ d.addPage(); y=M; }
+      d.setFont("helvetica","bold").text(dayLabel(i)+":",M,y);
+      const body=here.map(t=>t.text+(t.span>1?` (${t.span} days)`:"")+(t.start!==i?" (cont.)":"")).join("  ·  ");
+      const lines=d.splitTextToSize(body, PW-M*2-70); d.setFont("helvetica","normal");
+      d.text(lines, M+66, y); y+=Math.max(11,lines.length*9+3);
+    }
+    y+=6;
+  }
   // requirement boxes
   d.setFontSize(8);
   REQS.forEach(([k,lab])=>{ if(y>PH-40){ d.addPage(); y=M; }

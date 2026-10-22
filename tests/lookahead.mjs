@@ -40,10 +40,13 @@ function seed(){
           {id:"t1",job:"25-0150",text:"Hang duct mains",days:days([0,2],[1,2],[2,2],[3,2])},   // 2 men Mon–Thu wk1
           {id:"t2",job:"25-0150",text:"Set VAV boxes",  days:days([7,3],[8,3],[9,3])},          // 3 men Mon–Wed wk2
         ],
+        // Day-detail tasks now live here; a 3-day task starting Monday of week 1.
+        dayTasks:[{id:"d1",text:"Hang duct mains",start:0,span:3}],
         reqs:{labor:"2 mechanics steady",co:"RFI 214 pending"}, dateCompleted:""},
       // Rolly's prior week: work in week 2 so it survives the roll-forward into week 1.
       [`p-rolly__${PREV}`]:{foremanId:"p-rolly",foremanName:"Rolly Banks",trade:"piping",weekStart:PREV,
-        tasks:[{id:"r1",job:"25-0150",text:"Rolled task",days:days([7,2],[8,2])}], reqs:{}},
+        tasks:[{id:"r1",job:"25-0150",text:"Rolled task",days:days([7,2],[8,2])}],
+        dayTasks:[{id:"rd1",text:"Rolled detail",start:7,span:1}], reqs:{}},
     },
     laMeta:{ seed:{seeded:true,removed:false} },   // disable auto-seed in tests
   };
@@ -83,7 +86,8 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   const nav0=(await p.locator("#laNav button").first().innerText()).trim();
   chk(nav0==="My Look-Ahead",`foreman's first tab should be "My Look-Ahead", got ${JSON.stringify(nav0)}`);
   chk(await p.locator("table.la-mp").count()===1,"the spreadsheet grid is missing");
-  chk(await p.locator('[data-rowtext="t1"]').inputValue()==="Hang duct mains","seeded task not shown in its row");
+  chk(await p.locator('[data-rowjob="t1"]').inputValue()==="25-0150","seeded job number not shown in its row");
+  chk(await p.locator('[data-rowtext]').count()===0,"task text should no longer be in the manpower grid");
   chk(await p.locator("[data-rowjob]").count()===2,"expected 2 seeded rows");
   chk(await p.locator('[data-mp^="t1|"]').count()===21,"task should have 21 day cells across (3 weeks x 7)");
   chk(await p.locator(".la-reqs textarea").count()===6,"the six requirement boxes are missing");
@@ -124,26 +128,32 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   const {p,errs}=await boot(ROLLY);
   await p.waitForTimeout(500);   // ensureCurrentWeek creates + rolls forward on open
   chk(await p.locator("table.la-mp").count()===1,"foreman grid didn't render");
-  chk(await p.locator('[data-rowtext]').first().inputValue()==="Rolled task","last week's task did not carry forward");
+  chk(await p.locator('[data-rowjob]').first().inputValue()==="25-0150","last week's job did not carry forward");
+  // The day-detail task from week 2 last week should land in week 1 (Monday) now.
+  chk(/Rolled detail/.test(await p.locator('.la-cal [data-daynote="0"]').innerText()),"last week's day task did not roll forward");
   chk(await p.evaluate(cur=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&w.id===("p-rolly__"+cur)),CUR),"current-week doc wasn't auto-created");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
 
-// --- 2c. Foreman adds detail to a single day via the big 3-week calendar + modal. ---
+// --- 2c. Day-detail calendar: job badges from manpower + adding a task with a multi-day span. ---
 {
   const {p,errs}=await boot(JAREN);
   chk(await p.locator(".la-cal").count()===1,"the 3-week day-detail calendar is missing");
   chk(await p.locator(".la-cal .cday").count()===21,"the calendar should have 21 day boxes (3 weeks x 7)");
-  chk(await p.locator('.la-cal [data-daynote="0"]').count()===1,"calendar day box is not tappable to add detail");
-  await p.locator('.la-cal [data-daynote="0"]').click(); await p.waitForTimeout(250);
-  chk(await p.locator("#laModal.show").count()===1,"day-note modal did not open");
-  chk(await p.locator("#dnText").count()===1,"day-note textarea missing");
-  await p.locator("#dnText").fill("Shutdown 6am"); await p.locator("#dnSave").click(); await p.waitForTimeout(300);
-  chk(await p.locator("#laModal.show").count()===0,"modal did not close after save");
-  chk(await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&Array.isArray(w.data.dayNotes)&&w.data.dayNotes[0]==="Shutdown 6am")),"day note did not save to laWeeks.dayNotes");
-  chk(await p.locator('.la-cal [data-daynote="0"].has').count()===1,"saved day note not shown inside its calendar box");
-  chk(/Shutdown 6am/.test(await p.locator('.la-cal [data-daynote="0"]').innerText()),"note text not visible inside the day box");
+  // Monday wk1 has crew on job 25-0150, so its badge should show inside that day box.
+  chk(/25-0150/.test(await p.locator('.la-cal [data-daynote="0"]').innerText()),"job-number badge missing on a day with crew");
+  // The seeded 3-day task shows on Mon/Tue/Wed of week 1.
+  chk(/Hang duct mains/.test(await p.locator('.la-cal [data-daynote="2"]').innerText()),"multi-day task not carried across its days");
+  chk(await p.locator('.la-cal [data-daynote="3"]').getAttribute("class").then(c=>!/\bhas\b/.test(c)),"a task spanning 3 days should not reach the 4th day");
+  // Open Thursday wk1 and add a task that carries for 2 days.
+  await p.locator('.la-cal [data-daynote="3"]').click(); await p.waitForTimeout(250);
+  chk(await p.locator("#laModal.show").count()===1,"day-task modal did not open");
+  chk(await p.locator("#dtText").count()===1 && await p.locator("#dtSpan").count()===1,"task form (text + days) missing");
+  await p.locator("#dtText").fill("Crane pick"); await p.locator("#dtSpan").selectOption("2"); await p.locator("#dtSave").click(); await p.waitForTimeout(300);
+  chk(await p.evaluate(()=> (window.__WRITES||[]).some(w=>w.op==="set"&&w.coll==="laWeeks"&&Array.isArray(w.data.dayTasks)
+     && w.data.dayTasks.some(t=>t.text==="Crane pick"&&t.start===3&&t.span===2))),"day task did not save to laWeeks.dayTasks");
+  chk(/Crane pick/.test(await p.locator('.la-cal [data-daynote="4"]').innerText()),"the 2-day task did not carry to the next day");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
@@ -163,9 +173,12 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   await p.locator('[data-laopenforeman="p-jaren-eells"]').click(); await p.waitForTimeout(350);
   chk(await p.locator("#laBack").count()===1,"no back button on the opened foreman sheet");
   chk(await p.locator("table.la-mp").count()===1,"foreman's grid not shown to management");
-  chk(await p.locator(".la-mp .tc-txt", {hasText:"Hang duct mains"}).count()>=1,"task not shown in the read-only grid");
+  chk(await p.locator(".la-mp .tc-job", {hasText:"25-0150"}).count()>=1,"job number not shown in the read-only grid");
   chk(await p.locator("[data-mp]").count()===0,"management view must be read-only — no editable day cells");
   chk(await p.locator("#laAddRow").count()===0,"management must not see Add row");
+  // Day-detail tasks are visible (read-only) to management in the calendar.
+  chk(/Hang duct mains/.test(await p.locator(".la-cal").innerText()),"day-detail task not shown to management");
+  chk(await p.locator('.la-cal [data-daynote]').count()===0,"management must not get editable day boxes");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }
@@ -200,7 +213,7 @@ const NOBODY={first:"No",last:"Body",email:"nobody@arctic.biz",id:"p-nobody"};
   await p.locator('[data-laopenjob="25-0150"]').click(); await p.waitForTimeout(350);
   chk(await p.locator("#laBackJob").count()===1,"no back button on the per-job sheet");
   chk(await p.locator("table.la-mp").count()===1,"per-job grid missing");
-  chk(/Hang duct mains|Set VAV/.test(await p.locator("#laMain").innerText()),"per-job grid missing the job's tasks");
+  chk(/Jaren Eells/.test(await p.locator("#laMain").innerText()),"per-job grid missing the foreman working it");
   chk(errs.length===0,"page errors: "+errs.join(" | "));
   await p.close();
 }

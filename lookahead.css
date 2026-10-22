@@ -55,7 +55,7 @@ a{color:var(--blue);text-decoration:none}
 .gridcard{padding-left:0;padding-right:0}
 .gridcard .la-h,.gridcard .la-sub,.gridcard #laAddRow{margin-left:14px;margin-right:14px;width:auto}
 .gridcard #laAddRow{width:calc(100% - 28px)}
-@media(max-width:760px){ .gridcard{margin-left:-14px;margin-right:-14px;border-radius:0;border-left:none;border-right:none} }
+@media(max-width:1023px){ .gridcard{margin-left:-14px;margin-right:-14px;border-radius:0;border-left:none;border-right:none} }
 .la-skel{height:120px;border-radius:var(--radius);background:linear-gradient(90deg,var(--line-soft),var(--surface),var(--line-soft));
   background-size:200% 100%;animation:sh 1.3s infinite}
 @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
@@ -130,33 +130,35 @@ table.la-mp{border-collapse:collapse;font-size:12px;min-width:max-content}
 table.la-mp th,table.la-mp td{border:1px solid var(--line);text-align:center;padding:0}
 table.la-mp .tcol{position:sticky;left:0;z-index:2;background:var(--card);text-align:left;min-width:150px;max-width:150px;padding:6px 8px;vertical-align:top}
 table.la-mp thead .tcol{z-index:3;background:var(--surface)}
-/* inline, spreadsheet-style row: job #, project name and task all on one line */
-.la-mp td.tcol{min-width:264px;max-width:264px}
-.la-mp .rrow{display:flex;gap:4px;align-items:center}
-.la-mp .rrow.ro{padding:6px 2px;font-size:12px;gap:6px;flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
-.la-mp .tc-job{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--blue)}
-.la-mp .tc-name{font-size:11px;color:var(--steel)}
-.la-mp .tc-txt{font-size:12px;overflow:hidden;text-overflow:ellipsis}
+/* Left column: job number stacked over project name (kept narrow so all 3 weeks fit on a tablet). */
+.la-mp td.tcol{min-width:88px;max-width:88px}
+.la-mp .jcell{display:flex;flex-direction:column;gap:3px}
+.la-mp .jcell.ro{gap:1px;padding:5px 2px}
+.la-mp .jtop{display:flex;gap:4px;align-items:center}
+.la-mp .tc-job{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--blue);white-space:nowrap}
+.la-mp .tc-name{font-size:11px;color:var(--steel);line-height:1.2;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .la-mp .rin{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:5px 6px;min-width:0}
 .la-mp .rin:focus{outline:2px solid var(--blue);outline-offset:-2px}
-.la-mp .rin-job{width:56px;flex:none;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--blue)}
-.la-mp .rin-name{width:82px;flex:none;font-size:11px;color:var(--steel)}
-.la-mp .rin-txt{flex:1;min-width:80px;font-size:12px}
-.la-mp .rin-del{flex:none;width:24px;height:30px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--red);font-weight:700}
-/* Big, clear calendar cells (scroll sideways for weeks 2 and 3). */
+.la-mp .rin-job{flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--blue)}
+.la-mp .rin-name{width:100%;font-size:11px;color:var(--steel)}
+.la-mp .rin-del{flex:none;width:26px;height:30px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--red);font-weight:700}
+/* Day cells — sized so the full 3 weeks fit without scrolling on a tablet; readable crew numbers. */
 .la-mp .wkh{background:var(--surface);font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--steel);padding:6px 0}
-.la-mp .dh{background:var(--surface);font-size:14px;font-weight:700;color:var(--ink-soft);width:64px;min-width:64px;padding:6px 0;line-height:1.1}
-.la-mp .dh span{display:block;font-size:11px;font-weight:600;color:var(--steel)}
+.la-mp .dh{background:var(--surface);font-size:12.5px;font-weight:700;color:var(--ink-soft);width:29px;min-width:29px;padding:5px 0;line-height:1.05}
+.la-mp .dh span{display:block;font-size:9px;font-weight:600;color:var(--steel)}
 .la-mp .dh.w1,.la-mp td.day.w1{background:var(--w1)} .la-mp .dh.w2,.la-mp td.day.w2{background:var(--w2)} .la-mp .dh.w3,.la-mp td.day.w3{background:var(--w3)}
-.la-mp td.day{width:64px;min-width:64px;height:62px}
-.la-mp td.day input{width:100%;height:60px;border:none;background:transparent;text-align:center;font-size:24px;font-weight:700;padding:0;color:var(--ink)}
+.la-mp td.day{width:29px;min-width:29px;height:44px}
+.la-mp td.day input{width:100%;height:42px;border:none;background:transparent;text-align:center;font-size:16px;font-weight:700;padding:0;color:var(--ink)}
 .la-mp td.day input::placeholder{color:transparent}
 .la-mp td.day input:focus{outline:2px solid var(--blue);outline-offset:-2px;border-radius:6px}
-.la-mp .men{min-width:48px;width:48px;font-weight:800;padding:0 4px;font-size:16px}
-.la-mp thead .men{background:var(--surface);font-size:11px;color:var(--steel)}
-.la-mp .totr td{background:var(--surface);font-weight:800;font-size:16px;height:40px}
-.la-mp .totr .tcol{font-family:'Barlow Condensed','Inter',sans-serif;letter-spacing:.03em;text-transform:uppercase;font-size:13px}
+.la-mp .men{min-width:28px;width:28px;font-weight:800;padding:0 2px;font-size:15px}
+.la-mp thead .men{background:var(--surface);font-size:10px;color:var(--steel)}
+/* Distinct footer colour for the totals line. */
+.la-mp .totr td{background:var(--ink-soft);color:#fff;font-weight:800;font-size:15px;height:38px;border-color:var(--ink-soft)}
+.la-mp .totr .tcol{position:sticky;left:0;z-index:2;background:var(--ink-soft);color:#fff;font-family:'Barlow Condensed','Inter',sans-serif;letter-spacing:.03em;text-transform:uppercase;font-size:12px;text-align:left;padding:0 8px}
 .la-mp td.num{font-weight:700}
+/* Only widen the day cells on large screens — on tablets they stay narrow so all 3 weeks fit. */
+@media(min-width:1024px){ .la-mp td.tcol{min-width:120px;max-width:120px} .la-mp .dh,.la-mp td.day{width:42px;min-width:42px} .la-mp td.day input{font-size:19px} .la-mp .men{width:36px;min-width:36px} }
 /* ---- 3-week day-detail calendar: big day boxes, notes shown inside the day (like deliveries) ---- */
 .la-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .la-cal .cdow{text-align:center;font-family:'Barlow Condensed','Inter',sans-serif;font-weight:700;text-transform:uppercase;
@@ -164,7 +166,7 @@ table.la-mp thead .tcol{z-index:3;background:var(--surface)}
 .la-cal .cwk{grid-column:1 / -1;font-family:'Barlow Condensed','Inter',sans-serif;font-weight:700;text-transform:uppercase;
   letter-spacing:.03em;font-size:12px;color:var(--steel);padding:7px 2px 2px;border-top:1px solid var(--line-soft);margin-top:3px}
 .la-cal .cwk:first-of-type{border-top:none;margin-top:0;padding-top:1px}
-.la-cal .cday{display:flex;flex-direction:column;text-align:left;min-height:90px;border:1px solid var(--line);
+.la-cal .cday{display:flex;flex-direction:column;text-align:left;min-height:118px;border:1px solid var(--line);
   border-radius:10px;background:var(--card);padding:6px 6px 5px;overflow:hidden;width:100%}
 .la-cal .cday.w1{background:var(--w1)} .la-cal .cday.w2{background:var(--w2)} .la-cal .cday.w3{background:var(--w3)}
 .la-cal button.cday:active{outline:2px solid var(--blue);outline-offset:-2px}
@@ -174,14 +176,32 @@ table.la-mp thead .tcol{z-index:3;background:var(--surface)}
 .la-cal .cday-top{display:flex;align-items:center;justify-content:space-between;gap:3px;margin-bottom:3px}
 .la-cal .cnum{font-family:'Barlow Condensed','Inter',sans-serif;font-weight:700;font-size:17px;line-height:1;color:var(--ink)}
 .la-cal .ccrew{font-size:10.5px;font-weight:700;color:var(--steel);white-space:nowrap}
-.la-cal .cnote{flex:1;font-size:12px;line-height:1.25;color:var(--ink-soft);overflow-wrap:break-word;overflow:hidden;
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
-.la-cal .cday.has .cnote{color:var(--amber);font-weight:600}
+/* small job-number badges, from the manpower grid */
+.la-cal .cbadges{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:3px}
+.la-cal .jbadge{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;color:var(--blue);
+  background:var(--blue-soft);border-radius:4px;padding:1px 4px;line-height:1.4;white-space:nowrap}
+/* the day's tasks */
+.la-cal .ctasks{flex:1;display:flex;flex-direction:column;gap:3px;min-height:0}
+.la-cal .ctask{font-size:11.5px;line-height:1.2;color:var(--ink-soft);background:var(--card);border-radius:5px;
+  padding:2px 4px;overflow-wrap:break-word;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.la-cal .cday.has .ctask{background:var(--amber-soft);color:var(--amber);font-weight:600}
 .la-cal .cadd{font-size:20px;font-weight:700;color:var(--steel-light);line-height:1}
-@media(max-width:600px){ .la-cal{gap:4px} .la-cal .cday{min-height:74px;padding:5px 4px 4px}
-  .la-cal .cnum{font-size:16px} .la-cal .ccrew{font-size:9.5px} .la-cal .cnote{font-size:11px;-webkit-line-clamp:2} }
-@media(min-width:760px){ .la-cal{gap:7px} .la-cal .cday{min-height:120px;padding:9px 10px 8px}
-  .la-cal .cnum{font-size:20px} .la-cal .cnote{font-size:13px;-webkit-line-clamp:4} }
+@media(max-width:600px){ .la-cal{gap:4px} .la-cal .cday{min-height:92px;padding:5px 3px 4px}
+  .la-cal .cnum{font-size:15px} .la-cal .ccrew{font-size:9px} .la-cal .jbadge{font-size:8px;padding:1px 3px}
+  .la-cal .ctask{font-size:10px;-webkit-line-clamp:2;padding:1px 3px} }
+@media(min-width:760px){ .la-cal{gap:7px} .la-cal .cday{min-height:150px;padding:9px 10px 8px}
+  .la-cal .cnum{font-size:20px} .la-cal .jbadge{font-size:11px} .la-cal .ctask{font-size:13px;-webkit-line-clamp:3} }
+/* day-task modal: existing tasks list + add/edit form */
+.dt-list{margin-bottom:6px}
+.dt-row{display:flex;gap:8px;align-items:stretch;margin-bottom:7px}
+.dt-edit{flex:1;text-align:left;border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:10px 11px;font-size:14px;line-height:1.3}
+.dt-edit .dt-meta{display:block;font-size:11px;color:var(--steel);margin-top:3px}
+.dt-del{flex:none;width:40px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--red);font-weight:700;font-size:15px}
+.dt-empty{color:var(--steel);font-size:13px;padding:6px 2px 10px}
+.dt-form .dt-lbl{display:block;font-size:12px;font-weight:650;color:var(--steel);margin-bottom:4px}
+.dt-meta{font-size:11px;color:var(--steel)}
+.dt-btns{display:flex;gap:10px;margin-top:12px}
+.dt-btns .la-btn.soft{flex:none}
 
 .la-reqs{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:720px){ .la-reqs{grid-template-columns:1fr 1fr} }
