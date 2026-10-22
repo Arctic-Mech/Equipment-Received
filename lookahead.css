@@ -186,6 +186,32 @@ table.la-mp thead .tcol{z-index:3;background:var(--surface)}
 .la-pmrow .pm-job{flex:none;width:76px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--blue)}
 .la-pmrow .pm-in{flex:1}
 
+/* ---- one week at a time: big dated day cells, week nav, wizard, collapsible sections ---- */
+.la-weeknav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.wn-btn{flex:none;padding:11px 15px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:800;font-size:14px;color:var(--blue)}
+.wn-btn:disabled{opacity:.35;color:var(--steel)}
+.wn-mid{flex:1;text-align:center;line-height:1.1}
+.wn-mid b{display:block;font-size:14.5px}
+.wn-mid span{font-size:11.5px;color:var(--steel)}
+.wk1-hd,.wk1-row{display:flex;gap:4px}
+.wk1-hd{margin-top:2px}
+.wk1-c{flex:1 1 0;min-width:0;text-align:center}
+.wk1-hd .wk1-c{font-size:10px;color:var(--steel);line-height:1.1;padding-bottom:3px}
+.wk1-hd .wk1-c b{display:block;font-weight:700}
+.wk1-hd .wk1-c i{font-style:normal;font-weight:600;opacity:.7;font-size:9.5px}
+.wk1-row .wk1-c{font-size:16px;font-weight:700;height:44px;line-height:44px;border-radius:9px;background:var(--surface)}
+input.wk1-c{border:1px solid var(--line);background:var(--surface);padding:0;color:var(--ink);font-weight:700;height:44px;width:100%}
+input.wk1-c:focus{outline:2px solid var(--blue);outline-offset:-2px}
+.totcard .wk1-row .wk1-c{background:transparent;font-weight:800}
+.la-wizdots{display:flex;gap:6px;margin-top:11px}
+.la-wizdots span{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.la-wizdots span.on{background:var(--blue)}
+.la-wizdots span.done{background:var(--green)}
+.la-wiznav{display:flex;gap:10px;margin:2px 0 22px}
+.la-wiznav .la-btn{flex:1;padding:15px 12px;font-size:15px}
+.la-collap{display:flex;width:100%;align-items:center;justify-content:space-between;padding:13px 14px;border:1px solid var(--line);border-radius:11px;background:var(--surface);font-family:'Barlow Condensed','Inter',sans-serif;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:14px;color:var(--ink-soft);margin-bottom:12px}
+.la-collap .chev{color:var(--steel);font-size:13px}
+
 .la-conf{border:1px solid var(--line);border-left:4px solid var(--steel-light);border-radius:9px;padding:11px;margin-bottom:10px;background:var(--card)}
 .la-conf.co{border-left-color:var(--red)}
 .la-conf.upcoming{border-left-color:var(--amber)}
